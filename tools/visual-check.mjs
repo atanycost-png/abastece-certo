@@ -612,6 +612,51 @@ async function main() {
     await page.shot("10-sobre");
     await page.eval(`document.getElementById('aboutClose').click()`);
 
+    // cidade e "meus postos"
+    const cidadePosto = await page.eval(`(() => {
+      const ref = document.getElementById('priceRef');
+      const uf = ref.querySelector('#refUf');
+      uf.value = 'SP';
+      uf.dispatchEvent(new Event('change', { bubbles: true }));
+      const sel = ref.querySelector('#refCity');
+      const cidades = sel ? sel.querySelectorAll('option').length : 0;
+      let escolhida = '';
+      if (sel) {
+        const opcoes = [...sel.options].map((o) => o.value).filter(Boolean);
+        if (opcoes.length) {
+          escolhida = opcoes[0];
+          sel.value = escolhida;
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+      }
+      const valores = (ref.querySelector('.ref-values') || {}).textContent || '';
+      const gas = document.getElementById('gas');
+      const eta = document.getElementById('eta');
+      gas.value = '6,54';
+      gas.dispatchEvent(new Event('input', { bubbles: true }));
+      eta.value = '4,14';
+      eta.dispatchEvent(new Event('input', { bubbles: true }));
+      document.getElementById('stationName').value = 'Posto teste';
+      document.getElementById('stationSave').click();
+      return {
+        cidades,
+        escolhida,
+        valores,
+        count: document.getElementById('stationCount').textContent,
+        lista: document.getElementById('stationList').textContent
+      };
+    })()`);
+    console.log(`   ${JSON.stringify(cidadePosto)}`);
+    if (cidadePosto.cidades < 3) errors.push(`select de cidade com ${cidadePosto.cidades} opções`);
+    if (!cidadePosto.escolhida || !cidadePosto.valores.includes(cidadePosto.escolhida)) {
+      errors.push(`valores da cidade não exibidos: ${cidadePosto.valores}`);
+    }
+    if (cidadePosto.count !== "1" || !/Posto teste/.test(cidadePosto.lista)) {
+      errors.push("posto não foi salvo");
+    }
+    await new Promise((r) => setTimeout(r, 300));
+    await page.shot("12-cidade-posto");
+
     // ---- 16. temas: padrão escuro, alternância e automático
     console.log("16) temas (padrão escuro → automático → claro)");
     const tema = await page.eval(`(() => {

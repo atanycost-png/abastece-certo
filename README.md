@@ -29,12 +29,13 @@ e guarda um **histórico local** dos seus cálculos com gráfico e exportação 
 
 - **Campo de preço inteligente** — digite só números: `654` vira R$ 6,54, `456` vira R$ 4,56; ao sair do campo, `6` completa para R$ 6,00; teto de 4 dígitos (R$ 99,99). Digitação, cola e desfazer são normalizados sozinhos.
 - **Tema escuro como padrão** — botão no cabeçalho alterna escuro → automático (segue o sistema) → claro; cada tema tem cores próprias (não é “inversão”) e a escolha fica salva.
-- **Preços de referência da ANP** — médias semanais oficiais (Brasil e por UF) carregadas de um `precos.json` gerado por script; um toque preenche os dois preços e a UF escolhida é lembrada.
+- **Preços de referência da ANP** — médias semanais oficiais por **Brasil, estado e cidade** (a amostra semanal traz ~394 municípios) em um `precos.json` gerado por script; a UF e a cidade escolhidas são lembradas.
+- **Meus postos** — salve o preço que você viu no posto (nome + gasolina + etanol) e toque em “Usar” para preencher os dois campos com um toque; tudo fica no aparelho (até 15 postos).
 - **Custo mensal estimado** — informe quantos km você roda por mês no modo preciso e veja o gasto mensal com o combustível vencedor.
 - **Histórico local** — salve cálculos (com o veículo usado), veja a evolução do índice num gráfico próprio (SVG) e exporte em CSV compatível com Excel.
 - **Compartilhar resultado ou imagem** — texto pela folha de compartilhamento (ou cópia) e cartão PNG gerado no próprio aparelho para mandar no WhatsApp.
 - **Instalação assistida** — quando o navegador permite, aparece o botão **Instalar app**; no iPhone ele ensina o caminho (*Compartilhar → Adicionar à Tela de Início*).
-- **Sobre e dados** — versão, semana da ANP, fonte dos preços, atualizar preços e apagar tudo o que está guardado no aparelho (com confirmação).
+- **Sobre e dados** — versão, semana da ANP, fonte dos preços, **status de instalação** (tela inicial ou navegador, service worker ativo), atualizar preços e apagar tudo o que está guardado no aparelho (com confirmação).
 - **Instalável (PWA)** — manifest com screenshots, ícones PNG 192/512 + maskable e service worker próprio; botão de instalação aparece quando o navegador permite.
 - **Offline de verdade** — o app abre sem rede depois da primeira visita; o `index.html` também funciona com duplo clique, sem servidor.
 - **Perfil de veículo** — salva nome e consumos no `localStorage`; com um toque o limite dos 70% vira o limite real do seu carro.

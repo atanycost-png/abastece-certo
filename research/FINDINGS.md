@@ -430,3 +430,16 @@ pesquisa rápida; os termos e limites de uso precisam ser confirmados antes de p
 na mesma origem (já implementado). Para *cidades*, a API do IBGE resolve. Para *preços por posto em tempo
 real / mapa / sincronização*, só com backend ou dados comunitários.
 
+### 2.5 Atualização v4.3: dados municipais (implementado)
+
+- A aba `MUNICIPIOS` do `resumo_semanal_lpc_*.xlsx` foi integrada ao `precos.json` (gasolina comum e
+  etanol por cidade). A amostra semanal tem **394 municípios** (387 com os dois produtos) em 27 UFs;
+  o JSON ficou com **~25 KB** (antes ~2,5 KB) — continua tranquilo para precache do PWA.
+- A ANP escreve os nomes em CAIXA ALTA e sem acento; o script consulta a API de Localidades do IBGE
+  para recuperar a grafia correta (`SAO PAULO` → `São Paulo`). **Pitfall:** o IBGE responde **HTTP 400**
+  para User-Agent de script; é preciso enviar um UA de navegador.
+- Limitação honesta: a amostra municipal semanal **não cobre todas as cidades** do país (só as
+  pesquisadas naquela semana). O seletor mostra apenas as cidades presentes no JSON; senão, vale a média
+  do estado.
+
+

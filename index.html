@@ -439,6 +439,27 @@
   }
 
   footer { text-align: center; font-size: 10.5px; color: var(--faint); margin-top: 20px; }
+  /* municípios + "meus postos" */
+  .ref-secondary { margin-top: 8px; }
+  .station-list { list-style: none; margin: 10px 0 0; }
+  .station-item {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px;
+    padding: 9px 0; border-top: 1px solid var(--line); font-size: 12.5px;
+  }
+  .station-name { font-weight: 600; color: var(--ink); }
+  .station-prices { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .station-idx { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .station-actions { display: flex; gap: 6px; }
+  .station-actions .btn { min-height: 34px; padding: 6px 10px; font-size: 11.5px; }
+  .stations summary {
+    cursor: pointer; list-style: none; font-size: 12.5px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
+    display: flex; align-items: center; gap: 8px; min-height: 40px; margin-top: 8px;
+  }
+  .stations summary::-webkit-details-marker { display: none; }
+  .stations summary::after { content: "＋"; margin-left: auto; font-size: 15px; color: var(--faint); transition: transform .2s; }
+  .stations[open] summary::after { transform: rotate(45deg); }
+  .stations .body { margin-top: 6px; }
   .foot-line { line-height: 1.5; }
   .foot-actions { display: flex; gap: 18px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
   .link {
@@ -524,6 +545,23 @@
     <div class="ref" id="priceRef">
       <p class="fineprint">Médias ANP da semana 04–10/10/2026: gasolina comum <strong>R$ 6,54/L</strong> · etanol <strong>R$ 4,14/L</strong>. Digite o preço do posto onde vai abastecer.</p>
     </div>
+    <details class="stations">
+      <summary>Meus postos <span class="pill" id="stationCount">0</span></summary>
+      <div class="body">
+        <p class="fineprint">Salve o preço que você viu no posto; depois toque em “Usar” para preencher com um toque. Fica só neste aparelho.</p>
+        <div class="field no-prefix">
+          <label for="stationName">Nome do posto</label>
+          <div class="box">
+            <input id="stationName" type="text" maxlength="40" placeholder="Ex.: Posto da esquina" autocomplete="off">
+          </div>
+        </div>
+        <div class="veh-actions">
+          <button type="button" class="btn" id="stationSave">Salvar com os preços atuais</button>
+        </div>
+        <ul id="stationList" class="station-list"></ul>
+        <p class="hint" id="stationHint"></p>
+      </div>
+    </details>
   </section>
 
   <div class="tabs" role="tablist" aria-label="Modo de cálculo">
@@ -688,6 +726,7 @@
     <p class="sheet-line">Versão <strong>v4</strong> · <span id="aboutWeek">preços de referência ANP</span></p>
     <p class="sheet-line">Preços médios: <strong>ANP — Levantamento de Preços de Combustíveis</strong> (média por estado/município, não é o preço do seu posto). O app não coleta nem envia dados: tudo fica neste aparelho.</p>
     <p class="sheet-line">Feito para decidir em 5 segundos: modo rápido (regra E32/E25) e modo preciso (custo por km).</p>
+    <p class="sheet-line" id="aboutStatus">Modo: aberto no navegador · Service worker: verificando…</p>
     <div class="sheet-actions">
       <button type="button" class="btn ghost" id="aboutRefresh">Atualizar preços</button>
       <button type="button" class="btn danger" id="aboutClear">Apagar dados deste aparelho</button>
@@ -960,6 +999,39 @@
           }
         });
       }
+      var municipios = {};
+      if (data.municipios && typeof data.municipios === "object") {
+        var totalCidades = 0;
+        Object.keys(data.municipios).forEach(function (uf) {
+          if (!/^[A-Z]{2}$/.test(uf) || totalCidades >= 6000) return;
+          var cidades = data.municipios[uf];
+          if (!cidades || typeof cidades !== "object") return;
+          var saida = {};
+          Object.keys(cidades).forEach(function (nome) {
+            if (totalCidades >= 6000) return;
+            var limpo = String(nome).replace(/\s+/g, " ").trim();
+            if (!limpo || limpo.length > 80) return;
+            var par = cidades[nome];
+            var g = NaN;
+            var e = NaN;
+            if (Object.prototype.toString.call(par) === "[object Array]") {
+              g = Number(par[0]);
+              e = Number(par[1]);
+            } else if (par && typeof par === "object") {
+              g = Number(par.gasolinaComum !== undefined ? par.gasolinaComum : par.gasolina);
+              e = Number(par.etanol);
+            } else {
+              return;
+            }
+            var temG = isFinite(g) && g >= 2 && g <= 12;
+            var temE = isFinite(e) && e >= 1 && e <= 9;
+            if (!temG && !temE) return;
+            saida[limpo] = { gasolina: temG ? g : null, etanol: temE ? e : null };
+            totalCidades++;
+          });
+          if (Object.keys(saida).length) municipios[uf] = saida;
+        });
+      }
       return {
         fonte: typeof data.fonte === "string" ? data.fonte : "ANP",
         semana: semana,
@@ -972,7 +1044,8 @@
           etanolMin: optNum(br.etanol && br.etanol.min),
           etanolMax: optNum(br.etanol && br.etanol.max)
         },
-        estados: estados
+        estados: estados,
+        municipios: municipios
       };
     }
 
@@ -1166,7 +1239,9 @@
     updateBar: $("updateBar"), updateBtn: $("updateBtn"),
     installBtn: $("installBtn"), aboutBtn: $("aboutBtn"), about: $("about"),
     aboutWeek: $("aboutWeek"), aboutRefresh: $("aboutRefresh"),
-    aboutClear: $("aboutClear"), aboutClose: $("aboutClose")
+    aboutClear: $("aboutClear"), aboutClose: $("aboutClose"), aboutStatus: $("aboutStatus"),
+    stationName: $("stationName"), stationSave: $("stationSave"),
+    stationList: $("stationList"), stationCount: $("stationCount"), stationHint: $("stationHint")
   };
 
   // ---------------------------------------------------------------- máscara de preço
@@ -1952,6 +2027,17 @@
       var semana = state.prices ? AC.formatWeek(state.prices.semana) : "";
       ui.aboutWeek.textContent = semana ? "semana ANP " + semana : "preços de referência embutidos";
     }
+    if (ui.aboutStatus) {
+      var instalado = false;
+      try {
+        instalado = !!((window.matchMedia && window.matchMedia("(display-mode: standalone)").matches) ||
+          window.navigator.standalone === true);
+      } catch (e) { instalado = false; }
+      var swAtivo = false;
+      try { swAtivo = !!(navigator.serviceWorker && navigator.serviceWorker.controller); } catch (e) { swAtivo = false; }
+      ui.aboutStatus.textContent = "Modo: " + (instalado ? "instalado na tela inicial" : "aberto no navegador")
+        + " · Service worker: " + (swAtivo ? "ativo (offline ok)" : "inativo (abra online uma vez)");
+    }
     aboutArmed = false;
     if (ui.aboutClear) ui.aboutClear.textContent = "Apagar dados deste aparelho";
     ui.about.hidden = false;
@@ -1996,29 +2082,64 @@
   // ---------------------------------------------------------------- preços ANP (v3)
   var PRICES_KEY = "ac.v3.prices";
   var UF_KEY = "ac.uf";
+  var CITY_KEY = "ac.cidade";
 
   function selectedUf() {
     var sel = ui.priceRef.querySelector("#refUf");
     return (sel && sel.value) || "";
   }
 
-  function refValues(uf) {
+  function selectedCity() {
+    var sel = ui.priceRef.querySelector("#refCity");
+    return (sel && sel.value) || "";
+  }
+
+  function cidadeSalva() {
+    try {
+      var bruto = JSON.parse(safeGet(CITY_KEY) || "null");
+      if (bruto && typeof bruto === "object" && typeof bruto.nome === "string") {
+        return { uf: typeof bruto.uf === "string" ? bruto.uf : "", nome: bruto.nome };
+      }
+    } catch (e) { /* chave antiga/inválida: ignora */ }
+    return { uf: "", nome: "" };
+  }
+
+  function refValues(uf, cidade) {
     if (!state.prices) return null;
-    return (uf && state.prices.estados[uf]) ? state.prices.estados[uf] : state.prices.brasil;
+    var base = (uf && state.prices.estados[uf]) || state.prices.brasil;
+    var cities = (uf && state.prices.municipios && state.prices.municipios[uf]) || null;
+    var city = (cidade && cities && cities[cidade]) || null;
+    if (!city) return base;
+    return {
+      gasolina: city.gasolina != null ? city.gasolina : base.gasolina,
+      etanol: city.etanol != null ? city.etanol : base.etanol
+    };
   }
 
   function renderPriceRef() {
     var p = state.prices;
     if (!p) return;
     var uf = selectedUf();
-    if (!uf && !ui.priceRef.querySelector("#refUf")) {
-      var salvo = safeGet(UF_KEY) || "";
-      if (salvo && p.estados[salvo]) uf = salvo;
+    var cidade = selectedCity();
+    var salva = cidadeSalva();
+    var primeira = !ui.priceRef.querySelector("#refUf");
+    if (primeira) {
+      if (!uf && salva.uf && p.estados[salva.uf]) uf = salva.uf;
+      if (!uf) {
+        var ufSalva = safeGet(UF_KEY) || "";
+        if (ufSalva && p.estados[ufSalva]) uf = ufSalva;
+      }
+      if (uf && salva.uf === uf && salva.nome && p.municipios[uf] && p.municipios[uf][salva.nome]) {
+        cidade = salva.nome;
+      }
     }
     if (uf && !p.estados[uf]) uf = "";
-    var values = refValues(uf);
+    if (uf && cidade && !(p.municipios[uf] && p.municipios[uf][cidade])) cidade = "";
+    if (!uf) cidade = "";
+    var values = refValues(uf, cidade);
     var week = AC.formatWeek(p.semana);
     var ufs = Object.keys(p.estados).sort();
+    var cidades = (uf && p.municipios[uf]) ? Object.keys(p.municipios[uf]) : [];
 
     function faixa(min, max) {
       return (isFinite(min) && isFinite(max))
@@ -2033,21 +2154,38 @@
       opts += '<option value="' + ufs[i] + '"' + (ufs[i] === uf ? " selected" : "") + ">" + ufs[i] + "</option>";
     }
 
+    var optsCidade = '<option value="">Média do estado (todas as cidades)</option>';
+    for (var j = 0; j < cidades.length; j++) {
+      var nome = cidades[j];
+      optsCidade += '<option value="' + escapeHtml(nome) + '"' + (nome === cidade ? " selected" : "") + ">"
+        + escapeHtml(nome) + "</option>";
+    }
+
+    var onde = cidade
+      ? "Média de " + escapeHtml(cidade) + (uf ? " (" + uf + ")" : "")
+      : (uf ? "Média do estado " + uf : "Média nacional");
+
     ui.priceRef.innerHTML =
       '<p class="ref-title">Referência ANP' + (week ? ' · semana <strong>' + week + "</strong>" : "") + "</p>" +
       '<label class="ref-label" for="refUf">Média oficial por estado</label>' +
       '<div class="ref-actions">' +
       '<select id="refUf">' + opts + "</select>" +
+      "</div>" +
+      (cidades.length
+        ? '<label class="ref-label ref-secondary" for="refCity">Cidade (média municipal)</label>' +
+          '<div class="ref-actions"><select id="refCity">' + optsCidade + "</select></div>"
+        : "") +
+      '<div class="ref-actions ref-secondary">' +
       '<button type="button" class="btn ghost" id="refUse">Preencher preços</button>' +
       "</div>" +
-      '<p class="ref-values">Gasolina <strong>' + AC.fmtBRL(values.gasolina) + "/L</strong>" + faixaGas
-        + " · Etanol <strong>" + AC.fmtBRL(values.etanol) + "/L</strong>" + faixaEta
-        + ' · <span class="ref-note">toque em “Preencher preços” para usar</span></p>';
+      '<p class="ref-values">' + onde + ": Gasolina <strong>" + AC.fmtBRL(values.gasolina) + "/L</strong>" + faixaGas
+        + " · Etanol <strong>" + AC.fmtBRL(values.etanol) + "/L</strong>" + faixaEta + "</p>";
   }
 
   function useRefPrices() {
     var uf = selectedUf();
-    var values = refValues(uf);
+    var cidade = selectedCity();
+    var values = refValues(uf, cidade);
     if (!values) return;
     ui.gas.value = AC.toInputValue(values.gasolina);
     ui.eta.value = AC.toInputValue(values.etanol);
@@ -2055,7 +2193,7 @@
     setPriceDigits(ui.eta, ui.eta.value);
     render();
     saveState();
-    toast("Médias de " + (uf || "Brasil") + " aplicadas");
+    toast("Médias de " + (cidade ? cidade + " (" + uf + ")" : (uf || "Brasil")) + " aplicadas");
   }
 
   function loadPrices() {
@@ -2092,10 +2230,108 @@
     if (e.target && e.target.id === "refUse") useRefPrices();
   });
   ui.priceRef.addEventListener("change", function (e) {
-    if (e.target && e.target.id === "refUf") {
+    if (!e.target) return;
+    if (e.target.id === "refUf") {
       safeSet(UF_KEY, e.target.value || "");
+      safeSet(CITY_KEY, "");
+      renderPriceRef();
+    } else if (e.target.id === "refCity") {
+      var uf = selectedUf();
+      safeSet(CITY_KEY, JSON.stringify({ uf: uf, nome: e.target.value || "" }));
       renderPriceRef();
     }
+  });
+
+  // ---------------------------------------------------------------- meus postos (v4.3)
+  var STATIONS_KEY = "ac.v4.stations";
+  var STATIONS_MAX = 15;
+  var stations = [];
+
+  function loadStations() {
+    var arr = null;
+    try { arr = JSON.parse(safeGet(STATIONS_KEY) || "[]"); } catch (e) { arr = null; }
+    stations = Array.isArray(arr) ? arr.filter(function (s) {
+      return s && typeof s.id === "string" && typeof s.name === "string"
+        && isFinite(s.gas) && isFinite(s.eta) && isFinite(s.ts);
+    }).map(function (s) {
+      return {
+        id: String(s.id).slice(0, 20),
+        name: String(s.name).slice(0, 40),
+        gas: Number(s.gas),
+        eta: Number(s.eta),
+        ts: Number(s.ts)
+      };
+    }).slice(-STATIONS_MAX) : [];
+  }
+
+  function persistStations() {
+    safeSet(STATIONS_KEY, JSON.stringify(stations.slice(-STATIONS_MAX)));
+  }
+
+  function renderStations() {
+    if (!ui.stationList) return;
+    ui.stationCount.textContent = String(stations.length);
+    ui.stationList.innerHTML = stations.slice().reverse().map(function (s) {
+      var idx = s.gas > 0 ? (s.eta / s.gas) * 100 : null;
+      return '<li class="station-item">'
+        + '<span class="station-name">' + escapeHtml(s.name) + "</span>"
+        + '<span class="station-prices">G ' + AC.fmtBRL(s.gas) + " · E " + AC.fmtBRL(s.eta) + "</span>"
+        + (idx !== null ? '<span class="station-idx">' + AC.fmtNum(idx, 1) + "%</span>" : "")
+        + '<span class="station-actions">'
+        + '<button type="button" class="btn ghost" data-station="use" data-sta="' + escapeHtml(s.id) + '">Usar</button>'
+        + '<button type="button" class="btn danger" data-station="del" data-sta="' + escapeHtml(s.id) + '">Excluir</button>'
+        + "</span>"
+        + '<span class="hist-when">' + AC.fmtDateTime(s.ts) + "</span>"
+        + "</li>";
+    }).join("");
+  }
+
+  function saveStation() {
+    var nome = String(ui.stationName ? ui.stationName.value : "").replace(/\s+/g, " ").trim().slice(0, 40);
+    var g = AC.parsePrice(ui.gas.value);
+    var e = AC.parsePrice(ui.eta.value);
+    if (!isFinite(g) || !isFinite(e)) {
+      toast("Informe os dois preços para salvar o posto");
+      return;
+    }
+    if (!nome) nome = "Posto sem nome";
+    stations.push({
+      id: "p" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      name: nome,
+      gas: g,
+      eta: e,
+      ts: Date.now()
+    });
+    if (stations.length > STATIONS_MAX) stations = stations.slice(-STATIONS_MAX);
+    persistStations();
+    renderStations();
+    if (ui.stationName) ui.stationName.value = "";
+    toast("Posto salvo");
+  }
+
+  function useStation(id) {
+    var s = stations.filter(function (x) { return x.id === id; })[0];
+    if (!s) return;
+    setPriceDigits(ui.gas, AC.toInputValue(s.gas));
+    setPriceDigits(ui.eta, AC.toInputValue(s.eta));
+    render();
+    saveState();
+    toast("Preços de " + s.name + " aplicados");
+  }
+
+  if (ui.stationSave) ui.stationSave.addEventListener("click", saveStation);
+  if (ui.stationList) ui.stationList.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest("[data-station]") : null;
+    if (!btn) return;
+    var id = btn.getAttribute("data-sta");
+    if (btn.getAttribute("data-station") === "use") {
+      useStation(id);
+      return;
+    }
+    stations = stations.filter(function (s) { return s.id !== id; });
+    persistStations();
+    renderStations();
+    toast("Posto removido");
   });
 
   // ---------------------------------------------------------------- histórico (v3)
@@ -2309,6 +2545,8 @@
   refreshVehicleSelect();
   loadHistory();
   renderHistory();
+  loadStations();
+  renderStations();
   loadPrices();
   var active = activeVehicle();
   if (active) {

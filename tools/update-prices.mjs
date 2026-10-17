@@ -721,6 +721,140 @@ export function extrairEstados(linhas) {
   return { estados: ordenado, semana, avisos };
 }
 
+/**
+ * Extrai as médias por município da aba MUNICIPIOS (gasolina comum e etanol).
+ * A amostra semanal do LPC traz alguns milhares de municípios; guardamos só esses
+ * dois produtos para o JSON continuar leve.
+ *
+ * @returns {{ municipios: Record<string, Record<string, {gasolinaComum?: number, etanol?: number}>>, semana: object|null, avisos: string[] }}
+ */
+export function extrairMunicipios(linhas) {
+  const { indice, colunas } = encontrarCabecalho(linhas);
+  if (!colunas.municipio || !colunas.estado) {
+    throw new Error('aba MUNICIPIOS sem colunas de estado/município');
+  }
+  const dados = linhas.slice(indice + 1);
+  const { semana } = semanaDeLinhas(dados, colunas);
+  const avisos = [];
+  const porUf = new Map();
+  const naoReconhecidos = new Set();
+
+  for (const linha of dados) {
+    const chave = normalizarProduto(valorDaCelula(linha, colunas.produto));
+    if (!chave || chave === 'gasolinaAditivada') continue;
+    const uf = estadoParaUF(valorDaCelula(linha, colunas.estado));
+    const municipio = String(valorDaCelula(linha, colunas.municipio) ?? '').replace(/\s+/g, ' ').trim();
+    if (!uf || !municipio) {
+      const bruto = valorDaCelula(linha, colunas.estado);
+      if (bruto && !uf) naoReconhecidos.add(String(bruto));
+      continue;
+    }
+    const media = parseNumeroPtBr(valorDaCelula(linha, colunas.media));
+    if (media === null) {
+      avisos.push(`linha ${linha.numero} da aba MUNICIPIOS (${uf}/${municipio}/${chave}) sem preço médio; ignorada`);
+      continue;
+    }
+    if (!porUf.has(uf)) porUf.set(uf, new Map());
+    const cidades = porUf.get(uf);
+    if (!cidades.has(municipio)) cidades.set(municipio, {});
+    const item = cidades.get(municipio);
+    if (item[chave] !== undefined) {
+      avisos.push(`${uf}/${municipio}/${chave} aparece mais de uma vez na aba MUNICIPIOS; mantendo o primeiro valor`);
+      continue;
+    }
+    item[chave] = arredondar2(media);
+  }
+
+  if (naoReconhecidos.size) {
+    avisos.push(`estados não reconhecidos na aba MUNICIPIOS: ${[...naoReconhecidos].join(', ')}`);
+  }
+  if (porUf.size === 0) {
+    throw new Error('aba MUNICIPIOS sem nenhum município reconhecido; arquivo inesperado, nada será gravado');
+  }
+
+  const ordenado = {};
+  for (const uf of [...porUf.keys()].sort()) {
+    const cidades = porUf.get(uf);
+    const saida = {};
+    for (const nome of [...cidades.keys()].sort((a, b) => a.localeCompare(b, 'pt-BR'))) {
+      const item = cidades.get(nome);
+      const preco = {};
+      if (item.gasolinaComum !== undefined) preco.gasolinaComum = item.gasolinaComum;
+      if (item.etanol !== undefined) preco.etanol = item.etanol;
+      if (Object.keys(preco).length) saida[nome] = preco;
+    }
+    if (Object.keys(saida).length) ordenado[uf] = saida;
+  }
+  return { municipios: ordenado, semana, avisos };
+}
+
+// ---------------------------------------------------------------------------
+// Nomes de municípios (IBGE): a ANP escreve em CAIXA ALTA e sem acento
+// ---------------------------------------------------------------------------
+
+/** Endpoint público do IBGE com os municípios de uma UF. */
+export function ibgeMunicipiosUrl(uf) {
+  return `https://servicodados.ibge.gov.br/api/v1/localidades/estados/${encodeURIComponent(uf)}/municipios`;
+}
+
+/** Converte "SAO PAULO" em "São Paulo" quando o IBGE conhece o nome. */
+export function tituloCidade(nome) {
+  const minusculas = new Set(['de', 'da', 'do', 'das', 'dos', 'e', 'd']);
+  return String(nome ?? '')
+    .toLowerCase()
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((palavra, indice) => {
+      if (indice > 0 && minusculas.has(palavra)) return palavra;
+      return palavra.charAt(0).toUpperCase() + palavra.slice(1);
+    })
+    .join(' ');
+}
+
+/**
+ * Baixa a lista oficial de municípios por UF no IBGE e devolve um mapa
+ * `"UF|NOME NORMALIZADO" -> "Nome Correto"`. Falhas são só avisos: sem IBGE,
+ * `aplicarNomesIBGE` usa `tituloCidade`.
+ */
+export async function baixarNomesIBGE(baixarFn = baixar) {
+  const mapa = new Map();
+  const ufs = [...UFS_VALIDAS].sort();
+  for (const uf of ufs) {
+    try {
+      const resposta = await baixarFn(ibgeMunicipiosUrl(uf), {
+        tentativas: 2,
+        timeoutMs: 20_000,
+        userAgent: AGENTE_NAVEGADOR,
+      });
+      const lista = JSON.parse(resposta.buffer.toString('utf8'));
+      if (!Array.isArray(lista)) continue;
+      for (const item of lista) {
+        if (item && typeof item.nome === 'string') {
+          mapa.set(`${uf}|${normalizarTexto(item.nome)}`, item.nome);
+        }
+      }
+    } catch (erro) {
+      aviso(`IBGE indisponível para ${uf}: ${erro.message}`);
+    }
+  }
+  return mapa;
+}
+
+/** Aplica os nomes do IBGE (ou title case) no bloco de municípios. */
+export function aplicarNomesIBGE(municipios, mapa) {
+  const saida = {};
+  for (const uf of Object.keys(municipios ?? {}).sort()) {
+    const cidades = {};
+    for (const nome of Object.keys(municipios[uf]).sort((a, b) => a.localeCompare(b, 'pt-BR'))) {
+      const chave = `${uf}|${normalizarTexto(nome)}`;
+      const correto = mapa && mapa.get(chave);
+      cidades[correto || tituloCidade(nome)] = municipios[uf][nome];
+    }
+    saida[uf] = cidades;
+  }
+  return saida;
+}
+
 // ---------------------------------------------------------------------------
 // Resolução das abas pelo nome (xl/workbook.xml + rels)
 // ---------------------------------------------------------------------------
@@ -772,6 +906,7 @@ function detectarAba(zip, sharedStrings, tipo) {
       const { colunas } = encontrarCabecalho(linhas);
       if (tipo === 'brasil' && colunas.brasil) return caminho;
       if (tipo === 'estados' && colunas.estado && !colunas.municipio) return caminho;
+      if (tipo === 'municipios' && colunas.estado && colunas.municipio) return caminho;
     } catch {
       // planilha sem cabeçalho reconhecível: segue para a próxima
     }
@@ -794,6 +929,7 @@ export function extrairPrecosDoArquivo(buffer) {
 
   const caminhoBrasil = abas?.get('BRASIL') ?? detectarAba(zip, shared, 'brasil');
   const caminhoEstados = abas?.get('ESTADOS') ?? detectarAba(zip, shared, 'estados');
+  const caminhoMunicipios = abas?.get('MUNICIPIOS') ?? detectarAba(zip, shared, 'municipios');
   if (!caminhoBrasil) throw new Error('aba BRASIL não encontrada no XLSX');
   if (!caminhoEstados) throw new Error('aba ESTADOS não encontrada no XLSX');
 
@@ -802,17 +938,35 @@ export function extrairPrecosDoArquivo(buffer) {
   const brasil = extrairBrasil(linhasBrasil);
   const estados = extrairEstados(linhasEstados);
 
-  const avisos = [...brasil.avisos, ...estados.avisos];
+  let municipios = { municipios: {}, semana: null, avisos: [] };
+  if (caminhoMunicipios) {
+    try {
+      const linhasMunicipios = parsearLinhasPlanilha(zip.ler(caminhoMunicipios).toString('utf8'), shared);
+      municipios = extrairMunicipios(linhasMunicipios);
+    } catch (erro) {
+      aviso(`não foi possível ler a aba MUNICIPIOS: ${erro.message}; o JSON sairá só com Brasil/UF`);
+    }
+  } else {
+    aviso('aba MUNICIPIOS não encontrada no XLSX; o JSON sairá só com Brasil/UF');
+  }
+
+  const avisos = [...brasil.avisos, ...estados.avisos, ...municipios.avisos];
   if (brasil.semana && estados.semana && brasil.semana.chave !== estados.semana.chave) {
     avisos.push(
       `semana da aba BRASIL (${brasil.semana.chave}) difere da aba ESTADOS (${estados.semana.chave}); usando a do BRASIL`,
+    );
+  }
+  if (brasil.semana && municipios.semana && brasil.semana.chave !== municipios.semana.chave) {
+    avisos.push(
+      `semana da aba BRASIL (${brasil.semana.chave}) difere da aba MUNICIPIOS (${municipios.semana.chave}); usando a do BRASIL`,
     );
   }
 
   return {
     brasil: brasil.brasil,
     estados: estados.estados,
-    semana: brasil.semana ?? estados.semana ?? null,
+    municipios: municipios.municipios,
+    semana: brasil.semana ?? estados.semana ?? municipios.semana ?? null,
     abas: zip.nomes.filter((nome) => /^xl\/worksheets\/sheet\d+\.xml$/.test(nome)),
     avisos,
   };
@@ -826,7 +980,7 @@ export function extrairPrecosDoArquivo(buffer) {
  * Monta o objeto final de `precos.json` (ordem fixa de chaves, números
  * arredondados, estados ordenados por UF). Não valida; use `validarPrecos`.
  */
-export function montarPrecos({ url, semana, brasil, estados, atualizadoEm } = {}) {
+export function montarPrecos({ url, semana, brasil, estados, municipios, atualizadoEm } = {}) {
   const semanaNormalizada = typeof semana === 'string' ? normalizarSemana(semana) : semana;
   if (!semanaNormalizada?.inicio || !semanaNormalizada?.fim) {
     throw new Error('montarPrecos: semana ausente ou inválida');
@@ -857,7 +1011,22 @@ export function montarPrecos({ url, semana, brasil, estados, atualizadoEm } = {}
     if (Object.keys(saida).length) estadosSaida[uf] = saida;
   }
 
-  return {
+  // Municípios em formato compacto: "Cidade": [gasolina, etanol] (null quando falta).
+  const municipiosSaida = {};
+  for (const uf of Object.keys(municipios ?? {}).sort()) {
+    const cidades = {};
+    const nomes = Object.keys(municipios[uf] ?? {}).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+    for (const nome of nomes) {
+      const item = municipios[uf][nome] ?? {};
+      const gasolina = arredondar2(item.gasolinaComum);
+      const etanol = arredondar2(item.etanol);
+      if (gasolina === null && etanol === null) continue;
+      cidades[nome] = [gasolina, etanol];
+    }
+    if (Object.keys(cidades).length) municipiosSaida[uf] = cidades;
+  }
+
+  const saida = {
     fonte: FONTE,
     url,
     semana: { inicio: semanaNormalizada.inicio, fim: semanaNormalizada.fim },
@@ -865,6 +1034,8 @@ export function montarPrecos({ url, semana, brasil, estados, atualizadoEm } = {}
     brasil: brasilSaida,
     estados: estadosSaida,
   };
+  if (Object.keys(municipiosSaida).length) saida.municipios = municipiosSaida;
+  return saida;
 }
 
 function numeroPlausivel(valor, faixa) {
@@ -964,7 +1135,64 @@ export function validarPrecos(precos) {
     }
   }
 
+  if (precos.municipios !== undefined) {
+    erros.push(...validarMunicipios(precos.municipios));
+  }
+
   return { ok: erros.length === 0, erros };
+}
+
+/**
+ * Valida o bloco opcional `municipios` (`UF -> { Cidade: [gasolina, etanol] }`).
+ * Cada item é `[gasolina, etanol]` com número plausível ou `null`.
+ */
+function validarMunicipios(municipios) {
+  const erros = [];
+  if (!municipios || typeof municipios !== 'object' || Array.isArray(municipios)) {
+    return ['campo "municipios" deveria ser um objeto'];
+  }
+  let total = 0;
+  for (const uf of Object.keys(municipios)) {
+    if (!/^[A-Z]{2}$/.test(uf) || !UFS_VALIDAS.has(uf)) {
+      erros.push(`municipios: UF inválida "${uf}"`);
+      continue;
+    }
+    const cidades = municipios[uf];
+    if (!cidades || typeof cidades !== 'object' || Array.isArray(cidades)) {
+      erros.push(`municipios.${uf} deveria ser um objeto de cidades`);
+      continue;
+    }
+    for (const nome of Object.keys(cidades)) {
+      total++;
+      const limpo = String(nome).replace(/\s+/g, ' ').trim();
+      if (!limpo || limpo.length > 80 || /[\u0000-\u001f]/.test(limpo)) {
+        erros.push(`municipios.${uf}: nome de cidade inválido (${JSON.stringify(nome)})`);
+        continue;
+      }
+      const precos = cidades[nome];
+      if (!Array.isArray(precos) || precos.length !== 2) {
+        erros.push(`municipios.${uf}.${nome}: esperado [gasolina, etanol]`);
+        continue;
+      }
+      if (precos[0] === null && precos[1] === null) {
+        erros.push(`municipios.${uf}.${nome}: sem nenhum preço`);
+        continue;
+      }
+      const faixas = [FAIXAS.gasolinaComum, FAIXAS.etanol];
+      for (let i = 0; i < 2; i++) {
+        const valor = precos[i];
+        if (valor === null) continue;
+        if (!numeroPlausivel(valor, faixas[i])) {
+          erros.push(
+            `municipios.${uf}.${nome}[${i}] fora da faixa plausível (${faixas[i].min}–${faixas[i].max}): ${valor}`,
+          );
+        }
+      }
+    }
+  }
+  if (total === 0) erros.push('campo "municipios" vazio');
+  if (total > 6000) erros.push(`campo "municipios" com ${total} cidades (esperado <= 6000)`);
+  return erros;
 }
 
 // ---------------------------------------------------------------------------
@@ -1008,6 +1236,7 @@ export function mesmosDados(anterior, novo) {
     if (!antes || !depois) return false;
     if (antes.gasolinaComum !== depois.gasolinaComum || antes.etanol !== depois.etanol) return false;
   }
+  if (JSON.stringify(anterior.municipios ?? {}) !== JSON.stringify(novo.municipios ?? {})) return false;
   return true;
 }
 
@@ -1055,6 +1284,18 @@ function imprimirResumo(precos) {
     );
   }
   log(`Estados: ${Object.keys(precos.estados).length} UFs`);
+  if (precos.municipios) {
+    let total = 0;
+    let completos = 0;
+    for (const uf of Object.keys(precos.municipios)) {
+      for (const nome of Object.keys(precos.municipios[uf])) {
+        total++;
+        const [gas, eta] = precos.municipios[uf][nome];
+        if (gas !== null && eta !== null) completos++;
+      }
+    }
+    log(`Municípios: ${total} (${completos} com gasolina e etanol) em ${Object.keys(precos.municipios).length} UFs`);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1063,13 +1304,16 @@ function imprimirResumo(precos) {
 
 const AGENTE = 'AbasteceCerto/2.0 (script de atualização de preços; sem dependências)';
 
+/** O IBGE responde 400 para agentes "de script"; este UA simples resolve. */
+const AGENTE_NAVEGADOR = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+
 /** Baixa uma URL com timeout e até 3 tentativas. */
-export async function baixar(url, { tentativas = 3, timeoutMs = 60_000 } = {}) {
+export async function baixar(url, { tentativas = 3, timeoutMs = 60_000, userAgent = AGENTE } = {}) {
   const erros = [];
   for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
     try {
       const resposta = await fetch(url, {
-        headers: { 'user-agent': AGENTE, accept: '*/*' },
+        headers: { 'user-agent': userAgent, accept: '*/*' },
         redirect: 'follow',
         signal: AbortSignal.timeout(timeoutMs),
       });
@@ -1256,11 +1500,20 @@ async function executar() {
   const caminhoSaida = resolve(opcoes.saida ?? CAMINHO_PADRAO);
   const anterior = lerJsonSeExistir(caminhoSaida);
 
+  let municipios = extraido.municipios ?? {};
+  if (Object.keys(municipios).length) {
+    log('buscando nomes de municípios no IBGE (para acentos e grafia correta)...');
+    const nomes = await baixarNomesIBGE();
+    if (nomes.size) log(`nomes do IBGE carregados: ${nomes.size}`);
+    municipios = aplicarNomesIBGE(municipios, nomes);
+  }
+
   const precos = montarPrecos({
     url,
     semana,
     brasil: extraido.brasil,
     estados: extraido.estados,
+    municipios,
   });
 
   const validacao = validarPrecos(precos);

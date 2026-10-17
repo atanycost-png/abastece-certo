@@ -5,7 +5,7 @@
     "inicio": "2026-10-04",
     "fim": "2026-10-10"
   },
-  "atualizadoEm": "2026-10-17T14:29:00.262Z",
+  "atualizadoEm": "2026-10-17T16:12:45.573Z",
   "brasil": {
     "gasolinaComum": {
       "media": 6.54,
@@ -133,6 +133,1638 @@
     "TO": {
       "gasolinaComum": 7.02,
       "etanol": 5.03
+    }
+  },
+  "municipios": {
+    "AC": {
+      "Rio Branco": [
+        7.26,
+        4.84
+      ]
+    },
+    "AL": {
+      "Arapiraca": [
+        6.54,
+        4.84
+      ],
+      "Delmiro Gouveia": [
+        7.6,
+        5.35
+      ],
+      "Maceió": [
+        6.66,
+        4.94
+      ],
+      "Palmeira dos Índios": [
+        6.66,
+        4.93
+      ],
+      "Rio Largo": [
+        6.7,
+        4.99
+      ]
+    },
+    "AM": {
+      "Manacapuru": [
+        6.97,
+        4.96
+      ],
+      "Manaus": [
+        7.28,
+        5.26
+      ],
+      "Parintins": [
+        8.99,
+        null
+      ]
+    },
+    "AP": {
+      "Santana": [
+        6.68,
+        null
+      ]
+    },
+    "BA": {
+      "Alagoinhas": [
+        6.23,
+        4.26
+      ],
+      "Barreiras": [
+        6.84,
+        4.04
+      ],
+      "Brumado": [
+        6.64,
+        4.38
+      ],
+      "Caetité": [
+        7.19,
+        4.68
+      ],
+      "Eunápolis": [
+        7.16,
+        4.9
+      ],
+      "Feira de Santana": [
+        6.56,
+        4.46
+      ],
+      "Guanambi": [
+        6.75,
+        4.42
+      ],
+      "Ilhéus": [
+        7.15,
+        4.78
+      ],
+      "Ipirá": [
+        6.57,
+        4.48
+      ],
+      "Itabuna": [
+        7.13,
+        4.68
+      ],
+      "Itamaraju": [
+        6.99,
+        4.7
+      ],
+      "Jacobina": [
+        6.79,
+        4.57
+      ],
+      "Jaguaquara": [
+        6.67,
+        4.7
+      ],
+      "Jequié": [
+        6.62,
+        4.49
+      ],
+      "Juazeiro": [
+        7.2,
+        5.1
+      ],
+      "Livramento de Nossa Senhora": [
+        7.59,
+        4.98
+      ],
+      "Paulo Afonso": [
+        6.75,
+        4.85
+      ],
+      "Poções": [
+        6.73,
+        4.56
+      ],
+      "Porto Seguro": [
+        7.2,
+        4.99
+      ],
+      "Salvador": [
+        6.69,
+        4.61
+      ],
+      "Senhor do Bonfim": [
+        6.92,
+        4.79
+      ],
+      "Serrinha": [
+        6.75,
+        4.44
+      ],
+      "Teixeira de Freitas": [
+        7.1,
+        4.75
+      ],
+      "Valença": [
+        7.04,
+        4.99
+      ],
+      "Vitória da Conquista": [
+        6.56,
+        4.31
+      ]
+    },
+    "CE": {
+      "Canindé": [
+        6.84,
+        5.34
+      ],
+      "Caucaia": [
+        6.89,
+        4.88
+      ],
+      "Crateús": [
+        6.81,
+        5.8
+      ],
+      "Fortaleza": [
+        6.98,
+        4.96
+      ],
+      "Icó": [
+        7.11,
+        5.65
+      ],
+      "Iguatu": [
+        7.32,
+        5.15
+      ],
+      "Itapipoca": [
+        7.48,
+        5.73
+      ],
+      "Juazeiro do Norte": [
+        6.9,
+        5.27
+      ],
+      "Limoeiro do Norte": [
+        6.89,
+        5.39
+      ],
+      "Quixadá": [
+        6.64,
+        4.95
+      ]
+    },
+    "DF": {
+      "Brasília": [
+        6.6,
+        4.42
+      ]
+    },
+    "ES": {
+      "Aracruz": [
+        6.69,
+        null
+      ],
+      "Cachoeiro de Itapemirim": [
+        7.17,
+        4.78
+      ],
+      "Cariacica": [
+        6.29,
+        4.52
+      ],
+      "Colatina": [
+        6.67,
+        4.71
+      ],
+      "Guarapari": [
+        6.9,
+        5.36
+      ],
+      "Linhares": [
+        6.69,
+        4.49
+      ],
+      "São Mateus": [
+        6.62,
+        4.55
+      ],
+      "Serra": [
+        6.2,
+        4.67
+      ],
+      "Vila Velha": [
+        6.28,
+        4.59
+      ],
+      "Vitória": [
+        6.23,
+        4.58
+      ]
+    },
+    "GO": {
+      "Águas Lindas de Goiás": [
+        6.79,
+        4.59
+      ],
+      "Anápolis": [
+        6.77,
+        4.47
+      ],
+      "Aparecida de Goiânia": [
+        6.66,
+        4.38
+      ],
+      "Caldas Novas": [
+        6.64,
+        3.95
+      ],
+      "Catalão": [
+        6.44,
+        4.14
+      ],
+      "Formosa": [
+        6.75,
+        4.51
+      ],
+      "Goiânia": [
+        6.75,
+        4.42
+      ],
+      "Goiatuba": [
+        5.77,
+        3.62
+      ],
+      "Itumbiara": [
+        6.59,
+        3.93
+      ],
+      "Luziânia": [
+        5.97,
+        3.92
+      ],
+      "Mineiros": [
+        6.72,
+        4.26
+      ],
+      "Morrinhos": [
+        6.74,
+        4.23
+      ],
+      "Porangatu": [
+        6.6,
+        3.95
+      ],
+      "Rio Verde": [
+        6.41,
+        3.86
+      ],
+      "Trindade": [
+        6.84,
+        4.54
+      ],
+      "Valparaíso de Goiás": [
+        6.09,
+        4.02
+      ]
+    },
+    "MA": {
+      "Açailândia": [
+        6.75,
+        5.01
+      ],
+      "Bacabal": [
+        6.49,
+        null
+      ],
+      "Balsas": [
+        7.33,
+        5.44
+      ],
+      "Barra do Corda": [
+        6.76,
+        5.55
+      ],
+      "Codó": [
+        7.31,
+        5.49
+      ],
+      "Imperatriz": [
+        6.47,
+        5.23
+      ],
+      "Pinheiro": [
+        7.08,
+        5.59
+      ],
+      "Presidente Dutra": [
+        6.86,
+        5.42
+      ],
+      "São José de Ribamar": [
+        6.4,
+        4.69
+      ],
+      "São Luís": [
+        6.51,
+        4.82
+      ]
+    },
+    "MG": {
+      "Alfenas": [
+        6.44,
+        4.12
+      ],
+      "Araxá": [
+        6.29,
+        4.17
+      ],
+      "Barbacena": [
+        6.58,
+        4.31
+      ],
+      "Belo Horizonte": [
+        6.41,
+        4.39
+      ],
+      "Betim": [
+        6.28,
+        4.25
+      ],
+      "Bom Despacho": [
+        6.15,
+        4.02
+      ],
+      "Campo Belo": [
+        6.21,
+        4.16
+      ],
+      "Caratinga": [
+        6.37,
+        4.18
+      ],
+      "Congonhas": [
+        6.34,
+        4.16
+      ],
+      "Contagem": [
+        6.37,
+        4.37
+      ],
+      "Coronel Fabriciano": [
+        6.3,
+        4.23
+      ],
+      "Curvelo": [
+        6.44,
+        4.19
+      ],
+      "Divinópolis": [
+        5.97,
+        4.01
+      ],
+      "Formiga": [
+        6.21,
+        4.13
+      ],
+      "Governador Valadares": [
+        5.95,
+        3.99
+      ],
+      "Guaxupé": [
+        6.27,
+        3.97
+      ],
+      "Ipatinga": [
+        6.4,
+        4.42
+      ],
+      "Itajubá": [
+        6.45,
+        4.27
+      ],
+      "Itaúna": [
+        6.12,
+        4.13
+      ],
+      "Ituiutaba": [
+        6.1,
+        3.96
+      ],
+      "Janaúba": [
+        6.32,
+        4.11
+      ],
+      "Januária": [
+        6.52,
+        4.27
+      ],
+      "João Monlevade": [
+        6.38,
+        4.36
+      ],
+      "João Pinheiro": [
+        6.28,
+        4
+      ],
+      "Juiz de Fora": [
+        6.61,
+        4.52
+      ],
+      "Lavras": [
+        6.25,
+        4.2
+      ],
+      "Leopoldina": [
+        6.81,
+        4.8
+      ],
+      "Monte Carmelo": [
+        6.06,
+        3.9
+      ],
+      "Montes Claros": [
+        5.98,
+        4.01
+      ],
+      "Muriaé": [
+        6.64,
+        4.58
+      ],
+      "Nova Lima": [
+        6.39,
+        4.39
+      ],
+      "Oliveira": [
+        6.24,
+        4.12
+      ],
+      "Ouro Preto": [
+        6.26,
+        4.28
+      ],
+      "Pará de Minas": [
+        6.3,
+        4.08
+      ],
+      "Paracatu": [
+        6.25,
+        3.99
+      ],
+      "Passos": [
+        6.15,
+        4.05
+      ],
+      "Patrocínio": [
+        6.53,
+        4.38
+      ],
+      "Poços de Caldas": [
+        6.54,
+        4.15
+      ],
+      "Sabará": [
+        6.34,
+        4.36
+      ],
+      "São João del Rei": [
+        6.45,
+        4.33
+      ],
+      "Sete Lagoas": [
+        5.97,
+        4
+      ],
+      "Teófilo Otoni": [
+        5.99,
+        3.99
+      ],
+      "Timóteo": [
+        6.3,
+        4.27
+      ],
+      "Três Corações": [
+        6.71,
+        4.52
+      ],
+      "Ubá": [
+        6.39,
+        4.39
+      ],
+      "Uberaba": [
+        6.12,
+        3.97
+      ],
+      "Uberlândia": [
+        6.53,
+        4.44
+      ],
+      "Unaí": [
+        6.34,
+        3.99
+      ],
+      "Varginha": [
+        6.1,
+        4.01
+      ],
+      "Viçosa": [
+        6.58,
+        4.33
+      ]
+    },
+    "MS": {
+      "Campo Grande": [
+        6.28,
+        3.94
+      ],
+      "Corumbá": [
+        7.06,
+        4.78
+      ],
+      "Dourados": [
+        6.68,
+        4.15
+      ],
+      "Ponta Porã": [
+        6.71,
+        3.98
+      ],
+      "Três Lagoas": [
+        6.46,
+        3.97
+      ]
+    },
+    "MT": {
+      "Alta Floresta": [
+        7.07,
+        4.07
+      ],
+      "Cáceres": [
+        6.71,
+        4.15
+      ],
+      "Cuiabá": [
+        7.13,
+        4.35
+      ],
+      "Rondonópolis": [
+        6.57,
+        3.94
+      ],
+      "Sinop": [
+        6.65,
+        3.89
+      ],
+      "Sorriso": [
+        6.83,
+        3.96
+      ],
+      "Várzea Grande": [
+        7.17,
+        4.31
+      ]
+    },
+    "PA": {
+      "Abaetetuba": [
+        6.92,
+        null
+      ],
+      "Alenquer": [
+        7.32,
+        4.99
+      ],
+      "Altamira": [
+        7.34,
+        5.64
+      ],
+      "Ananindeua": [
+        6.13,
+        4.31
+      ],
+      "Belém": [
+        6.5,
+        4.45
+      ],
+      "Castanhal": [
+        6.48,
+        4.79
+      ],
+      "Conceição do Araguaia": [
+        7.03,
+        5.62
+      ],
+      "Marabá": [
+        6.69,
+        4.96
+      ],
+      "Paragominas": [
+        7.05,
+        5.05
+      ],
+      "Parauapebas": [
+        6.87,
+        4.89
+      ]
+    },
+    "PB": {
+      "Bayeux": [
+        6.28,
+        4.49
+      ],
+      "Cabedelo": [
+        6.44,
+        4.78
+      ],
+      "Campina Grande": [
+        6.55,
+        4.71
+      ],
+      "João Pessoa": [
+        6.31,
+        4.49
+      ],
+      "Patos": [
+        6.64,
+        4.89
+      ],
+      "Sousa": [
+        6.79,
+        5.35
+      ]
+    },
+    "PE": {
+      "Araripina": [
+        7.18,
+        4.99
+      ],
+      "Arcoverde": [
+        6.81,
+        5.21
+      ],
+      "Belo Jardim": [
+        6.46,
+        4.79
+      ],
+      "Cabo de Santo Agostinho": [
+        6.96,
+        4.93
+      ],
+      "Caruaru": [
+        6.8,
+        4.83
+      ],
+      "Garanhuns": [
+        6.42,
+        4.68
+      ],
+      "Goiana": [
+        6.79,
+        4.98
+      ],
+      "Igarassu": [
+        6.95,
+        4.95
+      ],
+      "Jaboatão dos Guararapes": [
+        6.94,
+        4.93
+      ],
+      "Olinda": [
+        6.95,
+        4.94
+      ],
+      "Paulista": [
+        6.94,
+        4.94
+      ],
+      "Petrolina": [
+        7.3,
+        5.34
+      ],
+      "Recife": [
+        6.96,
+        4.95
+      ],
+      "Salgueiro": [
+        6.99,
+        5.58
+      ],
+      "Santa Cruz do Capibaribe": [
+        6.85,
+        5.06
+      ],
+      "Serra Talhada": [
+        6.83,
+        5.25
+      ],
+      "Vitória de Santo Antão": [
+        6.78,
+        4.81
+      ]
+    },
+    "PI": {
+      "Parnaíba": [
+        6.64,
+        4.64
+      ],
+      "Picos": [
+        6.68,
+        5.12
+      ],
+      "Piripiri": [
+        6.72,
+        4.96
+      ],
+      "Teresina": [
+        6.81,
+        4.82
+      ]
+    },
+    "PR": {
+      "Apucarana": [
+        6.76,
+        4.36
+      ],
+      "Arapongas": [
+        6.35,
+        3.96
+      ],
+      "Cambé": [
+        6.55,
+        3.87
+      ],
+      "Campo Mourão": [
+        6.15,
+        3.73
+      ],
+      "Cascavel": [
+        6.49,
+        4.02
+      ],
+      "Castro": [
+        6.97,
+        4.82
+      ],
+      "Cianorte": [
+        5.87,
+        3.64
+      ],
+      "Colombo": [
+        6.75,
+        4.55
+      ],
+      "Cornélio Procópio": [
+        6.88,
+        4.58
+      ],
+      "Curitiba": [
+        6.76,
+        4.62
+      ],
+      "Foz do Iguaçu": [
+        6.45,
+        3.84
+      ],
+      "Francisco Beltrão": [
+        6.39,
+        4.13
+      ],
+      "Guarapuava": [
+        5.84,
+        3.84
+      ],
+      "Londrina": [
+        6.4,
+        3.76
+      ],
+      "Maringá": [
+        6.91,
+        4.22
+      ],
+      "Paranaguá": [
+        6.43,
+        4.26
+      ],
+      "Paranavaí": [
+        6.55,
+        3.88
+      ],
+      "Pato Branco": [
+        6.56,
+        4.21
+      ],
+      "Ponta Grossa": [
+        6.2,
+        4.03
+      ],
+      "Santo Antônio da Platina": [
+        6.61,
+        4.28
+      ],
+      "São José dos Pinhais": [
+        6.84,
+        4.72
+      ],
+      "Toledo": [
+        6.48,
+        4.07
+      ],
+      "Umuarama": [
+        6.57,
+        4.04
+      ],
+      "União da Vitória": [
+        6.81,
+        4.65
+      ]
+    },
+    "RJ": {
+      "Angra dos Reis": [
+        7.2,
+        5.58
+      ],
+      "Araruama": [
+        6.92,
+        4.97
+      ],
+      "Barra do Piraí": [
+        6.93,
+        5.07
+      ],
+      "Barra Mansa": [
+        6.64,
+        4.67
+      ],
+      "Belford Roxo": [
+        6.45,
+        4.65
+      ],
+      "Cabo Frio": [
+        6.87,
+        5.06
+      ],
+      "Campos dos Goytacazes": [
+        6.67,
+        4.86
+      ],
+      "Duque de Caxias": [
+        6.48,
+        4.64
+      ],
+      "Itaboraí": [
+        6.53,
+        4.72
+      ],
+      "Itaperuna": [
+        6.8,
+        4.84
+      ],
+      "Macaé": [
+        6.8,
+        5.28
+      ],
+      "Maricá": [
+        6.62,
+        4.7
+      ],
+      "Niterói": [
+        6.55,
+        4.64
+      ],
+      "Nova Friburgo": [
+        6.97,
+        4.92
+      ],
+      "Nova Iguaçu": [
+        6.42,
+        4.67
+      ],
+      "Petrópolis": [
+        7.2,
+        5.45
+      ],
+      "Resende": [
+        6.54,
+        4.56
+      ],
+      "Rio Bonito": [
+        6.67,
+        4.73
+      ],
+      "Rio de Janeiro": [
+        6.53,
+        4.74
+      ],
+      "Santo Antônio de Pádua": [
+        6.49,
+        4.55
+      ],
+      "São Gonçalo": [
+        6.57,
+        4.84
+      ],
+      "São João de Meriti": [
+        6.41,
+        4.61
+      ],
+      "Saquarema": [
+        6.89,
+        4.94
+      ],
+      "Três Rios": [
+        6.8,
+        5.25
+      ],
+      "Valença": [
+        6.72,
+        4.89
+      ],
+      "Volta Redonda": [
+        6.94,
+        4.99
+      ]
+    },
+    "RN": {
+      "Caicó": [
+        7.02,
+        6.04
+      ],
+      "Mossoró": [
+        6.59,
+        4.91
+      ],
+      "Natal": [
+        6.6,
+        5.1
+      ],
+      "Parnamirim": [
+        6.5,
+        4.89
+      ]
+    },
+    "RO": {
+      "Cacoal": [
+        7.34,
+        5.24
+      ],
+      "Ji-Paraná": [
+        7.19,
+        4.97
+      ],
+      "Pimenta Bueno": [
+        7.38,
+        5.49
+      ],
+      "Porto Velho": [
+        7.49,
+        5.04
+      ],
+      "Vilhena": [
+        7.43,
+        5.22
+      ]
+    },
+    "RR": {
+      "Boa Vista": [
+        7.56,
+        5.37
+      ]
+    },
+    "RS": {
+      "Alegrete": [
+        6.67,
+        4.99
+      ],
+      "Alvorada": [
+        6.23,
+        4.64
+      ],
+      "Bagé": [
+        7.34,
+        null
+      ],
+      "Bento Gonçalves": [
+        6.28,
+        4.73
+      ],
+      "Cachoeira do Sul": [
+        5.98,
+        4.39
+      ],
+      "Cachoeirinha": [
+        6.21,
+        4.39
+      ],
+      "Canoas": [
+        6.05,
+        4.37
+      ],
+      "Caxias do Sul": [
+        6.14,
+        4.63
+      ],
+      "Cruz Alta": [
+        6.21,
+        4.61
+      ],
+      "Erechim": [
+        6.32,
+        4.94
+      ],
+      "Esteio": [
+        6.18,
+        4.49
+      ],
+      "Gramado": [
+        6.66,
+        5.14
+      ],
+      "Gravataí": [
+        6.26,
+        4.29
+      ],
+      "Guaíba": [
+        6.04,
+        4.54
+      ],
+      "Ijuí": [
+        6.34,
+        5.08
+      ],
+      "Lajeado": [
+        6.07,
+        4.83
+      ],
+      "Novo Hamburgo": [
+        6.17,
+        4.33
+      ],
+      "Osório": [
+        6.16,
+        4.36
+      ],
+      "Passo Fundo": [
+        6.49,
+        null
+      ],
+      "Pelotas": [
+        6.58,
+        4.84
+      ],
+      "Porto Alegre": [
+        5.94,
+        4.47
+      ],
+      "Santa Cruz do Sul": [
+        6.55,
+        5.18
+      ],
+      "Santa Maria": [
+        6.25,
+        4.86
+      ],
+      "Santana do Livramento": [
+        6.9,
+        5.6
+      ],
+      "Santo Ângelo": [
+        6.72,
+        5.04
+      ],
+      "São Gabriel": [
+        6.44,
+        4.89
+      ],
+      "São Leopoldo": [
+        6.2,
+        4.51
+      ],
+      "São Luiz Gonzaga": [
+        6.53,
+        4.91
+      ],
+      "Sapiranga": [
+        6.24,
+        4.45
+      ],
+      "Sapucaia do Sul": [
+        6.18,
+        4.39
+      ],
+      "Torres": [
+        6.39,
+        4.79
+      ],
+      "Uruguaiana": [
+        6.46,
+        5.39
+      ],
+      "Vacaria": [
+        6.3,
+        4.67
+      ],
+      "Viamão": [
+        5.94,
+        4.62
+      ]
+    },
+    "SC": {
+      "Araranguá": [
+        6.44,
+        4.99
+      ],
+      "Blumenau": [
+        6.49,
+        4.21
+      ],
+      "Brusque": [
+        6.36,
+        4.47
+      ],
+      "Caçador": [
+        6.49,
+        4.84
+      ],
+      "Chapecó": [
+        6.49,
+        5.03
+      ],
+      "Concórdia": [
+        6.59,
+        5.12
+      ],
+      "Criciúma": [
+        6.41,
+        4.61
+      ],
+      "Florianópolis": [
+        6.72,
+        4.74
+      ],
+      "Itajaí": [
+        6.56,
+        4.4
+      ],
+      "Joinville": [
+        6.06,
+        4.19
+      ],
+      "Laguna": [
+        6.44,
+        4.59
+      ],
+      "Mafra": [
+        6.58,
+        4.82
+      ],
+      "São José": [
+        6.75,
+        4.75
+      ],
+      "Tubarão": [
+        6.05,
+        4.58
+      ],
+      "Videira": [
+        6.52,
+        5.05
+      ],
+      "Xanxerê": [
+        6.24,
+        4.85
+      ]
+    },
+    "SE": {
+      "Aracaju": [
+        6.94,
+        5.25
+      ],
+      "Itabaiana": [
+        6.91,
+        5.39
+      ],
+      "Nossa Senhora do Socorro": [
+        6.96,
+        5.28
+      ]
+    },
+    "SP": {
+      "Adamantina": [
+        6.36,
+        3.39
+      ],
+      "Americana": [
+        6.42,
+        3.9
+      ],
+      "Araçatuba": [
+        6.34,
+        3.58
+      ],
+      "Araraquara": [
+        6.22,
+        3.75
+      ],
+      "Araras": [
+        6.38,
+        3.7
+      ],
+      "Assis": [
+        6.62,
+        3.99
+      ],
+      "Atibaia": [
+        6.72,
+        4.41
+      ],
+      "Avaré": [
+        6.29,
+        3.77
+      ],
+      "Barretos": [
+        6.5,
+        3.72
+      ],
+      "Barueri": [
+        6.74,
+        4.34
+      ],
+      "Bauru": [
+        6.19,
+        3.59
+      ],
+      "Bebedouro": [
+        6.41,
+        3.67
+      ],
+      "Birigui": [
+        6.44,
+        3.56
+      ],
+      "Botucatu": [
+        6.28,
+        3.92
+      ],
+      "Bragança Paulista": [
+        6.41,
+        3.93
+      ],
+      "Caçapava": [
+        6.43,
+        4.3
+      ],
+      "Campinas": [
+        6.3,
+        3.85
+      ],
+      "Caraguatatuba": [
+        6.83,
+        4.46
+      ],
+      "Carapicuíba": [
+        6.32,
+        3.83
+      ],
+      "Catanduva": [
+        6.47,
+        3.72
+      ],
+      "Cosmópolis": [
+        6.21,
+        3.87
+      ],
+      "Cotia": [
+        6.28,
+        3.92
+      ],
+      "Cruzeiro": [
+        6.31,
+        3.94
+      ],
+      "Cubatão": [
+        6.88,
+        4.52
+      ],
+      "Diadema": [
+        6.26,
+        3.88
+      ],
+      "Embu das Artes": [
+        6.47,
+        4.06
+      ],
+      "Franca": [
+        6.65,
+        3.84
+      ],
+      "Garça": [
+        6.29,
+        3.67
+      ],
+      "Guaratinguetá": [
+        6.52,
+        4.09
+      ],
+      "Guarujá": [
+        6.75,
+        4.37
+      ],
+      "Guarulhos": [
+        6.38,
+        3.9
+      ],
+      "Hortolândia": [
+        6.35,
+        3.85
+      ],
+      "Ibitinga": [
+        6.39,
+        3.84
+      ],
+      "Indaiatuba": [
+        6.36,
+        3.86
+      ],
+      "Itanhaém": [
+        6.65,
+        4.23
+      ],
+      "Itapecerica da Serra": [
+        6.36,
+        3.96
+      ],
+      "Itapetininga": [
+        6.19,
+        3.7
+      ],
+      "Itapeva": [
+        6.51,
+        3.84
+      ],
+      "Itapira": [
+        6.69,
+        4.13
+      ],
+      "Itápolis": [
+        6.5,
+        3.86
+      ],
+      "Itatiba": [
+        6.29,
+        3.88
+      ],
+      "Itu": [
+        6.26,
+        3.74
+      ],
+      "Jaboticabal": [
+        6.65,
+        3.88
+      ],
+      "Jacareí": [
+        6.12,
+        3.83
+      ],
+      "Jales": [
+        6.49,
+        3.82
+      ],
+      "Jaú": [
+        6.5,
+        3.8
+      ],
+      "José Bonifácio": [
+        6.36,
+        3.68
+      ],
+      "Jundiaí": [
+        6.47,
+        3.93
+      ],
+      "Leme": [
+        6.4,
+        4.06
+      ],
+      "Limeira": [
+        6.26,
+        3.8
+      ],
+      "Lins": [
+        6.53,
+        3.53
+      ],
+      "Lorena": [
+        6.51,
+        4.17
+      ],
+      "Matão": [
+        6.04,
+        3.74
+      ],
+      "Mauá": [
+        6.31,
+        3.97
+      ],
+      "Mococa": [
+        6.73,
+        4.23
+      ],
+      "Mogi Guaçu": [
+        6.45,
+        3.87
+      ],
+      "Mogi Mirim": [
+        6.28,
+        3.85
+      ],
+      "Monte Alto": [
+        6.66,
+        3.73
+      ],
+      "Olímpia": [
+        6.43,
+        3.7
+      ],
+      "Osasco": [
+        6.32,
+        3.92
+      ],
+      "Ourinhos": [
+        6.44,
+        3.72
+      ],
+      "Paraguaçu Paulista": [
+        6.05,
+        3.59
+      ],
+      "Paulínia": [
+        6.24,
+        3.77
+      ],
+      "Piracicaba": [
+        6.2,
+        3.7
+      ],
+      "Pirassununga": [
+        6.34,
+        3.76
+      ],
+      "Poá": [
+        6.67,
+        4.03
+      ],
+      "Porto Ferreira": [
+        6.69,
+        4.05
+      ],
+      "Praia Grande": [
+        6.7,
+        4.39
+      ],
+      "Presidente Prudente": [
+        6.39,
+        3.5
+      ],
+      "Ribeirão Pires": [
+        6.4,
+        3.94
+      ],
+      "Ribeirão Preto": [
+        6.67,
+        3.93
+      ],
+      "Rio Claro": [
+        6.14,
+        3.72
+      ],
+      "Salto": [
+        6.37,
+        3.91
+      ],
+      "Santo André": [
+        6.34,
+        3.92
+      ],
+      "Santos": [
+        6.51,
+        4.16
+      ],
+      "São Bernardo do Campo": [
+        6.48,
+        3.96
+      ],
+      "São Caetano do Sul": [
+        6.46,
+        4.07
+      ],
+      "São Carlos": [
+        6.29,
+        3.64
+      ],
+      "São João da Boa Vista": [
+        6.34,
+        3.98
+      ],
+      "São José do Rio Preto": [
+        6.35,
+        3.43
+      ],
+      "São José dos Campos": [
+        6.07,
+        3.83
+      ],
+      "São Paulo": [
+        6.34,
+        3.91
+      ],
+      "São Vicente": [
+        6.56,
+        4.12
+      ],
+      "Sertãozinho": [
+        6.53,
+        3.73
+      ],
+      "Sorocaba": [
+        6.28,
+        3.71
+      ],
+      "Sumaré": [
+        6.37,
+        3.83
+      ],
+      "Suzano": [
+        6.18,
+        3.71
+      ],
+      "Taboão da Serra": [
+        6.3,
+        3.98
+      ],
+      "Tatuí": [
+        6.39,
+        4.02
+      ],
+      "Taubaté": [
+        5.94,
+        3.7
+      ],
+      "Ubatuba": [
+        6.68,
+        4.4
+      ],
+      "Valinhos": [
+        6.42,
+        3.88
+      ],
+      "Várzea Paulista": [
+        6.24,
+        3.97
+      ],
+      "Vinhedo": [
+        6.33,
+        3.98
+      ],
+      "Votorantim": [
+        6.24,
+        3.67
+      ],
+      "Votuporanga": [
+        6.43,
+        3.66
+      ]
+    },
+    "TO": {
+      "Gurupi": [
+        7.19,
+        4.99
+      ],
+      "Palmas": [
+        7.04,
+        5.08
+      ],
+      "Paraíso do Tocantins": [
+        6.94,
+        5.12
+      ],
+      "Porto Nacional": [
+        6.78,
+        4.74
+      ]
     }
   }
 }

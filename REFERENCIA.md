@@ -311,3 +311,49 @@ para sites estáticos. O caminho atual (Action semanal → `precos.json` na mesm
   — não recomendados para este app (chave, custo, dependência de terceiro e possível violação de termos).
 - **Limite do offline/sem backend:** média nacional/UF (e município, se embutida no JSON) cabe; **preço por
   posto em tempo real, mapa e sincronização entre aparelhos não** — exigiriam backend ou dados comunitários.
+
+---
+
+## 17/10/2026 — v4.3 (preço por cidade, "meus postos" e status de instalação)
+
+### Contexto
+Depois da v4.2 o usuário confirmou que a máscara está OK e pediu, nesta ordem: **custo por cidade**,
+**seu posto** e um **teste de instalação no celular**.
+
+### Preço por cidade (dados)
+- O pipeline (`tools/update-prices.mjs`) passou a ler também a aba **MUNICIPIOS** do XLSX semanal:
+  `municipios: { "SP": { "São Paulo": [gasolina, etanol], ... } }` compacto (array de 2 posições).
+- A amostra semanal tem **394 municípios** (387 completos) em 27 UFs; `precos.json` foi de ~2,5 KB para
+  **~26 KB** — cabe no precache offline.
+- A ANP manda nomes em CAIXA ALTA e sem acento; o script consulta a **API de Localidades do IBGE** para
+  recuperar a grafia/acentos. **Pitfall:** o IBGE devolve **HTTP 400** para User-Agent de script; precisa
+  mandar UA de navegador (resolvido em `baixarNomesIBGE`).
+- Validação: `validarMunicipios` confere UF, formato `[gasolina, etanol]`, faixas plausíveis, total ≤ 6000;
+  `montarPrecos` só grava o bloco quando há cidades.
+- No app: `normalizePrices` sanitiza o bloco (array ou objeto, números plausíveis, limite de 6000) e o
+  seletor de **cidade** aparece quando a UF escolhida tem dados; a cidade é lembrada (`ac.cidade`).
+
+### "Meus postos" (local, sem backend)
+- Até 15 postos em `ac.v4.stations`: nome + gasolina + etanol + data; lista com índice calculado e botões
+  **Usar** (preenche os dois campos) e **Excluir**; tudo no aparelho, nada sai dele.
+- Salvar usa os preços válidos do momento; sem os dois preços, o app avisa.
+
+### Teste de instalação no celular
+- "Sobre e dados" agora mostra **Modo** (instalado na tela inicial × aberto no navegador) e
+  **Service worker** (ativo × inativo) — é o check rápido depois de instalar/testar offline.
+- Roteiro: abrir no Chrome/Safari → menu → *Instalar app / Adicionar à Tela de Início* → abrir pelo ícone →
+  confirmar "instalado na tela inicial" no Sobre → ativar modo avião e calcular.
+
+### Verificação (17/10/2026)
+- `tools/test.mjs` → **160/160** (inclui normalização de municípios) · `tools/test-dom.mjs` → **124/124**
+  (inclui cidade lembrada e meus postos) · `tools/test-sw.mjs` → **33/33** ·
+  `tools/test-prices.mjs` → **99/99** (valida o `precos.json` real com municípios) ·
+  `tools/check.mjs` → **55/55** · `tools/visual-check.mjs` → **16 etapas** (inclui cidade e posto no Edge).
+- Versão **4.3.0** (app, SW e `package.json`).
+
+### Pitfalls
+- **Amostra municipal é parcial:** só entram as cidades pesquisadas naquela semana; não prometer cobertura
+  nacional. O seletor lista o que existe no JSON.
+- **Teste de ids duplicados** do `test.mjs` varre o HTML inteiro, inclusive strings de template: usar
+  `data-id` repetido em `innerHTML` dispara falso positivo — trocamos por `data-sta`.
+- **Tamanho do precos.json** precisa continuar pequeno; por isso só 2 produtos por cidade e arrays curtos.

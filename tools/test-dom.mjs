@@ -2623,6 +2623,58 @@ test("v4 histórico: veículo ativo aparece no item salvo", () => {
   includes(env.html("histList"), "Onix 1.4");
 });
 
+test("v4 cidade: select de cidade aparece, preenche e é lembrado", () => {
+  const fixture = {
+    fonte: "ANP",
+    semana: { inicio: "2026-10-04", fim: "2026-10-10" },
+    atualizadoEm: new Date().toISOString(),
+    brasil: {
+      gasolinaComum: { media: 6.54, min: 5.39, max: 8.99, postos: 4474 },
+      gasolinaAditivada: { media: 6.72, min: 5.59, max: 8.99, postos: 3443 },
+      etanol: { media: 4.14, min: 3.09, max: 6.59, postos: 3833 }
+    },
+    estados: { SP: { gasolinaComum: 6.36, etanol: 3.86 } },
+    municipios: { SP: { "São Paulo": [6.12, 4.35], Campinas: [5.98, 4.1] } }
+  };
+  const env = boot({ storage: { "ac.v3.prices": JSON.stringify(fixture) } });
+  const ref = env.$("priceRef");
+  const uf = ref.querySelector("#refUf");
+  uf.value = "SP";
+  env.fire(ref, "change", { target: uf });
+  const cidade = ref.querySelector("#refCity");
+  ok(cidade, "select de cidade existe");
+  eq(cidade.querySelectorAll("option").length, 3, "padrão + 2 cidades");
+  cidade.value = "São Paulo";
+  env.fire(ref, "change", { target: cidade });
+  includes(env.html("priceRef"), "R$ 6,12", "valores da cidade");
+  env.fire(ref, "click", { target: ref.querySelector("#refUse") });
+  eq(env.$("gas").value, "6,12");
+  eq(env.$("eta").value, "4,35");
+  const next = bootWith(env);
+  const cidade2 = next.$("priceRef").querySelector("#refCity");
+  ok(cidade2, "cidade restaurada após reload");
+  eq(cidade2.value, "São Paulo");
+});
+
+test("meus postos: salvar, usar e excluir", () => {
+  const env = boot();
+  env.input("gas", "654");
+  env.input("eta", "414");
+  env.input("stationName", "Posto da esquina");
+  env.fire(env.$("stationSave"), "click", {});
+  eq(env.$("stationCount").textContent, "1");
+  includes(env.html("stationList"), "Posto da esquina");
+  env.input("gas", "500");
+  env.input("eta", "400");
+  const use = env.$("stationList").querySelector('[data-station="use"]');
+  env.fire(env.$("stationList"), "click", { target: use });
+  eq(env.$("gas").value, "6,54");
+  eq(env.$("eta").value, "4,14");
+  const del = env.$("stationList").querySelector('[data-station="del"]');
+  env.fire(env.$("stationList"), "click", { target: del });
+  eq(env.$("stationCount").textContent, "0");
+});
+
 // ==========================================================================
 // P. Robustez: nenhuma promessa rejeitada sem tratamento
 // ==========================================================================

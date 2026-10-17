@@ -463,6 +463,24 @@ test("normalizePrices tolera semana malformada e estados ruins", () => {
   isNull(p.semana, "semana inválida deve virar null");
   eq(Object.keys(p.estados).length, 0);
 });
+test("normalizePrices lê municípios e descarta inválidos", () => {
+  const p = AC.normalizePrices({
+    brasil: { gasolinaComum: { media: 6.5 }, etanol: { media: 4.1 } },
+    municipios: {
+      SP: { "São Paulo": [6.12, 4.35], Campinas: [null, 4.1], Ruim: [1, 99] },
+      sp: { X: [6, 4] },
+      RJ: { "Niterói": { gasolinaComum: 6.6, etanol: 4.9 } }
+    }
+  });
+  ok(p);
+  close(p.municipios.SP["São Paulo"].gasolina, 6.12, 1e-12);
+  close(p.municipios.SP["São Paulo"].etanol, 4.35, 1e-12);
+  isNull(p.municipios.SP.Campinas.gasolina, "gasolina ausente vira null");
+  close(p.municipios.SP.Campinas.etanol, 4.1, 1e-12);
+  eq(p.municipios.SP.Ruim, undefined, "fora da faixa é descartado");
+  eq(p.municipios.sp, undefined, "UF minúscula é descartada");
+  close(p.municipios.RJ["Niterói"].gasolina, 6.6, 1e-12);
+});
 test("formatWeek formata mesma semana e virada de mês", () => {
   eq(AC.formatWeek({ inicio: "2026-10-04", fim: "2026-10-10" }), "04\u201310/10/2026");
   eq(AC.formatWeek({ inicio: "2026-09-27", fim: "2026-10-03" }), "27/09/2026\u201303/10/2026");

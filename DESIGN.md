@@ -109,6 +109,12 @@ A v1–v3 passaram por "cara de IA" e por direções que não agradaram (papel/r
 - **Limite:** valor grande, trilha com preenchimento verde até o limite, chips E32/E30/E25 + "seu carro".
 - **Seletor de UF:** rótulo visível "Média oficial por estado", `select` + botão "Preencher preços" e
   médias (com faixa min–máx do Brasil) exibidas logo abaixo; a UF escolhida é lembrada.
+- **Seletor de cidade:** aparece quando a UF tem dados municipais; "Média do estado (todas as cidades)"
+  é o padrão. A cidade escolhida é lembrada junto com a UF e o botão preenche com a média municipal.
+- **Meus postos:** seção recolhível dentro do cartão de preços; nome do posto + preços atuais, lista com
+  G/E, índice e data, botões Usar/Excluir. Guarda no máximo 15 postos, só no aparelho.
+- **Status de instalação:** linha no "Sobre e dados" com modo (instalado/navegador) e service worker
+  (ativo/inativo) — serve para o teste de instalação no celular.
 - **Veredito:** faixa com tint da cor semântica, ícone e frase completa ("Abasteça com etanol").
 - **Gauge:** trilha fina com marca de limite e ponto do índice; sem gradiente arco-íris.
 - **Histórico:** gráfico de linha fino, lista com data e valores tabulares; nunca mais de 50 itens.

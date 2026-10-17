@@ -354,8 +354,9 @@ async function main() {
     console.log("5) validação de preço inválido");
     const invalid = await page.eval(`(() => {
       const el = document.getElementById('eta');
-      el.value = 'abc'; el.dispatchEvent(new Event('input', { bubbles: true }));
+      el.value = '0'; el.dispatchEvent(new Event('input', { bubbles: true }));
       return {
+        valor: el.value,
         hint: document.getElementById('etaHint').textContent,
         invalid: document.getElementById('eta').getAttribute('aria-invalid'),
         resultado: document.getElementById('resultOut').innerText.trim()

@@ -8,3 +8,6 @@ Desktop.ini
 .edge-profile*/
 *.log
 *.tmp
+
+# Capturas de terceiros usadas só como referência de design (não redistribuir)
+references/

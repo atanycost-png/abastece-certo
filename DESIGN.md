@@ -86,8 +86,10 @@ O visual da v3 caiu no padrão "cara de IA". Não repetir:
 
 ## 7. Componentes
 
-- **Campo de preço:** etiqueta pequena, prefixo `R$` discreto, valor grande em mono; foco com contorno de
-  2 px; erro em texto (não só cor) e `aria-invalid`.
+- **Campo de preço:** só aceita dígitos e mostra o valor formatado — `6` → R$ 6,00, `654` → R$ 6,54,
+  `1050` → R$ 10,50; máximo de 4 dígitos (R$ 99,99); vírgula e ponto não são digitáveis; backspace apaga
+  um dígito e focar seleciona tudo. Etiqueta pequena, prefixo `R$` discreto, valor grande em mono; foco
+  com contorno de 2 px; erro em texto (não só cor) e `aria-invalid`.
 - **Seletor de UF:** rótulo visível "Média oficial por estado", `select` + botão "Preencher preços" e os
   valores médios exibidos logo abaixo (a média muda ao trocar a UF).
 - **Gauge:** régua graduada com marca de limite e ponto do índice; sem gradiente arco-íris.

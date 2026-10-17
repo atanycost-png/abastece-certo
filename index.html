@@ -374,7 +374,7 @@
       <label for="gas">Gasolina</label>
       <div class="box">
         <span class="prefix" aria-hidden="true">R$</span>
-        <input id="gas" type="text" inputmode="decimal" placeholder="6,54" autocomplete="off" enterkeyhint="next" aria-describedby="gasHint">
+        <input id="gas" type="text" inputmode="numeric" placeholder="0,00" autocomplete="off" enterkeyhint="next" aria-describedby="gasHint priceHelp">
         <span class="dot gas" aria-hidden="true"></span>
       </div>
       <div class="hint" id="gasHint"></div>
@@ -383,11 +383,12 @@
       <label for="eta">Etanol (álcool)</label>
       <div class="box">
         <span class="prefix" aria-hidden="true">R$</span>
-        <input id="eta" type="text" inputmode="decimal" placeholder="4,14" autocomplete="off" enterkeyhint="done" aria-describedby="etaHint">
+        <input id="eta" type="text" inputmode="numeric" placeholder="0,00" autocomplete="off" enterkeyhint="done" aria-describedby="etaHint priceHelp">
         <span class="dot eta" aria-hidden="true"></span>
       </div>
       <div class="hint" id="etaHint"></div>
     </div>
+    <p class="fineprint" id="priceHelp">Só números: <strong>6 → R$ 6,00</strong> · <strong>654 → R$ 6,54</strong> · até 4 dígitos (R$ 99,99).</p>
     <div class="ref" id="priceRef">
       <p class="fineprint">Médias ANP da semana 04–10/10/2026: gasolina comum <strong>R$ 6,54/L</strong> · etanol <strong>R$ 4,14/L</strong>. Digite o preço do posto onde vai abastecer.</p>
     </div>
@@ -530,7 +531,7 @@
     </details>
   </section>
 
-  <footer>Funciona offline · sem cadastro · cálculo local no seu aparelho · v3 · preços de referência ANP</footer>
+  <footer>Funciona offline · sem cadastro · cálculo local no seu aparelho · v3.1 · preços de referência ANP</footer>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -994,6 +995,78 @@
     toast: $("toast"), netBadge: $("netBadge"),
     updateBar: $("updateBar"), updateBtn: $("updateBtn")
   };
+
+  // ---------------------------------------------------------------- máscara de preço
+  // O campo aceita só dígitos e formata em reais enquanto digita:
+  //   6 -> 6,00 · 65 -> 65,00 (transitório) · 654 -> 6,54 · 456 -> 4,56 · 1050 -> 10,50
+  // O estado real fica nos dígitos (WeakMap), nunca no texto formatado — senão a
+  // vírgula e os zeros entrariam no próximo dígito.
+  var PRICE_DIGITS_MAX = 4;               // teto de R$ 99,99
+  var priceDigits = new WeakMap();
+
+  function fmtPriceDigits(digits) {
+    if (!digits) return "";
+    if (digits.length <= 2) return digits + ",00";
+    return digits.slice(0, digits.length - 2) + "," + digits.slice(-2);
+  }
+
+  function setPriceDigits(input, value) {
+    var digits = String(value == null ? "" : value).replace(/\D/g, "");
+    digits = digits.replace(/^0+(?=\d)/, "");   // "06" -> "6"
+    if (digits.length > PRICE_DIGITS_MAX) digits = digits.slice(digits.length - PRICE_DIGITS_MAX);
+    priceDigits.set(input, digits);
+    input.value = fmtPriceDigits(digits);
+  }
+
+  function allSelected(input) {
+    return input.value.length > 0 &&
+      input.selectionStart === 0 &&
+      input.selectionEnd === input.value.length;
+  }
+
+  function notifyInput(input) {
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function bindPriceMask(input) {
+    setPriceDigits(input, input.value);
+
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "," || e.key === ".") e.preventDefault();
+    });
+
+    input.addEventListener("beforeinput", function (e) {
+      var tipo = e.inputType || "";
+      if (tipo.indexOf("delete") === 0) {
+        e.preventDefault();
+        setPriceDigits(input, allSelected(input) ? "" : (priceDigits.get(input) || "").slice(0, -1));
+        notifyInput(input);
+        return;
+      }
+      if (tipo === "insertText" || tipo === "insertFromPaste" || tipo === "insertCompositionText") {
+        var entrada = e.data;
+        if (entrada == null && e.dataTransfer) entrada = e.dataTransfer.getData("text");
+        if (entrada == null) return;
+        e.preventDefault();
+        var novos = String(entrada).replace(/\D/g, "");
+        if (!novos) return;
+        var base = allSelected(input) ? "" : (priceDigits.get(input) || "");
+        setPriceDigits(input, base + novos);
+        notifyInput(input);
+      }
+    });
+
+    // Fallback: valor definido por script/autofill (evento não confiável).
+    input.addEventListener("input", function (e) {
+      if (e.isTrusted) return;
+      setPriceDigits(input, input.value);
+    });
+
+    input.addEventListener("focus", function () { input.select(); });
+  }
+
+  bindPriceMask(ui.gas);
+  bindPriceMask(ui.eta);
 
   // ---------------------------------------------------------------- storage
   var KEY = "ac.v2";
@@ -1541,6 +1614,8 @@
     if (!values) return;
     ui.gas.value = AC.toInputValue(values.gasolina);
     ui.eta.value = AC.toInputValue(values.etanol);
+    setPriceDigits(ui.gas, ui.gas.value);
+    setPriceDigits(ui.eta, ui.eta.value);
     render();
     saveState();
     toast("Médias de " + (uf || "Brasil") + " aplicadas");
@@ -1769,6 +1844,9 @@
 
   // ---------------------------------------------------------------- init
   loadState();
+  // Sincroniza o estado da máscara com o que veio do localStorage.
+  setPriceDigits(ui.gas, ui.gas.value);
+  setPriceDigits(ui.eta, ui.eta.value);
 
   // Atalhos do manifest: ./?modo=preciso ou ./?modo=rapido
   try {

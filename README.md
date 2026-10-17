@@ -23,6 +23,7 @@ e guarda um **histórico local** dos seus cálculos com gráfico e exportação 
 
 ## Recursos
 
+- **Campo de preço inteligente** — só números: `6` vira R$ 6,00, `654` vira R$ 6,54, até 4 dígitos (R$ 99,99), com zero e vírgula automáticos.
 - **Preços de referência da ANP** — médias semanais oficiais (Brasil e por UF) carregadas de um `precos.json` gerado por script; um toque preenche os dois preços.
 - **Histórico local** — salve cálculos, veja a evolução do índice num gráfico próprio (SVG) e exporte em CSV compatível com Excel.
 - **Instalável (PWA)** — manifest com screenshots, ícones PNG 192/512 + maskable e service worker próprio.

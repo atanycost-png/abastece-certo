@@ -1098,11 +1098,49 @@ test("cálculo rápido: entradas extremas não colocam NaN/Infinity no DOM", () 
   notIncludes(out, "undefined", "undefined no DOM");
 });
 
-test("cálculo rápido: preço absurdo é rejeitado com dica e sem resultado", () => {
+test("máscara de preço: só dígitos, com zeros automáticos", () => {
   const env = boot();
-  env.input("gas", "500");
+  const gas = env.$("gas");
+  env.input("gas", "6");
+  eq(gas.value, "6,00", "6 → 6,00");
+  env.input("gas", "65");
+  eq(gas.value, "65,00", "65 → 65,00 (transitório)");
+  env.input("gas", "654");
+  eq(gas.value, "6,54", "654 → 6,54");
+  env.input("gas", "456");
+  eq(gas.value, "4,56", "456 → 4,56");
+  env.input("gas", "1050");
+  eq(gas.value, "10,50", "1050 → 10,50");
+  env.input("gas", "123456");
+  eq(gas.value, "34,56", "máximo 4 dígitos (mantém os últimos)");
+  env.input("gas", "abc");
+  eq(gas.value, "", "letras são descartadas");
+  env.input("gas", "0");
+  eq(gas.value, "0,00", "0 → 0,00");
+});
+
+test("máscara de preço: valor formatado alimenta o cálculo", () => {
+  const env = boot();
+  env.input("gas", "654");
+  env.input("eta", "414");
+  const out = env.rendered();
+  includes(out, "63,3", "índice com 6,54 / 4,14");
+  includes(out, "ETANOL", "veredito");
+});
+
+test("máscara de preço: campo declara teclado numérico e ajuda visível", () => {
+  const env = boot();
+  eq(env.$("gas").getAttribute("inputmode"), "numeric");
+  eq(env.$("eta").getAttribute("inputmode"), "numeric");
+  includes(env.$("gas").getAttribute("aria-describedby") || "", "priceHelp");
+});
+
+test("cálculo rápido: preço zero é rejeitado com dica e sem resultado", () => {
+  const env = boot();
+  env.input("gas", "0");
   env.input("eta", "3,99");
-  eq(env.$("gas").getAttribute("aria-invalid"), "true", "aria-invalid no preço absurdo");
+  eq(env.$("gas").value, "0,00", "máscara normaliza o zero");
+  eq(env.$("gas").getAttribute("aria-invalid"), "true", "aria-invalid no preço zero");
   includes(env.text("gasHint"), "Valor inválido", "dica textual");
   includes(env.rendered(), "Informe os dois preços", "volta ao estado vazio");
 });
@@ -1472,7 +1510,7 @@ test("?modo=: a escolha feita depois é a que vale no reload (URL limpa)", () =>
 // ==========================================================================
 test("a11y: entrada inválida marca aria-invalid e mostra dica textual", () => {
   const env = boot();
-  env.input("gas", "abc");
+  env.input("gas", "0");
   eq(env.$("gas").getAttribute("aria-invalid"), "true");
   includes(env.text("gasHint"), "Valor inválido");
   includes(env.text("gasHint"), "6,54", "exemplo de valor no modo rápido");
@@ -1480,7 +1518,7 @@ test("a11y: entrada inválida marca aria-invalid e mostra dica textual", () => {
 
 test("a11y: erro de campo é anunciado na região viva (liveForm)", async () => {
   const env = boot();
-  env.input("gas", "abc");
+  env.input("gas", "0");
   await env.wait(120);
   includes(env.text("liveForm"), "Gasolina", "campo identificado");
   includes(env.text("liveForm"), "inválido", "erro anunciado");
@@ -1488,8 +1526,8 @@ test("a11y: erro de campo é anunciado na região viva (liveForm)", async () => 
 
 test("a11y: corrigir a entrada limpa aria-invalid e a dica", () => {
   const env = boot();
-  env.input("gas", "abc");
-  env.input("gas", "5,89");
+  env.input("gas", "0");
+  env.input("gas", "589");
   eq(env.$("gas").getAttribute("aria-invalid"), "false");
   eq(env.text("gasHint"), "");
 });

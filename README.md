@@ -17,14 +17,16 @@ e guarda um **histórico local** dos seus cálculos com gráfico e exportação 
 (A versão publicada atualiza os preços da ANP sozinha, toda semana, via GitHub Action.)
 
 <p>
-  <img src="screenshots/02-rapido-resultado.png" alt="Modo rápido: índice 67,7% e veredito de etanol" width="300">
-  <img src="screenshots/03-preciso-resultado.png" alt="Modo preciso: economia de R$ 1,44 a cada 100 km" width="300">
+  <img src="screenshots/02-rapido-resultado.png" alt="Modo rápido: índice 67,7% e veredito de etanol" width="280">
+  <img src="screenshots/03-preciso-resultado.png" alt="Modo preciso: economia de R$ 1,44 a cada 100 km" width="280">
+  <img src="screenshots/09-tema-escuro.png" alt="Tema escuro do app" width="280">
 </p>
 
 ## Recursos
 
 - **Campo de preço inteligente** — só números: `6` vira R$ 6,00, `654` vira R$ 6,54, até 4 dígitos (R$ 99,99), com zero e vírgula automáticos.
-- **Preços de referência da ANP** — médias semanais oficiais (Brasil e por UF) carregadas de um `precos.json` gerado por script; um toque preenche os dois preços.
+- **Tema claro e escuro** — segue o sistema por padrão e alterna em um toque (automático → claro → escuro); cada tema tem cores próprias, sem “inversão”.
+- **Preços de referência da ANP** — médias semanais oficiais (Brasil e por UF) carregadas de um `precos.json` gerado por script; um toque preenche os dois preços e a UF escolhida é lembrada.
 - **Histórico local** — salve cálculos, veja a evolução do índice num gráfico próprio (SVG) e exporte em CSV compatível com Excel.
 - **Instalável (PWA)** — manifest com screenshots, ícones PNG 192/512 + maskable e service worker próprio.
 - **Offline de verdade** — o app abre sem rede depois da primeira visita; o `index.html` também funciona com duplo clique, sem servidor.
@@ -154,8 +156,7 @@ não compartilha dados.
 - O app **não consulta preços em tempo real**. As médias semanais da ANP chegam por `precos.json`, gerado
   por script/Action (§Preços semanais) — é o máximo possível em um site estático, porque a ANP não libera
   CORS e os arquivos são XLSX/CSV pesados ([`research/FINDINGS.md`](research/FINDINGS.md)). O preço que vale
-  é o do posto onde você abastece.
-- A regra dos 70/71/72% é uma **heurística de consumo** (nasceu com o flex, em 2003), não igualdade de energia:
+  é o do posto onde você abastece.- A regra dos 70/71/72% é uma **heurística de consumo** (nasceu com o flex, em 2003), não igualdade de energia:
   o etanol hidratado tem ~66% da energia por litro da gasolina pura e ~73% da gasolina C, mas motores flex
   ganham eficiência com etanol. A relação real varia por motor (tipicamente 0,65–0,78).
 - A mistura **E32 é temporária** (180 dias, prorrogável). Se o CNPE mudar o teor, ajuste o limite no controle.

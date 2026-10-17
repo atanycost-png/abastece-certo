@@ -469,6 +469,13 @@ test("formatWeek formata mesma semana e virada de mês", () => {
   eq(AC.formatWeek({ inicio: "x", fim: "2026-10-10" }), "");
   eq(AC.formatWeek(null), "");
 });
+test("normalizePrices extrai a faixa min/máx do Brasil", () => {
+  const p = AC.normalizePrices(samplePrices);
+  close(p.brasil.gasolinaMin, 5.39, 1e-12);
+  close(p.brasil.gasolinaMax, 8.99, 1e-12);
+  isNull(p.brasil.etanolMin, "faixa do etanol ausente vira null");
+  isNull(p.brasil.etanolMax);
+});
 
 section("v3 — histórico local");
 test("historyEntry monta entrada a partir do resultado", () => {

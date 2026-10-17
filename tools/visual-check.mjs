@@ -282,6 +282,11 @@ async function main() {
     const page = new Page(cdp, sessionId);
     await page.setViewport(430, 900);
 
+    // Tema claro como padrão das capturas (independente do SO de quem roda).
+    await cdp.send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-color-scheme", value: "light" }]
+    }, sessionId);
+
     const loaded = cdp.waitFor("Page.loadEventFired", sessionId);
     await cdp.send("Page.navigate", { url: `http://127.0.0.1:${PORT}/` }, sessionId);
     await loaded;
@@ -525,6 +530,83 @@ async function main() {
     await new Promise((r) => setTimeout(r, 400));
     const yNarrow = await page.eval(resultOffset);
     await page.shotClip("install-narrow-430x932", 430, 932, yNarrow);
+
+    // ---- 14. máscara de preço digitando de verdade (Input.insertText)
+    console.log("14) máscara de preço (digitação real)");
+    await page.setViewport(430, 900);
+    await new Promise((r) => setTimeout(r, 200));
+    await page.eval(`(() => { const el = document.getElementById('gas'); el.focus(); el.select(); return true; })()`);
+    await cdp.send("Input.insertText", { text: "456" }, sessionId);
+    await new Promise((r) => setTimeout(r, 150));
+    const maskTyped = await page.eval(`({
+      gas: document.getElementById('gas').value,
+      hint: document.getElementById('priceHelp').innerText
+    })`);
+    console.log(`   ${JSON.stringify(maskTyped)}`);
+    if (maskTyped.gas !== "4,56") errors.push(`máscara: digitando 456 esperava 4,56, obteve ${maskTyped.gas}`);
+
+    // ---- 15. modo escuro (manual e automático)
+    console.log("15) modo escuro");
+    const tema = await page.eval(`(() => {
+      const btn = document.getElementById('themeBtn');
+      const root = document.documentElement;
+      const out = { inicial: root.getAttribute('data-theme'), modoInicial: root.getAttribute('data-theme-mode') };
+      btn.click();
+      out.claro = root.getAttribute('data-theme');
+      btn.click();
+      out.escuro = root.getAttribute('data-theme');
+      out.modo = root.getAttribute('data-theme-mode');
+      out.persistido = localStorage.getItem('ac.theme');
+      return out;
+    })()`);
+    // espera as transições de tema (CSS .15s) antes de medir e capturar
+    await new Promise((r) => setTimeout(r, 450));
+    const temaVisual = await page.eval(`({
+      fundo: getComputedStyle(document.body).backgroundColor,
+      meta: (document.querySelector('meta[name="theme-color"]') || {}).content,
+      tabBg: getComputedStyle(document.querySelector('.tabs button[aria-selected="true"]')).backgroundColor,
+      cardBg: getComputedStyle(document.querySelector('.card')).backgroundColor
+    })`);
+    console.log(`   ${JSON.stringify(tema)}`);
+    console.log(`   ${JSON.stringify(temaVisual)}`);
+    if (tema.inicial !== "light") errors.push(`tema inicial deveria ser claro, obteve ${tema.inicial}`);
+    if (tema.modoInicial !== "auto") errors.push(`modo inicial deveria ser automático, obteve ${tema.modoInicial}`);
+    if (tema.escuro !== "dark") errors.push(`tema escuro não aplicado: ${tema.escuro}`);
+    if (tema.persistido !== "dark") errors.push(`tema não persistiu: ${tema.persistido}`);
+    if (!/rgb\(11, 14, 20\)/.test(temaVisual.fundo)) errors.push(`fundo escuro inesperado: ${temaVisual.fundo}`);
+    if (temaVisual.tabBg !== temaVisual.cardBg) {
+      errors.push(`aba ativa deveria usar a cor do cartão (${temaVisual.cardBg}), obteve ${temaVisual.tabBg}`);
+    }
+    // enquadra igual à captura clara (modo rápido) e esconde o toast
+    await page.eval(`(() => {
+      document.getElementById("tab-fast").click();
+      document.getElementById("toast").classList.remove("show");
+      return true;
+    })()`);
+    await new Promise((r) => setTimeout(r, 300));
+    await page.shot("09-tema-escuro");
+
+    await cdp.send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-color-scheme", value: "dark" }]
+    }, sessionId);
+    await page.eval(`(() => { document.getElementById('themeBtn').click(); return true; })()`); // dark -> auto
+    await new Promise((r) => setTimeout(r, 250));
+    const autoDark = await page.eval(`({
+      modo: document.documentElement.getAttribute('data-theme-mode'),
+      tema: document.documentElement.getAttribute('data-theme')
+    })`);
+    console.log(`   ${JSON.stringify(autoDark)}`);
+    if (autoDark.modo !== "auto" || autoDark.tema !== "dark") {
+      errors.push(`automático não seguiu o sistema: ${JSON.stringify(autoDark)}`);
+    }
+    await cdp.send("Emulation.setEmulatedMedia", {
+      features: [{ name: "prefers-color-scheme", value: "light" }]
+    }, sessionId);
+    await page.eval(`(() => {
+      document.documentElement.setAttribute("data-theme", "light");
+      localStorage.removeItem("ac.theme");
+      return true;
+    })()`);
 
     try { await cdp.send("Browser.close"); } catch { /* fecha junto com o WS */ }
     cdp.close();

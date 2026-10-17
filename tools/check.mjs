@@ -244,6 +244,23 @@ check("manifest e ícones ligados ao HEAD", () => {
 check("não usa manifest via data: URI (padrão antigo que quebra instalação)", () => {
   assert(!/application\/manifest\+json/.test(markup), "manifest em data: URI detectado");
 });
+check("tema: bootstrap, alternância e persistência presentes", () => {
+  assert(/data-theme/.test(markup), "sem atributo data-theme no HTML");
+  assert(/id="themeBtn"/.test(markup), "sem botão de tema");
+  assert(/prefers-color-scheme/.test(html), "não lê o tema do sistema");
+  assert(/localStorage\.getItem\("ac\.theme"\)/.test(html), "tema não é lido do storage");
+  assert(/safeSet\(THEME_KEY/.test(html), "tema não é persistido");
+});
+check("tema: tokens de claro e escuro definidos", () => {
+  assert(/:root\[data-theme="dark"\]/.test(html), "sem bloco de tokens escuros");
+  assert(/--card: #ffffff/.test(html), "sem token de cartão claro");
+  assert(/--card: #141926/.test(html), "sem token de cartão escuro");
+  assert(/--ink: #e8edf5/.test(html), "sem token de texto escuro");
+});
+check("manifesto usa as cores do tema claro padrão", () => {
+  assert(String(manifest.theme_color).toLowerCase() === "#f6f7f9", "theme_color deveria ser #f6f7f9");
+  assert(String(manifest.background_color).toLowerCase() === "#f6f7f9", "background_color deveria ser #f6f7f9");
+});
 check("meta de instalação mobile presentes", () => {
   assert(/name="mobile-web-app-capable"/.test(markup), "sem mobile-web-app-capable");
   assert(/name="apple-mobile-web-app-capable"/.test(markup), "sem apple-mobile-web-app-capable");

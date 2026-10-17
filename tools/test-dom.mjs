@@ -167,7 +167,12 @@ function createEl(doc, tag, attrs) {
     _disabled: false,
     _value: "",
     _text: "",
-    style: {},
+    style: {
+      _props: {},
+      setProperty(name, value) { this._props[name] = String(value); },
+      removeProperty(name) { delete this._props[name]; return ""; },
+      getPropertyValue(name) { return this._props[name] || ""; }
+    },
     dataset: {},
     handlers: {},
     onclick: null,
@@ -2148,6 +2153,44 @@ test("v3 preços: 'Usar médias' preenche os preços do Brasil por padrão", asy
   includes(env.rendered(), "63,3", "resultado calculado após aplicar");
   includes(env.text("toast"), "Médias de Brasil aplicadas", "toast");
   eq(env.saved().gas, "6,54", "preços persistidos");
+});
+
+test("v4 tema: padrão automático e ciclo auto → claro → escuro", () => {
+  const env = boot();
+  const html = env.document.documentElement;
+  eq(html.getAttribute("data-theme-mode"), "auto");
+  eq(html.getAttribute("data-theme"), "light");
+  const btn = env.$("themeBtn");
+  ok(btn, "botão de tema existe");
+  env.fire(btn, "click");
+  eq(html.getAttribute("data-theme-mode"), "light");
+  eq(env.storage.get("ac.theme"), "light");
+  env.fire(btn, "click");
+  eq(html.getAttribute("data-theme"), "dark");
+  eq(env.storage.get("ac.theme"), "dark");
+  env.fire(btn, "click");
+  eq(html.getAttribute("data-theme-mode"), "auto");
+  eq(env.storage.get("ac.theme"), "auto");
+});
+
+test("v4 tema: preferência salva é respeitada ao reabrir", () => {
+  const env = boot({ storage: { "ac.theme": "dark" } });
+  eq(env.document.documentElement.getAttribute("data-theme"), "dark");
+  eq(env.document.documentElement.getAttribute("data-theme-mode"), "dark");
+});
+
+test("v4 preços: UF escolhida é lembrada na próxima abertura", async () => {
+  const env = bootOnline();
+  await env.flush();
+  await env.flush();
+  const select = env.$("priceRef").querySelector("#refUf");
+  select.value = "SP";
+  env.fire(env.$("priceRef"), "change", { target: select });
+  eq(env.storage.get("ac.uf"), "SP", "UF persistida");
+  const next = bootWith(env);
+  const sel2 = next.$("priceRef").querySelector("#refUf");
+  eq(sel2.value, "SP", "UF restaurada");
+  includes(next.html("priceRef"), "R$ 6,49", "valores da UF restaurada");
 });
 
 test("v3 preços: 'Usar médias' aplica a UF selecionada", async () => {

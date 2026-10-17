@@ -198,3 +198,55 @@ oficial. A lacuna apontada na revisão ("`test.mjs` só cobre o CORE, o SW não 
 - Layout realmente “desktop” (duas colunas) para um screenshot `wide` menos espaçado.
 - Lighthouse/axe reais em Android/iOS para fechar a verificação de instalação.
 - Deploy automatizado (GitHub Pages) + versão visível numa tela "sobre".
+
+---
+
+## 17/10/2026 — v4 (visual "app nativo limpo" + modo escuro)
+
+### Contexto
+Depois da v3, o visual foi avaliado como "cara de IA". Três mockups iniciais (papel/recibo, revista,
+placa) foram rejeitados; a pesquisa de referências reais (Energy Plus/GS Caltex, Drivvo, GasBuddy) gerou
+três mockups novos (A, B, C) e o **A — "app nativo limpo"** foi o escolhido, com pedido explícito de
+**modo escuro**.
+
+### Decisões
+- **Visual A (base Energy Plus):** fundo `#f6f7f9`, cartões brancos de 16 px com sombra suave, **um** acento
+  verde, segmentado estilo iOS, CTA escuro e números sans grandes (sem serifada, sem papel, sem placa).
+- **Modo escuro com três estados:** automático (segue o sistema), claro e escuro. Padrão automático,
+  persistido em `localStorage["ac.theme"]`, aplicado **antes do primeiro paint** por um script no `<head>`
+  (`data-theme` no `<html>`) para não haver flash; botão 44×44 no cabeçalho alterna os três estados;
+  `meta[name=theme-color]` acompanha o tema; tokens escuros próprios (`#0b0e14` / `#141926` / `#e8edf5`),
+  não inversão de cores.
+- **Melhorias de produto no mesmo pacote:** UF escolhida é **lembrada** (`localStorage["ac.uf"]`); a
+  referência ANP mostra a **faixa min–máx** nacional de gasolina/etanol; o slider do limite tem
+  preenchimento verde proporcional; versão **4.0.0** (app, SW e `package.json`).
+- **Máscara de preço consolidada** (entrou na v3.1): só dígitos, `6 → 6,00`, `654 → 6,54`, teto 4 dígitos.
+
+### Verificação (17/10/2026)
+- `tools/test.mjs` → **159/159** (inclui faixa min–máx).
+- `tools/test-dom.mjs` → **112/112** (inclui tema auto/claro/escuro, persistência e UF lembrada).
+- `tools/test-sw.mjs` → **33/33** · `tools/test-prices.mjs` → **99/99** · `tools/check.mjs` → **55/55**
+  (novas checagens de tema: bootstrap, tokens, botão e cores do manifest).
+- `tools/visual-check.mjs` → **15 etapas**, 0 erros de console: capturas em claro, **screenshot do tema
+  escuro**, alternância manual, automático seguindo o sistema (`prefers-color-scheme`) e **máscara digitada
+  de verdade** (CDP `Input.insertText` → `456` virou `4,56`).
+- Publicado em <https://atanycost-png.github.io/abastece-certo/> (v4).
+
+### Pitfalls (novos)
+- **Flash de tema**: aplicar `data-theme` antes do CSS pintar; qualquer atraso aparece como “piscada”.
+- **Transições enganam teste**: medir cor logo após clicar no tema pega o meio da transição (0,15 s). Esperar
+  ~300–450 ms antes de medir/capturar.
+- **Edge headless herda o tema do SO**: o `visual-check` emula `prefers-color-scheme: light` para as
+  capturas padrão e `dark` para o teste do automático.
+- **`color-mix()`** no anel de foco é suportado nos navegadores atuais (Edge/Chrome/Safari modernos); em
+  navegador antigo o anel simplesmente não aparece (degrada sem quebrar).
+- **Input de preço** usa `type="text"` + `inputmode="numeric"` + máscara; `type="number"` atrapalha o
+  controle de dígitos e o backspace.
+- **`100vh`** no mobile precisa de `100dvh` como fallback.
+
+### Backlog (v5 possível)
+- Lighthouse/axe reais em Android/iOS; testar instalação e tema escuro no aparelho.
+- Screenshots do manifest também no tema escuro (Chrome escolhe por `prefers-color-scheme`).
+- Consumo cidade/estrada separados no modo preciso (dois campos por combustível).
+- Preços por município (o LPC tem a aba `MUNICIPIOS`) com busca por cidade.
+- Tela "sobre" com versão e data dos dados; deploy automático já existe (Pages).

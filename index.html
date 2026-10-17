@@ -451,6 +451,7 @@
   .station-idx { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
   .station-actions { display: flex; gap: 6px; }
   .station-actions .btn { min-height: 34px; padding: 6px 10px; font-size: 11.5px; }
+  .station-actions a.btn { display: inline-flex; align-items: center; text-decoration: none; }
   .stations summary {
     cursor: pointer; list-style: none; font-size: 12.5px; font-weight: 700;
     text-transform: uppercase; letter-spacing: .05em; color: var(--muted);
@@ -559,6 +560,12 @@
           <button type="button" class="btn" id="stationSave">Salvar com os preços atuais</button>
         </div>
         <ul id="stationList" class="station-list"></ul>
+        <div class="veh-actions">
+          <button type="button" class="btn ghost" id="nearbyBtn" hidden>Postos perto de mim</button>
+          <a class="btn ghost" id="nearbyMaps" href="https://www.google.com/maps/search/?api=1&query=posto+de+combust%C3%ADvel" target="_blank" rel="noopener noreferrer" hidden>Abrir no Google Maps</a>
+        </div>
+        <p class="hint" id="nearbyHint"></p>
+        <ul id="nearbyList" class="station-list"></ul>
         <p class="hint" id="stationHint"></p>
       </div>
     </details>
@@ -726,6 +733,7 @@
     <p class="sheet-line">Versão <strong>v4</strong> · <span id="aboutWeek">preços de referência ANP</span></p>
     <p class="sheet-line">Preços médios: <strong>ANP — Levantamento de Preços de Combustíveis</strong> (média por estado/município, não é o preço do seu posto). O app não coleta nem envia dados: tudo fica neste aparelho.</p>
     <p class="sheet-line">Feito para decidir em 5 segundos: modo rápido (regra E32/E25) e modo preciso (custo por km).</p>
+    <p class="sheet-line">“Postos perto de mim” consulta o <strong>OpenStreetMap</strong> (Overpass) só quando você toca no botão; a localização não é guardada e os preços não vêm do mapa.</p>
     <p class="sheet-line" id="aboutStatus">Modo: aberto no navegador · Service worker: verificando…</p>
     <div class="sheet-actions">
       <button type="button" class="btn ghost" id="aboutRefresh">Atualizar preços</button>
@@ -953,6 +961,57 @@
     function gaugePos(pct) {
       if (typeof pct !== "number" || !isFinite(pct)) return 0;
       return clamp(((pct - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN)) * 100, 0, 100);
+    }
+
+    // ---------------- v4.4: postos próximos (OpenStreetMap/Overpass) ----------------
+    /** Distância em km entre dois pontos (Haversine). */
+    function haversineKm(lat1, lon1, lat2, lon2) {
+      var rad = Math.PI / 180;
+      var dLat = (lat2 - lat1) * rad;
+      var dLon = (lon2 - lon1) * rad;
+      var a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      return 2 * 6371 * Math.asin(Math.min(1, Math.sqrt(a)));
+    }
+
+    /**
+     * Normaliza a resposta do Overpass (`elements`) em postos ordenados por distância.
+     * Aceita node (lat/lon) e ways/relations (center.lat/lon); descarta duplicados
+     * no mesmo ponto e nomes longos. Devolve no máximo `limite` itens.
+     */
+    function parseOverpassStations(json, lat, lon, limite) {
+      if (!json || !Array.isArray(json.elements)) return [];
+      if (!isFinite(lat) || !isFinite(lon)) return [];
+      var max = isFinite(limite) ? Math.max(1, Math.floor(limite)) : 12;
+      var vistos = {};
+      var saida = [];
+      for (var i = 0; i < json.elements.length; i++) {
+        var el = json.elements[i];
+        if (!el) continue;
+        var pos = null;
+        if (typeof el.lat === "number" && typeof el.lon === "number") {
+          pos = { lat: el.lat, lon: el.lon };
+        } else if (el.center && typeof el.center.lat === "number" && typeof el.center.lon === "number") {
+          pos = { lat: el.center.lat, lon: el.center.lon };
+        }
+        if (!pos || pos.lat < -90 || pos.lat > 90 || pos.lon < -180 || pos.lon > 180) continue;
+        var tags = el.tags || {};
+        var nome = String(tags.name || tags.brand || tags.operator || "").replace(/\s+/g, " ").trim();
+        if (nome.length > 60) nome = nome.slice(0, 60);
+        var chave = Math.round(pos.lat * 1e5) + "," + Math.round(pos.lon * 1e5);
+        if (vistos[chave]) continue;
+        vistos[chave] = true;
+        saida.push({
+          name: nome || "Posto sem nome",
+          brand: typeof tags.brand === "string" ? tags.brand.slice(0, 40) : "",
+          lat: pos.lat,
+          lon: pos.lon,
+          distanceKm: haversineKm(lat, lon, pos.lat, pos.lon)
+        });
+        if (saida.length >= max * 4) break;
+      }
+      saida.sort(function (a, b) { return a.distanceKm - b.distanceKm; });
+      return saida.slice(0, max);
     }
 
     function gaugeOutside(pct) {
@@ -1200,6 +1259,8 @@
       preciseResult: preciseResult,
       gaugePos: gaugePos,
       gaugeOutside: gaugeOutside,
+      haversineKm: haversineKm,
+      parseOverpassStations: parseOverpassStations,
       verdictLabel: verdictLabel,
       verdictShort: verdictShort,
       gapText: gapText,
@@ -1241,7 +1302,9 @@
     aboutWeek: $("aboutWeek"), aboutRefresh: $("aboutRefresh"),
     aboutClear: $("aboutClear"), aboutClose: $("aboutClose"), aboutStatus: $("aboutStatus"),
     stationName: $("stationName"), stationSave: $("stationSave"),
-    stationList: $("stationList"), stationCount: $("stationCount"), stationHint: $("stationHint")
+    stationList: $("stationList"), stationCount: $("stationCount"), stationHint: $("stationHint"),
+    nearbyBtn: $("nearbyBtn"), nearbyList: $("nearbyList"), nearbyHint: $("nearbyHint"),
+    nearbyMaps: $("nearbyMaps")
   };
 
   // ---------------------------------------------------------------- máscara de preço
@@ -2333,6 +2396,140 @@
     renderStations();
     toast("Posto removido");
   });
+
+  // ---------------------------------------------------------------- postos próximos (v4.4)
+  var nearbyBusy = false;
+
+  // Instâncias públicas do Overpass — tenta na ordem até uma responder.
+  var OVERPASS_URLS = [
+    "https://overpass.private.coffee/api/interpreter",
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter"
+  ];
+
+  function fetchOverpass(consulta) {
+    function tentar(indice) {
+      if (indice >= OVERPASS_URLS.length) {
+        return Promise.reject(new Error("nenhuma instância do Overpass respondeu"));
+      }
+      var ctrl = typeof AbortController === "function" ? new AbortController() : null;
+      var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 8000) : null;
+      return fetch(OVERPASS_URLS[indice] + "?data=" + encodeURIComponent(consulta), {
+        cache: "no-store",
+        signal: ctrl ? ctrl.signal : undefined
+      })
+        .then(function (r) {
+          if (timer) clearTimeout(timer);
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          return r.json();
+        })
+        .catch(function () {
+          if (timer) clearTimeout(timer);
+          return tentar(indice + 1);
+        });
+    }
+    return tentar(0);
+  }
+
+  function renderNearby(lista) {
+    if (!ui.nearbyList) return;
+    ui.nearbyList.innerHTML = lista.map(function (s) {
+      var dist = s.distanceKm < 1
+        ? Math.round(s.distanceKm * 1000) + " m"
+        : AC.fmtNum(s.distanceKm, 1) + " km";
+      var maps = "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(s.lat + "," + s.lon);
+      return '<li class="station-item nearby-item">'
+        + '<span class="station-name">' + escapeHtml(s.name) + "</span>"
+        + '<span class="station-prices">' + dist + (s.brand ? " · " + escapeHtml(s.brand) : "") + "</span>"
+        + '<span class="station-actions">'
+        + '<a class="btn ghost" href="' + maps + '" target="_blank" rel="noopener noreferrer">Mapa</a>'
+        + '<button type="button" class="btn ghost" data-nearby="' + escapeHtml(s.name) + '">Usar nome</button>'
+        + "</span>"
+        + "</li>";
+    }).join("");
+  }
+
+  function findNearby() {
+    if (nearbyBusy || !ui.nearbyBtn) return;
+    if (location.protocol === "file:") {
+      toast("Postos próximos precisam do app instalado ou aberto por http(s)");
+      return;
+    }
+    if (navigator.onLine === false) {
+      toast("Postos próximos precisam de internet");
+      return;
+    }
+    nearbyBusy = true;
+    ui.nearbyBtn.disabled = true;
+    ui.nearbyHint.textContent = "Localizando você…";
+    ui.nearbyBtn.textContent = "Buscando…";
+
+    function encerrar() {
+      nearbyBusy = false;
+      if (ui.nearbyBtn) {
+        ui.nearbyBtn.disabled = false;
+        ui.nearbyBtn.textContent = "Postos perto de mim";
+      }
+    }
+
+    function abrirMapa(lat, lon) {
+      if (!ui.nearbyMaps) return;
+      ui.nearbyMaps.href = "https://www.google.com/maps/search/?api=1&query="
+        + encodeURIComponent("posto de combustível perto de mim")
+        + "&center=" + lat + "," + lon;
+      ui.nearbyMaps.hidden = false;
+    }
+
+    if (ui.nearbyMaps) ui.nearbyMaps.hidden = true;
+
+    navigator.geolocation.getCurrentPosition(function (pos) {
+      var lat = pos.coords.latitude;
+      var lon = pos.coords.longitude;
+      ui.nearbyHint.textContent = "Buscando postos num raio de 2,5 km…";
+      var consulta = '[out:json][timeout:8];node["amenity"="fuel"](around:2000,'
+        + lat.toFixed(5) + "," + lon.toFixed(5) + ");out body 60;";
+      fetchOverpass(consulta)
+        .then(function (json) {
+          var lista = AC.parseOverpassStations(json, lat, lon, 12);
+          if (!lista.length) {
+            ui.nearbyHint.textContent = "Nenhum posto mapeado num raio de 2,5 km.";
+            return;
+          }
+          if (ui.nearbyMaps) ui.nearbyMaps.hidden = true;
+          renderNearby(lista);
+          ui.nearbyHint.textContent = "Postos do OpenStreetMap (sem preço) — toque em “Usar nome” e salve o preço que você viu. Dados © OpenStreetMap (ODbL).";
+        })
+        .catch(function () {
+          abrirMapa(lat, lon);
+          ui.nearbyHint.textContent = "O mapa do OpenStreetMap não respondeu agora. Abra o Google Maps para ver os postos próximos.";
+        })
+        .then(function () {
+          encerrar();
+        });
+    }, function () {
+      encerrar();
+      ui.nearbyHint.textContent = "Sem permissão de localização. Libere o acesso no navegador para ver postos próximos.";
+    }, { timeout: 9000, maximumAge: 300000, enableHighAccuracy: false });
+  }
+
+  if (ui.nearbyBtn) {
+    if (navigator.geolocation) {
+      ui.nearbyBtn.hidden = false;
+      ui.nearbyBtn.addEventListener("click", findNearby);
+    }
+  }
+  if (ui.nearbyList) {
+    ui.nearbyList.addEventListener("click", function (e) {
+      var btn = e.target && e.target.closest ? e.target.closest("[data-nearby]") : null;
+      if (!btn) return;
+      var nome = btn.getAttribute("data-nearby") || "";
+      if (ui.stationName) {
+        ui.stationName.value = nome;
+        try { ui.stationName.focus(); } catch (err) { /* sem foco */ }
+      }
+      toast("Nome copiado — digite os preços e salve");
+    });
+  }
 
   // ---------------------------------------------------------------- histórico (v3)
   var HIST_KEY = "ac.v3.history";

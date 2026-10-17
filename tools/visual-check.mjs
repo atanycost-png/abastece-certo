@@ -734,6 +734,59 @@ async function main() {
     }, sessionId);
     await page.eval(`localStorage.removeItem("ac.theme")`);
 
+    // ---- 17. postos perto de mim (OpenStreetMap/Overpass)
+    console.log("17) postos perto de mim (OpenStreetMap)");
+    const errosAntes = errors.length;
+    try {
+      await cdp.send("Browser.grantPermissions", {
+        origin: `http://127.0.0.1:${PORT}`,
+        permissions: ["geolocation"]
+      }, sessionId);
+      await cdp.send("Emulation.setGeolocationOverride", {
+        latitude: -23.5505,
+        longitude: -46.6333,
+        accuracy: 30
+      }, sessionId);
+      await page.eval(`(() => {
+        const details = document.querySelector('details.stations');
+        if (details) details.open = true;
+        document.getElementById('nearbyBtn').click();
+        return true;
+      })()`);
+      let nearby = { itens: 0, hint: "", visivel: false, mapa: false };
+      for (let tentativa = 0; tentativa < 24; tentativa++) {
+        await new Promise((r) => setTimeout(r, 500));
+        nearby = await page.eval(`({
+          itens: document.querySelectorAll('#nearbyList li').length,
+          hint: document.getElementById('nearbyHint').textContent,
+          visivel: !document.getElementById('nearbyBtn').hidden,
+          mapa: !document.getElementById('nearbyMaps').hidden
+        })`);
+        if (nearby.itens > 0 || nearby.mapa || /Sem permissão|Nenhum posto/.test(nearby.hint)) break;
+      }
+      console.log(`   ${JSON.stringify(nearby)}`);
+      if (!nearby.visivel) errors.push("botão de postos próximos escondido mesmo com geolocalização");
+      if (nearby.itens === 0) {
+        const mapa = await page.eval(`({
+          visivel: !document.getElementById('nearbyMaps').hidden,
+          href: document.getElementById('nearbyMaps').href
+        })`);
+        console.log(`   fallback mapa: ${JSON.stringify(mapa)}`);
+        if (!mapa.visivel) errors.push("sem lista do Overpass e sem fallback do Google Maps");
+      }
+      await page.shot("13-postos-proximos");
+    } catch (e) {
+      console.log(`   aviso: postos próximos não testados (${e.message})`);
+    }
+    const novosErros = errors.splice(errosAntes);
+    for (const e of novosErros) {
+      if (/Access to fetch|ERR_FAILED|Failed to load resource|status of 5\d\d|Gateway|overpass/i.test(e)) {
+        console.log(`   aviso (rede externa): ${e.slice(0, 160)}`);
+      } else {
+        errors.push(e);
+      }
+    }
+
     try { await cdp.send("Browser.close"); } catch { /* fecha junto com o WS */ }
     cdp.close();
   } finally {

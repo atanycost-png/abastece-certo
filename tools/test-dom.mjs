@@ -2675,6 +2675,12 @@ test("meus postos: salvar, usar e excluir", () => {
   eq(env.$("stationCount").textContent, "0");
 });
 
+test("v4 postos próximos: botão só aparece com geolocalização", () => {
+  const env = boot();
+  eq(env.$("nearbyBtn").hidden, true, "sem navigator.geolocation fica escondido");
+  eq(env.$("nearbyList").querySelectorAll("li").length, 0);
+});
+
 // ==========================================================================
 // P. Robustez: nenhuma promessa rejeitada sem tratamento
 // ==========================================================================

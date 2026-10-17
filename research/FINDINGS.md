@@ -442,4 +442,22 @@ real / mapa / sincronização*, só com backend ou dados comunitários.
   pesquisadas naquela semana). O seletor mostra apenas as cidades presentes no JSON; senão, vale a média
   do estado.
 
+### 2.6 Atualização v4.4: postos próximos via Overpass (implementado)
+
+- **API escolhida:** Overpass API (OpenStreetMap), consulta `node["amenity"="fuel"](around:2000,LAT,LON)`.
+  Verificado em 17/10/2026 por `fetch` do Node com cabeçalho `Origin`: resposta HTTP 200 e
+  `Access-Control-Allow-Origin: *` — **CORS liberado** (GET; não precisa de preflight).
+- **Instâncias testadas:** `overpass-api.de` (CORS `*`, mas deu timeout no navegador deste ambiente),
+  `overpass.private.coffee` (respondeu e foi a que funcionou no teste real), `overpass.kumi.systems` e
+  `overpass.openstreetmap.fr` (bloqueadas por CORS neste ambiente), `maps.mail.ru` (timeout). O app tenta
+  em ordem e, se todas falharem, mostra link do Google Maps.
+- **Dados retornados:** `tags.name`/`brand`, coordenadas; o app calcula distância (Haversine), ordena,
+  limita a 12 postos e não guarda a localização. **Não há preço no OSM** — o usuário salva o preço que viu
+  no "Meus postos".
+- **Licença/atribuição:** OpenStreetMap é ODbL; o app mostra "Dados © OpenStreetMap (ODbL)" e linka o
+  mapa. Uso de instância pública exige moderação (uma consulta por toque, raio pequeno, 8 s de timeout).
+- **Limite:** postos próximos é a primeira parte do app que **depende de rede**; o núcleo (cálculo,
+  histórico, veículos, preços ANP embutidos) continua 100% offline.
+
+
 

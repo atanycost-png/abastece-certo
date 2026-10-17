@@ -481,6 +481,29 @@ test("normalizePrices lê municípios e descarta inválidos", () => {
   eq(p.municipios.sp, undefined, "UF minúscula é descartada");
   close(p.municipios.RJ["Niterói"].gasolina, 6.6, 1e-12);
 });
+test("haversineKm: São Paulo–Rio fica perto de 357 km", () => {
+  close(AC.haversineKm(-23.5505, -46.6333, -22.9068, -43.1729), 357, 5);
+  close(AC.haversineKm(-23.5505, -46.6333, -23.5505, -46.6333), 0, 1e-9);
+});
+test("parseOverpassStations ordena por distância e descarta inválidos", () => {
+  const json = {
+    elements: [
+      { type: "node", id: 1, lat: -23.56, lon: -46.64, tags: { name: "Posto B" } },
+      { type: "node", id: 2, lat: -23.551, lon: -46.633, tags: { brand: "Ipiranga" } },
+      { type: "node", id: 3, lat: -23.56, lon: -46.64, tags: { name: "Duplicado" } },
+      { type: "node", id: 4, lat: 999, lon: 0, tags: { name: "Inválido" } },
+      { type: "way", id: 5, center: { lat: -23.552, lon: -46.634 }, tags: { name: "Posto C" } }
+    ]
+  };
+  const lista = AC.parseOverpassStations(json, -23.5505, -46.6333, 12);
+  eq(lista.length, 3, "duplicado e inválido saem");
+  eq(lista[0].name, "Ipiranga", "marca vira nome quando falta name");
+  ok(lista[0].distanceKm < lista[1].distanceKm, "ordenado por distância");
+  eq(lista.map((s) => s.name).sort().join("|"), "Ipiranga|Posto B|Posto C");
+  eq(AC.parseOverpassStations(null, 0, 0).length, 0);
+  eq(AC.parseOverpassStations({ elements: [] }, 0, 0).length, 0);
+  eq(AC.parseOverpassStations({ elements: [{ lat: 1 }] }, 1, 1).length, 0);
+});
 test("formatWeek formata mesma semana e virada de mês", () => {
   eq(AC.formatWeek({ inicio: "2026-10-04", fim: "2026-10-10" }), "04\u201310/10/2026");
   eq(AC.formatWeek({ inicio: "2026-09-27", fim: "2026-10-03" }), "27/09/2026\u201303/10/2026");

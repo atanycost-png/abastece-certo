@@ -357,3 +357,44 @@ Depois da v4.2 o usuário confirmou que a máscara está OK e pediu, nesta ordem
 - **Teste de ids duplicados** do `test.mjs` varre o HTML inteiro, inclusive strings de template: usar
   `data-id` repetido em `innerHTML` dispara falso positivo — trocamos por `data-sta`.
 - **Tamanho do precos.json** precisa continuar pequeno; por isso só 2 produtos por cidade e arrays curtos.
+
+---
+
+## 17/10/2026 — v4.4 ("Postos perto de mim" via OpenStreetMap)
+
+### Contexto
+A instalação PWA no Android (Chrome) foi validada pelo usuário. Próximo passo escolhido: **postos
+próximos**, aproveitando a API do Overpass/OSM pesquisada em `research/FINDINGS.md` §2.4.
+
+### O que entrou
+- Botão **“Postos perto de mim”** dentro de "Meus postos" (só aparece se o navegador tem geolocalização).
+- A localização é pedida **apenas no toque** (`getCurrentPosition`, timeout 9 s, sem persistência); consulta
+  `node["amenity"="fuel"](around:2000,...)` e monta a lista com **nome, distância (Haversine), marca**.
+- Cada item tem **Mapa** (abre o Google Maps na coordenada) e **Usar nome** (copia o nome para o campo do
+  posto; o usuário digita o preço e salva).
+- **Fallback:** se todas as instâncias do Overpass falharem, aparece **“Abrir no Google Maps”** com a
+  posição atual — o usuário não fica sem resposta.
+- "Sobre e dados" explica que o OSM só é consultado no toque e que a localização não é guardada.
+
+### Descobertas de infraestrutura
+- O Overpass devolve `Access-Control-Allow-Origin: *` para GET (verificado com `Origin` no Node), mas
+  **`overpass-api.de` deu timeout no navegador deste ambiente**; o espelho **`overpass.private.coffee`**
+  respondeu e trouxe 9 postos no teste real (Edge headless + geolocalização simulada).
+- Por isso o app tenta três instâncias em ordem (`private.coffee` → `overpass-api.de` → `kumi`) e tem o
+  fallback do Maps. Este tipo de dependência externa **não pode ser gate rígido** no `visual-check`:
+  erros de rede externa são registrados como aviso, não como falha (o teste valida a UI, não o serviço).
+
+### Verificação (17/10/2026)
+- `tools/test.mjs` → **162/162** (Haversine e `parseOverpassStations`: ordenação, dedupe, inválidos) ·
+  `tools/test-dom.mjs` → **125/125** (botão só com geolocalização) · `tools/test-sw.mjs` → **33/33** ·
+  `tools/test-prices.mjs` → **99/99** · `tools/check.mjs` → **55/55** ·
+  `tools/visual-check.mjs` → **17 etapas**: geolocalização simulada via CDP + Overpass real (9 postos,
+  screenshot `13-postos-proximos.png`).
+- Versão **4.4.0** (app, SW e `package.json`).
+
+### Pitfalls
+- **CORS do Overpass existe, mas a disponibilidade não é garantida**: sempre ter fallback (Maps) e tratar
+  erro sem quebrar o app.
+- **Não persistir localização**; pedir só no toque e deixar claro no "Sobre".
+- **Instância pública**: consulta leve (raio 2 km, só nodes, timeout 8 s) para não abusar do serviço.
+- **Teste visual com rede externa**: separar erros do serviço dos erros do app (filtro por mensagem).

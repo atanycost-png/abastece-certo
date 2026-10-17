@@ -398,3 +398,51 @@ próximos**, aproveitando a API do Overpass/OSM pesquisada em `research/FINDINGS
 - **Não persistir localização**; pedir só no toque e deixar claro no "Sobre".
 - **Instância pública**: consulta leve (raio 2 km, só nodes, timeout 8 s) para não abusar do serviço.
 - **Teste visual com rede externa**: separar erros do serviço dos erros do app (filtro por mensagem).
+
+---
+
+## 17/10/2026 — v4.5 (consumo cidade/estrada + diário de abastecimentos)
+
+### Contexto
+O usuário escolheu as duas próximas melhorias do roadmap: **consumo ponderado cidade/estrada** e
+**diário de abastecimentos** (estilo Drivvo), alimentando o modo preciso.
+
+### Consumo cidade/estrada (média harmônica)
+- Cada combustível ganhou **dois campos**: cidade e estrada (`#gasKmL`/`#gasRoadKmL`,
+  `#etaKmL`/`#etaRoadKmL`) + slider **“Uso na cidade”** (0–100%, padrão 70%).
+- A média é **harmônica** — `1 / (w/consumo_cidade + (1-w)/consumo_estrada)` — porque o correto é somar
+  litros por km, não km/L. Se só um dos campos é informado, ele vale para os dois (compatível com veículos
+  salvos na v4.4).
+- Abaixo do slider aparece o **consumo efetivo considerado**; o limite pessoal e o custo por 100 km passam
+  a usar esse valor. `weightedKmL` e `averageConsumption` são funções puras no bloco CORE (testadas).
+- Veículo salvo agora inclui `gasRoadKmL`, `etaRoadKmL` e `cityPct`; a migração de veículos antigos
+  funciona (campos novos viram `null`/70).
+
+### Diário de abastecimentos
+- Seção recolhível no cartão do veículo: combustível (gasolina/etanol), **litros** e **km rodados desde o
+  último abastecimento**; cada registro mostra seu km/L; o resumo soma litros e km por combustível
+  (`km/L = soma_km / soma_litros`).
+- **“Usar consumo real no modo preciso”** preenche cidade **e** estrada com a média medida (o peso não
+  distorce, já que os dois lados ficam iguais).
+- Até **80 registros** em `ac.v4.fills`, validados na leitura (combustível, litros 0–200, km 0–3.000,
+  timestamp); nada sai do aparelho.
+
+### Verificação (17/10/2026)
+- `tools/test.mjs` → **164/164** (`weightedKmL`: 100%/0%/50%, fallback; `averageConsumption`: somas,
+  filtros, plausibilidade) · `tools/test-dom.mjs` → **128/128** (peso muda o limite; veículo salva os 4
+  campos + pct; diário salva/calcula/aplica/exclui/limpa) · `tools/test-sw.mjs` → **33/33** ·
+  `tools/test-prices.mjs` → **99/99** · `tools/check.mjs` → **55/55** ·
+  `tools/visual-check.mjs` → **18 etapas** (diário real: 2 registros → 12,4 km/L; consumo aplicado;
+  screenshot `14-consumo-real.png`).
+- Versão **4.5.0** (app, SW e `package.json`). `index.html` chegou a **130 KB** (≈34 KB gzip); o limite do
+  `check` subiu de 120 KB para 150 KB.
+
+### Pitfalls
+- **Média harmônica, não aritmética**: média simples de km/L superestima o consumo efetivo quando cidade e
+  estrada diferem. O teste fixa os números (10/14 a 50% → 11,67 km/L).
+- **Compatibilidade de IDs**: `#gasKmL`/`#etaKmL` continuam sendo os campos “cidade”, então testes e dados
+  antigos seguem válidos.
+- **Não arredondar antes da conta**: guardar km/L com 1 decimal e calcular com o valor medido; só formatar
+  na exibição.
+- **Orçamento de tamanho**: arquivo único passou de 120 KB; o gate agora usa 150 KB e o número real de
+  gzip é reportado no README/check.

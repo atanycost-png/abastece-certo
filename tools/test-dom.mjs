@@ -2681,6 +2681,61 @@ test("v4 postos próximos: botão só aparece com geolocalização", () => {
   eq(env.$("nearbyList").querySelectorAll("li").length, 0);
 });
 
+test("v4.5 consumo ponderado: cidade/estrada e peso mudam o limite", () => {
+  const env = boot();
+  env.fire(env.$("tab-precise"), "click", {});
+  env.input("gasKmL", "10");
+  env.input("gasRoadKmL", "14");
+  env.input("etaKmL", "7");
+  env.input("etaRoadKmL", "10");
+  env.$("cityPct").value = "100";
+  env.fire(env.$("cityPct"), "input", {});
+  includes(env.text("presetCar"), "70%", "100% cidade");
+  env.$("cityPct").value = "0";
+  env.fire(env.$("cityPct"), "input", {});
+  includes(env.text("presetCar"), "71,4%", "0% cidade (estrada)");
+  includes(env.text("kmLEffective"), "Consumo médio considerado");
+});
+
+test("v4.5 veículo guarda cidade, estrada e peso", () => {
+  const env = boot();
+  env.input("gasKmL", "10");
+  env.input("gasRoadKmL", "14");
+  env.input("etaKmL", "7");
+  env.input("etaRoadKmL", "10");
+  env.$("cityPct").value = "60";
+  env.fire(env.$("cityPct"), "input", {});
+  env.input("vehName", "Onix");
+  env.fire(env.$("vehSave"), "click", {});
+  const v = env.saved().vehicles[0];
+  eq(v.gasKmL, 10);
+  eq(v.gasRoadKmL, 14);
+  eq(v.etaRoadKmL, 10);
+  eq(v.cityPct, 60);
+});
+
+test("v4.5 diário: salva, calcula consumo real e aplica no modo preciso", () => {
+  const env = boot();
+  env.fire(env.$("tab-precise"), "click", {});
+  env.input("fillLiters", "30");
+  env.input("fillKm", "360");
+  env.fire(env.$("fillSave"), "click", {});
+  env.input("fillLiters", "20");
+  env.input("fillKm", "260");
+  env.fire(env.$("fillSave"), "click", {});
+  eq(env.$("fillCount").textContent, "2");
+  includes(env.text("fillSummary"), "12,4 km/L");
+  includes(env.html("fillList"), "Gasolina");
+  env.fire(env.$("fillUse"), "click", {});
+  eq(env.$("gasKmL").value, "12,4");
+  eq(env.$("gasRoadKmL").value, "12,4");
+  const del = env.$("fillList").querySelector('[data-fill="del"]');
+  env.fire(env.$("fillList"), "click", { target: del });
+  eq(env.$("fillCount").textContent, "1");
+  env.fire(env.$("fillClear"), "click", {});
+  eq(env.$("fillCount").textContent, "0");
+});
+
 // ==========================================================================
 // P. Robustez: nenhuma promessa rejeitada sem tratamento
 // ==========================================================================

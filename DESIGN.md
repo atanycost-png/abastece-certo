@@ -111,8 +111,13 @@ A v1–v3 passaram por "cara de IA" e por direções que não agradaram (papel/r
   médias (com faixa min–máx do Brasil) exibidas logo abaixo; a UF escolhida é lembrada.
 - **Seletor de cidade:** aparece quando a UF tem dados municipais; "Média do estado (todas as cidades)"
   é o padrão. A cidade escolhida é lembrada junto com a UF e o botão preenche com a média municipal.
-- **Meus postos:** seção recolhível dentro do cartão de preços; nome do posto + preços atuais, lista com
-  G/E, índice e data, botões Usar/Excluir. Guarda no máximo 15 postos, só no aparelho.
+- **Consumo cidade/estrada:** dois campos por combustível (cidade e estrada) + slider "Uso na cidade";
+  a média é **harmônica** (`1 / (w/consumo_cidade + (1-w)/consumo_estrada)`), com fallback para o único
+  valor informado (compatível com veículos salvos antes da v4.5). Abaixo do slider aparece o consumo
+  efetivo considerado.
+- **Diário de abastecimentos:** seção recolhível com combustível, litros e km rodados; lista com km/L de
+  cada registro, resumo por combustível (litros e km somados) e botão "Usar consumo real no modo preciso"
+  que preenche cidade/estrada com a média. Até 80 registros, só no aparelho.
 - **Status de instalação:** linha no "Sobre e dados" com modo (instalado/navegador) e service worker
   (ativo/inativo) — serve para o teste de instalação no celular.
 - **Postos perto de mim:** botão dentro de "Meus postos" (só aparece com geolocalização); pede a posição

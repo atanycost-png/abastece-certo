@@ -610,7 +610,7 @@
     </div>
     <div class="grid2">
       <div class="field no-prefix">
-        <label for="gasKmL">Com gasolina</label>
+        <label for="gasKmL">Gasolina · cidade</label>
         <div class="box">
           <input id="gasKmL" class="has-unit" type="text" inputmode="decimal" placeholder="12,0" autocomplete="off" aria-describedby="gasKmLHint">
           <span class="unit" aria-hidden="true">km/L</span>
@@ -618,13 +618,37 @@
         <div class="hint" id="gasKmLHint"></div>
       </div>
       <div class="field no-prefix">
-        <label for="etaKmL">Com etanol</label>
+        <label for="etaKmL">Etanol · cidade</label>
         <div class="box">
           <input id="etaKmL" class="has-unit" type="text" inputmode="decimal" placeholder="8,6" autocomplete="off" aria-describedby="etaKmLHint">
           <span class="unit" aria-hidden="true">km/L</span>
         </div>
         <div class="hint" id="etaKmLHint"></div>
       </div>
+    </div>
+    <div class="grid2">
+      <div class="field no-prefix">
+        <label for="gasRoadKmL">Gasolina · estrada</label>
+        <div class="box">
+          <input id="gasRoadKmL" class="has-unit" type="text" inputmode="decimal" placeholder="14,5" autocomplete="off" aria-describedby="gasRoadKmLHint">
+          <span class="unit" aria-hidden="true">km/L</span>
+        </div>
+        <div class="hint" id="gasRoadKmLHint"></div>
+      </div>
+      <div class="field no-prefix">
+        <label for="etaRoadKmL">Etanol · estrada</label>
+        <div class="box">
+          <input id="etaRoadKmL" class="has-unit" type="text" inputmode="decimal" placeholder="10,2" autocomplete="off" aria-describedby="etaRoadKmLHint">
+          <span class="unit" aria-hidden="true">km/L</span>
+        </div>
+        <div class="hint" id="etaRoadKmLHint"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="cityPct">Uso na cidade: <strong id="cityPctVal">70%</strong></label>
+      <input id="cityPct" type="range" min="0" max="100" step="5" value="70" aria-describedby="cityPctHint">
+      <p class="fineprint" id="cityPctHint">A média entre cidade e estrada é harmônica (litros por km), não a média simples dos km/L.</p>
+      <p class="fineprint" id="kmLEffective"></p>
     </div>
     <div class="field no-prefix">
       <label for="kmMonth">Rodo por mês (km) — opcional</label>
@@ -645,6 +669,47 @@
       <button type="button" class="btn danger" id="vehDelete" disabled>Excluir</button>
     </div>
     <p class="fineprint">Use a média do <strong>computador de bordo</strong> ou o cálculo de tanque cheio: encha, zere o hodômetro parcial, rode pelo menos 200 km, encha de novo e divida os km pelos litros. Repita 2–3 vezes para tirar a média.</p>
+    <details class="stations" id="fillDetails">
+      <summary>Diário de abastecimentos <span class="pill" id="fillCount">0</span></summary>
+      <div class="body">
+        <p class="fineprint">Registre litros e km rodados desde o último abastecimento; o app calcula o consumo real por combustível e pode preencher o modo preciso.</p>
+        <div class="grid2">
+          <div class="field no-prefix">
+            <label for="fillFuel">Combustível</label>
+            <div class="box">
+              <select id="fillFuel">
+                <option value="gasolina">Gasolina</option>
+                <option value="etanol">Etanol</option>
+              </select>
+            </div>
+          </div>
+          <div class="field no-prefix">
+            <label for="fillLiters">Litros</label>
+            <div class="box">
+              <input id="fillLiters" class="has-unit" type="text" inputmode="decimal" placeholder="30,5" autocomplete="off" aria-describedby="fillHint">
+              <span class="unit" aria-hidden="true">L</span>
+            </div>
+          </div>
+        </div>
+        <div class="field no-prefix">
+          <label for="fillKm">Km rodados desde o último abastecimento</label>
+          <div class="box">
+            <input id="fillKm" class="has-unit" type="text" inputmode="numeric" placeholder="320" autocomplete="off" aria-describedby="fillHint">
+            <span class="unit" aria-hidden="true">km</span>
+          </div>
+        </div>
+        <div class="veh-actions">
+          <button type="button" class="btn" id="fillSave">Salvar abastecimento</button>
+        </div>
+        <p class="fineprint" id="fillSummary">Sem abastecimentos registrados.</p>
+        <ul id="fillList" class="station-list"></ul>
+        <div class="veh-actions">
+          <button type="button" class="btn ghost" id="fillUse" disabled>Usar consumo real no modo preciso</button>
+          <button type="button" class="btn danger" id="fillClear" disabled>Limpar diário</button>
+        </div>
+        <p class="hint" id="fillHint"></p>
+      </div>
+    </details>
   </section>
 
   <section class="card result">
@@ -867,6 +932,49 @@
 
     function clamp(v, lo, hi) {
       return Math.min(hi, Math.max(lo, v));
+    }
+
+    /**
+     * Consumo médio ponderado cidade/estrada (km/L).
+     * Média harmônica: litros por km = wCidade/consumoCidade + wEstrada/consumoEstrada.
+     * Se só um dos dois for informado, ele vale para os dois (compatível com versões antigas).
+     */
+    function weightedKmL(city, road, cityPercent) {
+      var c = parseKmL(city);
+      var r = parseKmL(road);
+      if (!isFinite(c) && !isFinite(r)) return NaN;
+      if (!isFinite(r)) r = c;
+      if (!isFinite(c)) c = r;
+      var pct = Number(cityPercent);
+      if (!isFinite(pct)) pct = 70;
+      var w = clamp(pct, 0, 100) / 100;
+      if (w <= 0) return r;
+      if (w >= 1) return c;
+      return 1 / (w / c + (1 - w) / r);
+    }
+
+    /**
+     * Consumo real a partir do diário de abastecimentos (litros + km rodados).
+     * Some litros e km de cada combustível e divide: km/L = km / litros.
+     */
+    function averageConsumption(entries, fuel) {
+      if (!Array.isArray(entries)) return null;
+      var alvo = fuel === "etanol" ? "etanol" : (fuel === "gasolina" ? "gasolina" : null);
+      var litros = 0;
+      var km = 0;
+      var n = 0;
+      for (var i = 0; i < entries.length; i++) {
+        var e = entries[i];
+        if (!e || (alvo && e.fuel !== alvo)) continue;
+        if (!isFinite(e.liters) || !isFinite(e.km) || e.liters <= 0 || e.km <= 0) continue;
+        litros += e.liters;
+        km += e.km;
+        n++;
+      }
+      if (!n || litros <= 0) return null;
+      var kmL = km / litros;
+      if (!isFinite(kmL) || kmL < MIN_KML || kmL > MAX_KML) return null;
+      return { fuel: alvo || "todos", kmL: kmL, liters: litros, km: km, entries: n };
     }
 
     function pctLabel(v) {
@@ -1246,6 +1354,8 @@
       parsePrice: parsePrice,
       parseKmL: parseKmL,
       isValidKmL: isValidKmL,
+      weightedKmL: weightedKmL,
+      averageConsumption: averageConsumption,
       MAX_PRICE: MAX_PRICE,
       MIN_KML: MIN_KML,
       MAX_KML: MAX_KML,
@@ -1289,7 +1399,13 @@
     presets: $("presets"), presetCar: $("presetCar"),
     vehicleSelect: $("vehicleSelect"), vehName: $("vehName"),
     gasKmL: $("gasKmL"), etaKmL: $("etaKmL"),
+    gasRoadKmL: $("gasRoadKmL"), etaRoadKmL: $("etaRoadKmL"),
     gasKmLHint: $("gasKmLHint"), etaKmLHint: $("etaKmLHint"),
+    gasRoadKmLHint: $("gasRoadKmLHint"), etaRoadKmLHint: $("etaRoadKmLHint"),
+    cityPct: $("cityPct"), cityPctVal: $("cityPctVal"), kmLEffective: $("kmLEffective"),
+    fillFuel: $("fillFuel"), fillLiters: $("fillLiters"), fillKm: $("fillKm"),
+    fillSave: $("fillSave"), fillList: $("fillList"), fillSummary: $("fillSummary"),
+    fillUse: $("fillUse"), fillClear: $("fillClear"), fillHint: $("fillHint"), fillCount: $("fillCount"),
     kmMonth: $("kmMonth"), kmMonthHint: $("kmMonthHint"),
     vehSave: $("vehSave"), vehDelete: $("vehDelete"),
     resultOut: $("resultOut"), live: $("live"), liveForm: $("liveForm"),
@@ -1442,6 +1558,16 @@
     state.theme = THEME_MODES.indexOf(temaSalvo) >= 0 ? temaSalvo : "dark";
     state.vehicles = Array.isArray(data.vehicles) ? data.vehicles.filter(function (v) {
       return v && typeof v.id === "string" && AC.isValidKmL(v.gasKmL) && AC.isValidKmL(v.etaKmL);
+    }).map(function (v) {
+      return {
+        id: v.id,
+        name: String(v.name || "Meu carro").slice(0, 30),
+        gasKmL: v.gasKmL,
+        etaKmL: v.etaKmL,
+        gasRoadKmL: AC.isValidKmL(v.gasRoadKmL) ? v.gasRoadKmL : null,
+        etaRoadKmL: AC.isValidKmL(v.etaRoadKmL) ? v.etaRoadKmL : null,
+        cityPct: isFinite(v.cityPct) ? Math.min(100, Math.max(0, Math.round(v.cityPct))) : 70
+      };
     }).slice(0, 20) : [];
     state.activeId = typeof data.activeId === "string" ? data.activeId : null;
     if (state.activeId && !state.vehicles.some(function (v) { return v.id === state.activeId; })) {
@@ -1451,6 +1577,12 @@
     ui.eta.value = typeof data.eta === "string" ? data.eta : "";
     ui.gasKmL.value = typeof data.gasKmL === "string" ? data.gasKmL : "";
     ui.etaKmL.value = typeof data.etaKmL === "string" ? data.etaKmL : "";
+    ui.gasRoadKmL.value = typeof data.gasRoadKmL === "string" ? data.gasRoadKmL : "";
+    ui.etaRoadKmL.value = typeof data.etaRoadKmL === "string" ? data.etaRoadKmL : "";
+    if (ui.cityPct) {
+      var pctSalvo = Number(data.cityPct);
+      ui.cityPct.value = String(isFinite(pctSalvo) ? Math.min(100, Math.max(0, Math.round(pctSalvo))) : 70);
+    }
     if (ui.kmMonth) ui.kmMonth.value = typeof data.kmMonth === "string" ? data.kmMonth : "";
     ui.vehName.value = typeof data.vehName === "string" ? data.vehName : "";
     ui.threshold.value = String(state.threshold);
@@ -1464,6 +1596,9 @@
       eta: ui.eta.value,
       gasKmL: ui.gasKmL.value,
       etaKmL: ui.etaKmL.value,
+      gasRoadKmL: ui.gasRoadKmL.value,
+      etaRoadKmL: ui.etaRoadKmL.value,
+      cityPct: ui.cityPct ? Number(ui.cityPct.value) : 70,
       kmMonth: ui.kmMonth ? ui.kmMonth.value : "",
       vehName: ui.vehName.value,
       vehicles: state.vehicles,
@@ -1563,8 +1698,8 @@
   }
 
   function personalPct() {
-    var gk = AC.parsePositive(ui.gasKmL.value);
-    var ek = AC.parsePositive(ui.etaKmL.value);
+    var gk = AC.weightedKmL(ui.gasKmL.value, ui.gasRoadKmL.value, ui.cityPct.value);
+    var ek = AC.weightedKmL(ui.etaKmL.value, ui.etaRoadKmL.value, ui.cityPct.value);
     if (!isFinite(gk) || !isFinite(ek)) return NaN;
     return (ek / gk) * 100;
   }
@@ -1688,11 +1823,23 @@
     if (state.mode === "fast") {
       r = AC.fastResult(ui.gas.value, ui.eta.value, state.threshold);
     } else {
-      var gkStatus = AC.priceStatus(ui.gasKmL.value);
-      var ekStatus = AC.priceStatus(ui.etaKmL.value);
-      setHint(ui.gasKmL, ui.gasKmLHint, gkStatus, "Consumo com gasolina", "12,0");
-      setHint(ui.etaKmL, ui.etaKmLHint, ekStatus, "Consumo com etanol", "8,6");
-      r = AC.preciseResult(ui.gas.value, ui.eta.value, ui.gasKmL.value, ui.etaKmL.value);
+      var gCityStatus = AC.priceStatus(ui.gasKmL.value);
+      var gRoadStatus = AC.priceStatus(ui.gasRoadKmL.value);
+      var eCityStatus = AC.priceStatus(ui.etaKmL.value);
+      var eRoadStatus = AC.priceStatus(ui.etaRoadKmL.value);
+      setHint(ui.gasKmL, ui.gasKmLHint, gCityStatus, "Consumo com gasolina na cidade", "12,0");
+      setHint(ui.gasRoadKmL, ui.gasRoadKmLHint, gRoadStatus, "Consumo com gasolina na estrada", "14,5");
+      setHint(ui.etaKmL, ui.etaKmLHint, eCityStatus, "Consumo com etanol na cidade", "8,6");
+      setHint(ui.etaRoadKmL, ui.etaRoadKmLHint, eRoadStatus, "Consumo com etanol na estrada", "10,2");
+      var gkEfetivo = AC.weightedKmL(ui.gasKmL.value, ui.gasRoadKmL.value, ui.cityPct.value);
+      var ekEfetivo = AC.weightedKmL(ui.etaKmL.value, ui.etaRoadKmL.value, ui.cityPct.value);
+      if (ui.cityPctVal) ui.cityPctVal.textContent = Number(ui.cityPct.value || 70) + "%";
+      if (ui.kmLEffective) {
+        ui.kmLEffective.textContent = isFinite(gkEfetivo) && isFinite(ekEfetivo)
+          ? "Consumo médio considerado: gasolina " + AC.fmtNum(gkEfetivo, 1) + " km/L · etanol " + AC.fmtNum(ekEfetivo, 1) + " km/L."
+          : "";
+      }
+      r = AC.preciseResult(ui.gas.value, ui.eta.value, gkEfetivo, ekEfetivo);
     }
 
     state.lastResult = r;
@@ -1824,6 +1971,9 @@
   function applyVehicle(v) {
     ui.gasKmL.value = AC.toInputValue(v.gasKmL);
     ui.etaKmL.value = AC.toInputValue(v.etaKmL);
+    ui.gasRoadKmL.value = v.gasRoadKmL ? AC.toInputValue(v.gasRoadKmL) : "";
+    ui.etaRoadKmL.value = v.etaRoadKmL ? AC.toInputValue(v.etaRoadKmL) : "";
+    if (ui.cityPct) ui.cityPct.value = String(isFinite(v.cityPct) ? v.cityPct : 70);
     ui.vehName.value = v.name || "";
     state.activeId = v.id;
     refreshVehicleSelect();
@@ -1847,24 +1997,43 @@
   });
 
   function saveVehicle() {
-    var gk = AC.parseKmL(ui.gasKmL.value);
-    var ek = AC.parseKmL(ui.etaKmL.value);
+    var gCity = AC.parseKmL(ui.gasKmL.value);
+    var gRoad = AC.parseKmL(ui.gasRoadKmL.value);
+    var eCity = AC.parseKmL(ui.etaKmL.value);
+    var eRoad = AC.parseKmL(ui.etaRoadKmL.value);
+    var gk = AC.weightedKmL(ui.gasKmL.value, ui.gasRoadKmL.value, ui.cityPct.value);
+    var ek = AC.weightedKmL(ui.etaKmL.value, ui.etaRoadKmL.value, ui.cityPct.value);
     if (!isFinite(gk) || !isFinite(ek)) {
-      toast("Informe os consumos em km/L (entre 0,5 e 60)");
-      (isFinite(gk) ? ui.etaKmL : ui.gasKmL).focus();
+      toast("Informe o consumo na cidade e/ou na estrada (0,5 a 60 km/L)");
+      var alvo = !isFinite(gk)
+        ? (isFinite(gCity) ? ui.gasRoadKmL : ui.gasKmL)
+        : (isFinite(eCity) ? ui.etaRoadKmL : ui.etaKmL);
+      if (alvo && alvo.focus) alvo.focus();
       return;
     }
     if (ek >= gk * 1.001) {
       toast("Consumo com etanol maior que com gasolina — confira os valores");
     }
     var name = (ui.vehName.value || "").trim().slice(0, 30) || "Meu carro";
+    var dados = {
+      name: name,
+      gasKmL: isFinite(gCity) ? gCity : gRoad,
+      etaKmL: isFinite(eCity) ? eCity : eRoad,
+      gasRoadKmL: isFinite(gRoad) ? gRoad : null,
+      etaRoadKmL: isFinite(eRoad) ? eRoad : null,
+      cityPct: Number(ui.cityPct.value || 70)
+    };
     var existing = activeVehicle();
     if (existing) {
-      existing.name = name;
-      existing.gasKmL = gk;
-      existing.etaKmL = ek;
+      existing.name = dados.name;
+      existing.gasKmL = dados.gasKmL;
+      existing.etaKmL = dados.etaKmL;
+      existing.gasRoadKmL = dados.gasRoadKmL;
+      existing.etaRoadKmL = dados.etaRoadKmL;
+      existing.cityPct = dados.cityPct;
     } else {
-      var v = { id: newId(), name: name, gasKmL: gk, etaKmL: ek };
+      var v = { id: newId() };
+      for (var k in dados) v[k] = dados[k];
       state.vehicles.push(v);
       state.activeId = v.id;
     }
@@ -1889,13 +2058,20 @@
 
   ui.vehSave.addEventListener("click", saveVehicle);
   ui.vehDelete.addEventListener("click", deleteVehicle);
-  [ui.gasKmL, ui.etaKmL].forEach(function (input) {
+  [ui.gasKmL, ui.etaKmL, ui.gasRoadKmL, ui.etaRoadKmL].forEach(function (input) {
     input.addEventListener("input", function () {
       updatePresets();
       render();
       saveState();
     });
   });
+  if (ui.cityPct) {
+    ui.cityPct.addEventListener("input", function () {
+      updatePresets();
+      render();
+      saveState();
+    });
+  }
   ui.vehName.addEventListener("input", saveState);
 
   // km por mês: custo mensal estimado no modo preciso
@@ -2531,6 +2707,137 @@
     });
   }
 
+  // ---------------------------------------------------------------- diário de abastecimentos (v4.5)
+  var FILLS_KEY = "ac.v4.fills";
+  var FILLS_MAX = 80;
+  var fills = [];
+
+  function loadFills() {
+    var arr = null;
+    try { arr = JSON.parse(safeGet(FILLS_KEY) || "[]"); } catch (e) { arr = null; }
+    fills = Array.isArray(arr) ? arr.filter(function (f) {
+      return f && (f.fuel === "gasolina" || f.fuel === "etanol")
+        && isFinite(f.liters) && f.liters > 0 && f.liters <= 200
+        && isFinite(f.km) && f.km > 0 && f.km <= 3000
+        && isFinite(f.ts);
+    }).map(function (f) {
+      return {
+        id: typeof f.id === "string" ? f.id.slice(0, 20) : "f" + Math.random().toString(36).slice(2, 8),
+        fuel: f.fuel,
+        liters: Number(f.liters),
+        km: Number(f.km),
+        ts: Number(f.ts)
+      };
+    }).slice(-FILLS_MAX) : [];
+  }
+
+  function persistFills() {
+    safeSet(FILLS_KEY, JSON.stringify(fills.slice(-FILLS_MAX)));
+  }
+
+  function renderFills() {
+    if (!ui.fillList) return;
+    var g = AC.averageConsumption(fills, "gasolina");
+    var e = AC.averageConsumption(fills, "etanol");
+    var partes = [];
+    if (g) {
+      partes.push("Gasolina " + AC.fmtNum(g.kmL, 1) + " km/L ("
+        + g.entries + " " + (g.entries === 1 ? "abastecimento" : "abastecimentos") + ")");
+    }
+    if (e) {
+      partes.push("Etanol " + AC.fmtNum(e.kmL, 1) + " km/L ("
+        + e.entries + " " + (e.entries === 1 ? "abastecimento" : "abastecimentos") + ")");
+    }
+    ui.fillSummary.textContent = partes.length
+      ? "Consumo real: " + partes.join(" · ") + "."
+      : "Sem abastecimentos registrados.";
+    if (ui.fillCount) ui.fillCount.textContent = String(fills.length);
+    if (ui.fillUse) ui.fillUse.disabled = !g && !e;
+    if (ui.fillClear) ui.fillClear.disabled = fills.length === 0;
+    ui.fillList.innerHTML = fills.slice().reverse().map(function (f) {
+      var kmL = f.km / f.liters;
+      return '<li class="station-item">'
+        + '<span class="station-name">' + (f.fuel === "etanol" ? "Etanol" : "Gasolina") + "</span>"
+        + '<span class="station-prices">' + AC.fmtNum(f.liters, 1) + " L · " + AC.fmtNum(f.km, 0) + " km</span>"
+        + '<span class="station-idx">' + AC.fmtNum(kmL, 1) + " km/L</span>"
+        + '<span class="station-actions">'
+        + '<button type="button" class="btn danger" data-fill="del" data-fid="' + escapeHtml(f.id) + '">Excluir</button>'
+        + "</span>"
+        + '<span class="hist-when">' + AC.fmtDateTime(f.ts) + "</span>"
+        + "</li>";
+    }).join("");
+  }
+
+  function saveFill() {
+    var fuel = ui.fillFuel.value === "etanol" ? "etanol" : "gasolina";
+    var liters = AC.parseNumber(ui.fillLiters.value);
+    var km = AC.parseNumber(ui.fillKm.value);
+    if (!isFinite(liters) || liters <= 0 || liters > 200) {
+      toast("Informe os litros abastecidos (até 200 L)");
+      if (ui.fillLiters.focus) ui.fillLiters.focus();
+      return;
+    }
+    if (!isFinite(km) || km <= 0 || km > 3000) {
+      toast("Informe os km rodados desde o último abastecimento (até 3.000 km)");
+      if (ui.fillKm.focus) ui.fillKm.focus();
+      return;
+    }
+    fills.push({
+      id: "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+      fuel: fuel,
+      liters: liters,
+      km: km,
+      ts: Date.now()
+    });
+    if (fills.length > FILLS_MAX) fills = fills.slice(-FILLS_MAX);
+    persistFills();
+    renderFills();
+    ui.fillLiters.value = "";
+    ui.fillKm.value = "";
+    toast("Abastecimento salvo");
+  }
+
+  function deleteFill(id) {
+    fills = fills.filter(function (f) { return f.id !== id; });
+    persistFills();
+    renderFills();
+    toast("Abastecimento removido");
+  }
+
+  function clearFills() {
+    fills = [];
+    persistFills();
+    renderFills();
+    toast("Diário limpo");
+  }
+
+  function useFillConsumption() {
+    var g = AC.averageConsumption(fills, "gasolina");
+    var e = AC.averageConsumption(fills, "etanol");
+    if (!g && !e) { toast("Registre pelo menos um abastecimento"); return; }
+    if (g) {
+      ui.gasKmL.value = AC.toInputValue(g.kmL);
+      ui.gasRoadKmL.value = AC.toInputValue(g.kmL);
+    }
+    if (e) {
+      ui.etaKmL.value = AC.toInputValue(e.kmL);
+      ui.etaRoadKmL.value = AC.toInputValue(e.kmL);
+    }
+    updatePresets();
+    render();
+    saveState();
+    toast("Consumo real aplicado ao modo preciso");
+  }
+
+  if (ui.fillSave) ui.fillSave.addEventListener("click", saveFill);
+  if (ui.fillUse) ui.fillUse.addEventListener("click", useFillConsumption);
+  if (ui.fillClear) ui.fillClear.addEventListener("click", clearFills);
+  if (ui.fillList) ui.fillList.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest("[data-fill]") : null;
+    if (!btn) return;
+    deleteFill(btn.getAttribute("data-fid"));
+  });
+
   // ---------------------------------------------------------------- histórico (v3)
   var HIST_KEY = "ac.v3.history";
   var HIST_MAX = 50;
@@ -2744,11 +3051,16 @@
   renderHistory();
   loadStations();
   renderStations();
+  loadFills();
+  renderFills();
   loadPrices();
   var active = activeVehicle();
   if (active) {
     ui.gasKmL.value = AC.toInputValue(active.gasKmL);
     ui.etaKmL.value = AC.toInputValue(active.etaKmL);
+    ui.gasRoadKmL.value = active.gasRoadKmL ? AC.toInputValue(active.gasRoadKmL) : "";
+    ui.etaRoadKmL.value = active.etaRoadKmL ? AC.toInputValue(active.etaRoadKmL) : "";
+    if (ui.cityPct) ui.cityPct.value = String(isFinite(active.cityPct) ? active.cityPct : 70);
     ui.vehName.value = active.name || "";
   }
   setMode(state.mode, false);

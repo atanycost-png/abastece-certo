@@ -332,8 +332,8 @@ check("diferença do empate é arredondada (sem ruído de float)", () => {
 
 // ------------------------------------------------------- orçamento de tamanho
 section("Orçamento de tamanho");
-check("index.html permanece autocontido (< 120 KB)", () => {
-  assert(sizeOf("index.html") < 120 * 1024, `index.html tem ${kb("index.html")}`);
+check("index.html permanece autocontido (< 150 KB, ~35 KB gzip)", () => {
+  assert(sizeOf("index.html") < 150 * 1024, `index.html tem ${kb("index.html")}`);
 });
 check("sw.js pequeno (< 20 KB)", () => {
   assert(sizeOf("sw.js") < 20 * 1024, `sw.js tem ${kb("sw.js")}`);

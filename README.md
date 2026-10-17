@@ -22,6 +22,7 @@ e guarda um **histórico local** dos seus cálculos com gráfico e exportação 
   <img src="screenshots/02-rapido-resultado.png" alt="Modo rápido no tema escuro: índice 67,7% e veredito de etanol" width="270">
   <img src="screenshots/03-preciso-resultado.png" alt="Modo preciso no tema escuro: economia por 100 km" width="270">
   <img src="screenshots/11-custo-mensal.png" alt="Custo mensal estimado a partir dos km rodados por mês" width="270">
+  <img src="screenshots/14-consumo-real.png" alt="Consumo cidade/estrada, diário de abastecimentos e consumo real aplicado" width="270">
   <img src="screenshots/13-postos-proximos.png" alt="Postos próximos via OpenStreetMap com distância e atalho para o mapa" width="270">
   <img src="screenshots/09-tema-claro.png" alt="Tema claro (opcional) do app" width="270">
 </p>
@@ -34,6 +35,8 @@ e guarda um **histórico local** dos seus cálculos com gráfico e exportação 
 - **Meus postos** — salve o preço que você viu no posto (nome + gasolina + etanol) e toque em “Usar” para preencher os dois campos com um toque; tudo fica no aparelho (até 15 postos).
 - **Postos perto de mim** — com um toque, usa a sua localização (só na hora, nada é guardado) e lista os postos num raio de 2 km via **OpenStreetMap**; dá para abrir no Google Maps ou copiar o nome para salvar o preço. Sem rede ou sem permissão, cai para o link do Google Maps.
 - **Custo mensal estimado** — informe quantos km você roda por mês no modo preciso e veja o gasto mensal com o combustível vencedor.
+- **Consumo cidade/estrada** — informe o km/L na cidade e na estrada para cada combustível e ajuste quanto você roda na cidade (padrão 70%); a média é harmônica e o limite pessoal sai do consumo ponderado.
+- **Diário de abastecimentos** — registre litros e km rodados desde o último abastecimento, veja o km/L de cada registro e o consumo real por combustível; com um toque o app joga a média no modo preciso.
 - **Histórico local** — salve cálculos (com o veículo usado), veja a evolução do índice num gráfico próprio (SVG) e exporte em CSV compatível com Excel.
 - **Compartilhar resultado ou imagem** — texto pela folha de compartilhamento (ou cópia) e cartão PNG gerado no próprio aparelho para mandar no WhatsApp.
 - **Instalação assistida** — quando o navegador permite, aparece o botão **Instalar app**; no iPhone ele ensina o caminho (*Compartilhar → Adicionar à Tela de Início*).

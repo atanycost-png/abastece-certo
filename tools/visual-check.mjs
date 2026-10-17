@@ -787,6 +787,48 @@ async function main() {
       }
     }
 
+    // ---- 18. consumo ponderado cidade/estrada + diário de abastecimentos
+    console.log("18) consumo cidade/estrada + diário de abastecimentos");
+    const consumo = await page.eval(`(() => {
+      const set = (id, v) => {
+        const el = document.getElementById(id);
+        el.value = v;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      document.getElementById('tab-precise').click();
+      const details = document.getElementById('fillDetails');
+      if (details) details.open = true;
+      set('gasKmL', '10');
+      set('gasRoadKmL', '14');
+      set('etaKmL', '7');
+      set('etaRoadKmL', '10');
+      const pct = document.getElementById('cityPct');
+      pct.value = '60';
+      pct.dispatchEvent(new Event('input', { bubbles: true }));
+      set('fillLiters', '30');
+      set('fillKm', '360');
+      document.getElementById('fillSave').click();
+      set('fillLiters', '20');
+      set('fillKm', '260');
+      document.getElementById('fillSave').click();
+      const summary = document.getElementById('fillSummary').textContent;
+      const effective = document.getElementById('kmLEffective').textContent;
+      document.getElementById('fillUse').click();
+      return {
+        summary,
+        effective,
+        gasKmL: document.getElementById('gasKmL').value,
+        gasRoad: document.getElementById('gasRoadKmL').value,
+        count: document.getElementById('fillCount').textContent
+      };
+    })()`);
+    console.log(`   ${JSON.stringify(consumo)}`);
+    if (!/12,4 km\/L/.test(consumo.summary)) errors.push(`diário não calculou 12,4 km/L: ${consumo.summary}`);
+    if (!/Consumo médio considerado/.test(consumo.effective)) errors.push("consumo ponderado não exibido");
+    if (consumo.gasKmL !== "12,4") errors.push(`consumo real não aplicado: ${consumo.gasKmL}`);
+    await new Promise((r) => setTimeout(r, 300));
+    await page.shot("14-consumo-real");
+
     try { await cdp.send("Browser.close"); } catch { /* fecha junto com o WS */ }
     cdp.close();
   } finally {

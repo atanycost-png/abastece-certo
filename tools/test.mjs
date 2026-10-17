@@ -504,6 +504,33 @@ test("parseOverpassStations ordena por distância e descarta inválidos", () => 
   eq(AC.parseOverpassStations({ elements: [] }, 0, 0).length, 0);
   eq(AC.parseOverpassStations({ elements: [{ lat: 1 }] }, 1, 1).length, 0);
 });
+test("weightedKmL usa média harmônica cidade/estrada", () => {
+  close(AC.weightedKmL(10, 14, 100), 10, 1e-9, "100% cidade = cidade");
+  close(AC.weightedKmL(10, 14, 0), 14, 1e-9, "0% cidade = estrada");
+  close(AC.weightedKmL(10, 14, 50), 1 / (0.5 / 10 + 0.5 / 14), 1e-9);
+  close(AC.weightedKmL("10,5", "", 70), 10.5, 1e-9, "só cidade vale para os dois");
+  close(AC.weightedKmL("", "14,5", 70), 14.5, 1e-9, "só estrada vale para os dois");
+  ok(Number.isNaN(AC.weightedKmL("", "", 70)));
+  ok(Number.isNaN(AC.weightedKmL("abc", "xyz", 70)));
+});
+test("averageConsumption soma litros e km por combustível", () => {
+  const diario = [
+    { fuel: "gasolina", liters: 30, km: 360 },
+    { fuel: "gasolina", liters: 20, km: 260 },
+    { fuel: "etanol", liters: 10, km: 80 },
+    { fuel: "gasolina", liters: 0, km: 100 },
+    { fuel: "gasolina", liters: 10, km: 0 },
+    { fuel: "diesel", liters: 10, km: 100 }
+  ];
+  const g = AC.averageConsumption(diario, "gasolina");
+  close(g.kmL, 620 / 50, 1e-9);
+  eq(g.entries, 2);
+  close(g.liters, 50, 1e-9);
+  close(AC.averageConsumption(diario, "etanol").kmL, 8, 1e-9);
+  isNull(AC.averageConsumption([], "gasolina"));
+  isNull(AC.averageConsumption(null, "gasolina"));
+  isNull(AC.averageConsumption([{ fuel: "gasolina", liters: 10, km: 1 }], "gasolina"), "consumo implausível é descartado");
+});
 test("formatWeek formata mesma semana e virada de mês", () => {
   eq(AC.formatWeek({ inicio: "2026-10-04", fim: "2026-10-10" }), "04\u201310/10/2026");
   eq(AC.formatWeek({ inicio: "2026-09-27", fim: "2026-10-03" }), "27/09/2026\u201303/10/2026");

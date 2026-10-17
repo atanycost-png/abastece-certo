@@ -248,13 +248,19 @@
   .warn ul { margin: 0 0 0 16px; }
   .warn li { margin: 2px 0; }
 
-  .ref-actions { display: flex; gap: 8px; margin-top: 10px; align-items: stretch; }
+  .ref-actions { display: flex; gap: 8px; margin-top: 6px; align-items: stretch; }
   .ref-actions select {
     flex: 1; min-height: 44px; font-family: inherit; font-size: 14px; font-weight: 600;
     color: var(--text); background: var(--card-2); border: 1px solid var(--border-ctrl);
     border-radius: 10px; padding: 8px 10px; -webkit-appearance: none; appearance: none; cursor: pointer;
   }
   .ref-actions .btn { flex: none; font-size: 13px; }
+  .ref-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+  .ref-title strong { font-weight: 700; }
+  .ref-label { display: block; font-size: 12px; color: var(--muted); margin: 8px 0 6px; }
+  .ref-values { font-size: 13px; color: var(--muted); margin-top: 10px; line-height: 1.5; }
+  .ref-values strong { color: var(--text); font-variant-numeric: tabular-nums; }
+  .ref-note { font-size: 11px; }
 
   .pill {
     display: inline-block; min-width: 22px; padding: 1px 7px; border-radius: 999px;
@@ -1513,20 +1519,20 @@
     var week = AC.formatWeek(p.semana);
     var ufs = Object.keys(p.estados).sort();
 
-    var opts = '<option value="">Brasil</option>';
+    var opts = '<option value="">Brasil (média nacional)</option>';
     for (var i = 0; i < ufs.length; i++) {
       opts += '<option value="' + ufs[i] + '"' + (ufs[i] === uf ? " selected" : "") + ">" + ufs[i] + "</option>";
     }
 
     ui.priceRef.innerHTML =
-      '<p class="fineprint">Referência ANP' + (week ? " · semana <strong>" + week + "</strong>" : "") +
-      " · <strong>" + (uf || "Brasil") + "</strong>: gasolina <strong>" + AC.fmtBRL(values.gasolina) +
-      "</strong> · etanol <strong>" + AC.fmtBRL(values.etanol) + "</strong>.</p>" +
+      '<p class="ref-title">Referência ANP' + (week ? ' · semana <strong>' + week + "</strong>" : "") + "</p>" +
+      '<label class="ref-label" for="refUf">Média oficial por estado</label>' +
       '<div class="ref-actions">' +
-      '<label class="sr-only" for="refUf">Estado da referência ANP</label>' +
       '<select id="refUf">' + opts + "</select>" +
-      '<button type="button" class="btn ghost" id="refUse">Usar médias</button>' +
-      "</div>";
+      '<button type="button" class="btn ghost" id="refUse">Preencher preços</button>' +
+      "</div>" +
+      '<p class="ref-values">Gasolina <strong>' + AC.fmtBRL(values.gasolina) + "/L</strong> · Etanol <strong>"
+        + AC.fmtBRL(values.etanol) + "/L</strong> · <span class=\"ref-note\">toque em “Preencher preços” para usar</span></p>";
   }
 
   function useRefPrices() {

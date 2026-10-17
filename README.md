@@ -13,6 +13,9 @@ Nada de cadastro, servidor ou conta: tudo roda no aparelho e continua funcionand
 O app traz **médias semanais oficiais da ANP** (Brasil e por estado) para preencher os preços com um toque,
 e guarda um **histórico local** dos seus cálculos com gráfico e exportação em CSV.
 
+**Ao vivo:** <https://atanycost-png.github.io/abastece-certo/> · **Código:** <https://github.com/atanycost-png/abastece-certo>
+(A versão publicada atualiza os preços da ANP sozinha, toda semana, via GitHub Action.)
+
 <p>
   <img src="screenshots/02-rapido-resultado.png" alt="Modo rápido: índice 67,7% e veredito de etanol" width="300">
   <img src="screenshots/03-preciso-resultado.png" alt="Modo preciso: economia de R$ 1,44 a cada 100 km" width="300">
@@ -99,6 +102,7 @@ limite pessoal 71,7% · gasolina R$ 54,50/100 km · etanol R$ 48,14/100 km · **
 | `index.html` | **O app inteiro.** HTML + CSS + JS embutidos, sem dependências. Inclui o bloco `CORE-START/CORE-END` com a lógica pura. |
 | `sw.js` | Service worker (offline + atualização). |
 | `manifest.webmanifest` | Manifesto de instalação PWA (com ícones e screenshots). |
+| `DESIGN.md` | Contrato de design (cores, tipografia, anti-metas e contratos do DOM) — guia qualquer redesign. |
 | `precos.json` | Médias semanais da ANP (Brasil + UF), geradas por script. |
 | `icons/` | Ícones PNG 192, 512, maskable e apple-touch-icon + `favicon.svg`. |
 | `screenshots/` | Capturas usadas no README e no manifest (`install-*` têm tamanho fixo). |
@@ -128,6 +132,7 @@ node tools/test-prices.mjs   # testes do pipeline de preços da ANP
 node tools/check.mjs         # checagens do pacote (manifesto, SW, ARIA, tamanho)
 node tools/serve.mjs         # servidor local em http://localhost:5173
 node tools/visual-check.mjs  # screenshots + erros de console no Edge headless
+node tools/live-check.mjs    # confere o app PUBLICADO (manifest, SW, offline)
 node tools/update-prices.mjs # atualiza precos.json a partir da ANP
 ```
 

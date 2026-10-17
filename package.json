@@ -10,6 +10,7 @@
     "check": "node tools/check.mjs",
     "serve": "node tools/serve.mjs",
     "visual": "node tools/visual-check.mjs",
+    "live": "node tools/live-check.mjs",
     "icons": "python tools/make-icons.py",
     "prices": "node tools/update-prices.mjs"
   },

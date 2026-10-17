@@ -44,6 +44,7 @@
     background: radial-gradient(1200px 800px at 20% -10%, #132046 0%, var(--bg) 55%);
     color: var(--text);
     min-height: 100vh;
+    min-height: 100dvh;   /* barra de endereço móvel não corta o layout */
     line-height: 1.5;
     padding: env(safe-area-inset-top) 16px calc(env(safe-area-inset-bottom) + 24px);
     -webkit-font-smoothing: antialiased;
@@ -145,18 +146,29 @@
   .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 10px; white-space: nowrap; }
 
   input[type=range] {
-    width: 100%; -webkit-appearance: none; appearance: none; height: 6px;
-    border-radius: 6px; background: linear-gradient(90deg, var(--green), var(--blue));
-    outline: none; cursor: pointer;
+    width: 100%; -webkit-appearance: none; appearance: none;
+    height: 34px; background: transparent; cursor: pointer; outline: none;
+  }
+  input[type=range]::-webkit-slider-runnable-track {
+    height: 6px; border-radius: 6px;
+    background: linear-gradient(90deg, var(--green), var(--blue));
+  }
+  input[type=range]::-moz-range-track {
+    height: 6px; border-radius: 6px;
+    background: linear-gradient(90deg, var(--green), var(--blue));
   }
   input[type=range]::-webkit-slider-thumb {
     -webkit-appearance: none; appearance: none; width: 24px; height: 24px;
     border-radius: 50%; background: #fff; border: 3px solid var(--card);
     box-shadow: 0 2px 8px rgba(0,0,0,.4); cursor: pointer;
+    margin-top: -9px;   /* centraliza o thumb (24px) no trilho (6px) */
   }
   input[type=range]::-moz-range-thumb {
-    width: 22px; height: 22px; border-radius: 50%; background: #fff;
+    width: 18px; height: 18px; border-radius: 50%; background: #fff;
     border: 3px solid var(--card); box-shadow: 0 2px 8px rgba(0,0,0,.4); cursor: pointer;
+  }
+  input[type=range]:focus-visible {
+    outline: 2px solid var(--blue-soft); outline-offset: 4px; border-radius: 10px;
   }
   .scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 6px; }
 
@@ -236,13 +248,13 @@
   .warn ul { margin: 0 0 0 16px; }
   .warn li { margin: 2px 0; }
   .actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
-  .actions .btn { font-size: 13px; min-height: 40px; padding: 9px 14px; }
+  .actions .btn { font-size: 13px; min-height: 44px; padding: 9px 14px; }
 
   .why summary {
     cursor: pointer; list-style: none; font-size: 13px; font-weight: 600;
     text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
     display: flex; align-items: center; justify-content: space-between; gap: 10px;
-    min-height: 28px;
+    min-height: 40px;
   }
   .why summary::-webkit-details-marker { display: none; }
   .why summary::after { content: "＋"; font-size: 16px; transition: transform .2s; flex: none; }
@@ -269,6 +281,8 @@
     opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 50;
   }
   .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  /* quando a barra de atualização aparece, sobe o toast para não sobrepor */
+  body.has-update .toast { bottom: calc(88px + env(safe-area-inset-bottom)); }
   .update-bar {
     position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
     transform: translateX(-50%); z-index: 60;
@@ -277,7 +291,7 @@
     background: #1b2540; border: 1px solid var(--border-strong);
     box-shadow: 0 10px 30px rgba(0,0,0,.5); font-size: 13px; font-weight: 600;
   }
-  .update-bar .btn { min-height: 34px; padding: 6px 12px; font-size: 12px; }
+  .update-bar .btn { min-height: 40px; padding: 8px 12px; font-size: 12px; }
 
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
@@ -360,7 +374,7 @@
       <button type="button" id="presetCar" hidden></button>
     </div>
     <label for="threshold" class="sr-only">Limite de decisão (porcentagem)</label>
-    <input id="threshold" type="range" min="55" max="85" step="0.5" value="72" aria-describedby="thresholdHelp">
+    <input id="threshold" type="range" min="55" max="85" step="0.1" value="72" aria-describedby="thresholdHelp">
     <div class="scale" aria-hidden="true"><span>55%</span><span>70%</span><span>85%</span></div>
     <p class="fineprint" id="thresholdHelp">Se o etanol custar até esse percentual do preço da gasolina, ele compensa. A gasolina comum/aditivada é <strong>E32</strong> desde ago/2026 → use <strong>72%</strong> (faixa 71–73%); a <strong>premium</strong> segue <strong>E25</strong> → use <strong>70%</strong>. Com o carro salvo no modo preciso, vale o limite pessoal.</p>
   </section>
@@ -409,6 +423,7 @@
     <div id="resultOut"></div>
   </section>
   <p class="sr-only" id="live" role="status" aria-live="polite"></p>
+  <p class="sr-only" id="liveForm" role="status" aria-live="polite"></p>
 
   <section class="card why">
     <details>
@@ -462,7 +477,7 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
-<div class="update-bar" id="updateBar" hidden>
+<div class="update-bar" id="updateBar" role="status" aria-live="polite" hidden>
   <span>Nova versão disponível</span>
   <button type="button" class="btn" id="updateBtn">Atualizar</button>
 </div>
@@ -538,7 +553,15 @@
       } else if (lastComma >= 0) {
         s = s.replace(",", ".");
       } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
-        s = s.replace(/\./g, "");
+        // Ambíguo: "5.899" pode ser 5.899 (três casas) ou 5899 (milhar).
+        // Se a leitura como milhar é implausível para preço/consumo e a
+        // leitura decimal é plausível, fica a decimal (5,899).
+        var groups = s.split(".").length - 1;
+        var asThousands = Number(s.replace(/\./g, ""));
+        var asDecimal = Number(s);
+        if (!(groups === 1 && asThousands > 99.99 && asDecimal <= 99.99)) {
+          s = s.replace(/\./g, "");
+        }
       }
       if (!/^\d+(\.\d+)?$/.test(s)) return NaN;
       var n = Number(s);
@@ -550,10 +573,30 @@
       return (isFinite(n) && n > 0) ? n : NaN;
     }
 
+    // Limites duros: evitam que um erro de digitação ("500") gere veredito
+    // absurdo ou número gigante no card.
+    var MAX_PRICE = 99.99;   // R$/L — nenhum combustível chega perto disso
+    var MIN_KML = 0.5;       // km/L
+    var MAX_KML = 60;        // km/L
+
+    function parsePrice(raw) {
+      var n = parseNumber(raw);
+      return (isFinite(n) && n > 0 && n <= MAX_PRICE) ? n : NaN;
+    }
+
+    function parseKmL(raw) {
+      var n = parseNumber(raw);
+      return (isFinite(n) && n >= MIN_KML && n <= MAX_KML) ? n : NaN;
+    }
+
+    function isValidKmL(n) {
+      return typeof n === "number" && isFinite(n) && n >= MIN_KML && n <= MAX_KML;
+    }
+
     function priceStatus(raw) {
       var s = String(raw === null || raw === undefined ? "" : raw).trim();
       if (!s) return "empty";
-      return isFinite(parsePositive(s)) ? "ok" : "invalid";
+      return isFinite(parsePrice(s)) ? "ok" : "invalid";
     }
 
     function clamp(v, lo, hi) {
@@ -565,6 +608,12 @@
       return fmtNum(r, r % 1 === 0 ? 0 : 1) + "%";
     }
 
+    // Arredonda a diferença em p.p. para 9 casas: sem isso, fronteiras exatas
+    // (±0,5 p.p.) são decididas por ruído de ponto flutuante.
+    function roundPp(n) {
+      return Math.round(n * 1e9) / 1e9;
+    }
+
     // Valor para preencher o campo de texto sem perder precisão (10.5 -> "10,5", 10 -> "10").
     function toInputValue(n) {
       if (typeof n !== "number" || !isFinite(n)) return "";
@@ -572,14 +621,14 @@
     }
 
     function fastResult(gasPrice, etaPrice, thresholdPct) {
-      var g = parsePositive(gasPrice);
-      var e = parsePositive(etaPrice);
+      var g = parsePrice(gasPrice);
+      var e = parsePrice(etaPrice);
       var t = Number(thresholdPct);
       if (!isFinite(g) || !isFinite(e) || !isFinite(t) || t <= 0) return null;
 
       var ratio = e / g;
       var pct = ratio * 100;
-      var diffPp = pct - t;
+      var diffPp = roundPp(pct - t);
       var verdict = Math.abs(diffPp) < EPS_PP
         ? "empate"
         : (diffPp < 0 ? "etanol" : "gasolina");
@@ -598,17 +647,17 @@
     }
 
     function preciseResult(gasPrice, etaPrice, gasKmL, etaKmL) {
-      var g = parsePositive(gasPrice);
-      var e = parsePositive(etaPrice);
-      var gk = parsePositive(gasKmL);
-      var ek = parsePositive(etaKmL);
+      var g = parsePrice(gasPrice);
+      var e = parsePrice(etaPrice);
+      var gk = parseKmL(gasKmL);
+      var ek = parseKmL(etaKmL);
       if (!isFinite(g) || !isFinite(e) || !isFinite(gk) || !isFinite(ek)) return null;
 
       var priceRatio = e / g;
       var personalRatio = ek / gk;
       var pct = priceRatio * 100;
       var personalPct = personalRatio * 100;
-      var diffPp = pct - personalPct;
+      var diffPp = roundPp(pct - personalPct);
       var verdict = Math.abs(diffPp) < EPS_PP
         ? "empate"
         : (diffPp < 0 ? "etanol" : "gasolina");
@@ -682,8 +731,8 @@
       if (r.mode === "precise") {
         var cr = r.etaKmL / r.gasKmL;
         if (cr < 0.55 || cr > 0.85) {
-          out.push("Consumos inconsistentes: com etanol o carro costuma rodar 65–80% do que roda com gasolina (aqui é "
-            + fmtNum(cr * 100, 0) + "%).");
+          out.push("Consumos inconsistentes: a razão etanol/gasolina ficou em " + fmtNum(cr * 100, 0)
+            + "% (o normal é 65–80%).");
         }
       }
       return out;
@@ -709,6 +758,13 @@
       LABELS: LABELS,
       parseNumber: parseNumber,
       parsePositive: parsePositive,
+      parsePrice: parsePrice,
+      parseKmL: parseKmL,
+      isValidKmL: isValidKmL,
+      MAX_PRICE: MAX_PRICE,
+      MIN_KML: MIN_KML,
+      MAX_KML: MAX_KML,
+      roundPp: roundPp,
       priceStatus: priceStatus,
       fmtNum: fmtNum,
       fmtBRL: fmtBRL,
@@ -740,7 +796,7 @@
     gasKmL: $("gasKmL"), etaKmL: $("etaKmL"),
     gasKmLHint: $("gasKmLHint"), etaKmLHint: $("etaKmLHint"),
     vehSave: $("vehSave"), vehDelete: $("vehDelete"),
-    resultOut: $("resultOut"), live: $("live"),
+    resultOut: $("resultOut"), live: $("live"), liveForm: $("liveForm"),
     toast: $("toast"), netBadge: $("netBadge"),
     updateBar: $("updateBar"), updateBtn: $("updateBtn")
   };
@@ -764,28 +820,41 @@
     try { localStorage.setItem(k, v); } catch (e) { /* modo privado/quota */ }
   }
 
+  function thresholdFrom(v) {
+    var n = typeof v === "number" ? v : parseFloat(v);
+    return (isFinite(n) && n >= 55 && n <= 85) ? n : 72;
+  }
+
   function loadState() {
     var raw = safeGet(KEY);
     var data = null;
     if (raw) {
       try { data = JSON.parse(raw); } catch (e) { data = null; }
     }
+    state.migrationNote = "";
     if (!data || typeof data !== "object") {
-      // migração da v1 (chaves soltas) — uma única vez, sem apagar nada
+      // Migração da v1 (chaves soltas) — uma única vez, sem apagar nada.
+      // A v1 usava 70% (E30/E25); com a gasolina E32 a referência é 72%.
+      // Preservamos apenas um limite que o usuário claramente personalizou.
+      var v1t = Number(safeGet(V1_THRESHOLD));
+      var hadV1 = safeGet(V1_GAS) !== null || safeGet(V1_ETA) !== null || safeGet(V1_THRESHOLD) !== null;
+      var keep = (isFinite(v1t) && v1t > 0 && v1t !== 70) ? v1t : 72;
       data = {
         mode: "fast",
-        threshold: Number(safeGet(V1_THRESHOLD)) || 72,
+        threshold: keep,
         gas: safeGet(V1_GAS) || "",
         eta: safeGet(V1_ETA) || "",
         gasKmL: "", etaKmL: "", vehName: "",
         vehicles: [], activeId: null
       };
+      if (hadV1) {
+        state.migrationNote = "Limite atualizado para 72%: a gasolina comum agora é E32. Ajuste no controle se quiser.";
+      }
     }
     state.mode = data.mode === "precise" ? "precise" : "fast";
-    var t = Number(data.threshold);
-    state.threshold = isFinite(t) ? Math.min(85, Math.max(55, t)) : 72;
+    state.threshold = thresholdFrom(data.threshold);
     state.vehicles = Array.isArray(data.vehicles) ? data.vehicles.filter(function (v) {
-      return v && typeof v.id === "string" && AC.parsePositive(v.gasKmL) > 0 && AC.parsePositive(v.etaKmL) > 0;
+      return v && typeof v.id === "string" && AC.isValidKmL(v.gasKmL) && AC.isValidKmL(v.etaKmL);
     }).slice(0, 20) : [];
     state.activeId = typeof data.activeId === "string" ? data.activeId : null;
     if (state.activeId && !state.vehicles.some(function (v) { return v.id === state.activeId; })) {
@@ -816,16 +885,33 @@
 
   // ---------------------------------------------------------------- helpers
   var toastTimer = null;
-  function toast(msg) {
+  function toast(msg, ms) {
     ui.toast.textContent = msg;
     ui.toast.classList.add("show");
     clearTimeout(toastTimer);
-    toastTimer = setTimeout(function () { ui.toast.classList.remove("show"); }, 2200);
+    toastTimer = setTimeout(function () { ui.toast.classList.remove("show"); }, ms || 2400);
   }
 
-  function setHint(input, hintEl, status) {
+  // Região viva dedicada a mensagens de formulário (erro de campo, update).
+  function announceTo(node, text) {
+    if (!node) return;
+    node.textContent = "";
+    setTimeout(function () { node.textContent = text; }, 60);
+  }
+
+  function setHint(input, hintEl, status, name, example) {
     input.setAttribute("aria-invalid", status === "invalid" ? "true" : "false");
-    hintEl.textContent = status === "invalid" ? "Valor inválido — use, por exemplo, 5,89." : "";
+    hintEl.textContent = status === "invalid"
+      ? "Valor inválido — use, por exemplo, " + (example || "5,89") + "."
+      : "";
+    if (status === "invalid") {
+      if (input.getAttribute("data-warned") !== "1") {
+        input.setAttribute("data-warned", "1");
+        announceTo(ui.liveForm, name + ": valor inválido.");
+      }
+    } else {
+      input.removeAttribute("data-warned");
+    }
   }
 
   function announce(text) {
@@ -949,8 +1035,8 @@
   function render() {
     var gasStatus = AC.priceStatus(ui.gas.value);
     var etaStatus = AC.priceStatus(ui.eta.value);
-    setHint(ui.gas, ui.gasHint, gasStatus);
-    setHint(ui.eta, ui.etaHint, etaStatus);
+    setHint(ui.gas, ui.gasHint, gasStatus, "Gasolina", "6,54");
+    setHint(ui.eta, ui.etaHint, etaStatus, "Etanol", "4,14");
 
     var r = null;
     if (state.mode === "fast") {
@@ -958,8 +1044,8 @@
     } else {
       var gkStatus = AC.priceStatus(ui.gasKmL.value);
       var ekStatus = AC.priceStatus(ui.etaKmL.value);
-      setHint(ui.gasKmL, ui.gasKmLHint, gkStatus);
-      setHint(ui.etaKmL, ui.etaKmLHint, ekStatus);
+      setHint(ui.gasKmL, ui.gasKmLHint, gkStatus, "Consumo com gasolina", "12,0");
+      setHint(ui.etaKmL, ui.etaKmLHint, ekStatus, "Consumo com etanol", "8,6");
       r = AC.preciseResult(ui.gas.value, ui.eta.value, ui.gasKmL.value, ui.etaKmL.value);
     }
 
@@ -987,6 +1073,7 @@
   // ---------------------------------------------------------------- threshold / presets
   function updatePresets() {
     ui.thresholdVal.textContent = AC.pctLabel(state.threshold);
+    ui.threshold.setAttribute("aria-valuetext", AC.pctLabel(state.threshold) + " do preço da gasolina");
     var buttons = ui.presets.querySelectorAll("button[data-t]");
     for (var i = 0; i < buttons.length; i++) {
       var t = Number(buttons[i].getAttribute("data-t"));
@@ -996,9 +1083,12 @@
 
     var p = personalPct();
     if (isFinite(p) && p >= 55 && p <= 85) {
+      // Arredonda para a mesma precisão do slider (0,1) e mostra o valor que
+      // será realmente aplicado — antes o rótulo dizia 71,7% e aplicava 71,5%.
+      var rounded = Math.round(p * 10) / 10;
       ui.presetCar.hidden = false;
-      ui.presetCar.setAttribute("data-t", String(Math.round(p * 2) / 2));
-      ui.presetCar.innerHTML = AC.pctLabel(p) + '<small>seu carro</small>';
+      ui.presetCar.setAttribute("data-t", String(rounded));
+      ui.presetCar.innerHTML = AC.pctLabel(rounded) + "<small>seu carro</small>";
     } else {
       ui.presetCar.hidden = true;
     }
@@ -1068,7 +1158,7 @@
     for (var i = 0; i < state.vehicles.length; i++) {
       var v = state.vehicles[i];
       var sel = v.id === current ? ' selected' : '';
-      html += '<option value="' + v.id + '"' + sel + '>' + escapeHtml(v.name || "Meu carro") + '</option>';
+      html += '<option value="' + escapeHtml(v.id) + '"' + sel + '>' + escapeHtml(v.name || "Meu carro") + '</option>';
     }
     ui.vehicleSelect.innerHTML = html;
     ui.vehDelete.disabled = !state.activeId;
@@ -1110,10 +1200,10 @@
   });
 
   function saveVehicle() {
-    var gk = AC.parsePositive(ui.gasKmL.value);
-    var ek = AC.parsePositive(ui.etaKmL.value);
+    var gk = AC.parseKmL(ui.gasKmL.value);
+    var ek = AC.parseKmL(ui.etaKmL.value);
     if (!isFinite(gk) || !isFinite(ek)) {
-      toast("Informe os dois consumos (km/L) para salvar");
+      toast("Informe os consumos em km/L (entre 0,5 e 60)");
       (isFinite(gk) ? ui.etaKmL : ui.gasKmL).focus();
       return;
     }
@@ -1176,13 +1266,7 @@
     return ok;
   }
 
-  function share() {
-    if (!state.lastResult) return;
-    var text = AC.shareText(state.lastResult);
-    if (navigator.share) {
-      navigator.share({ title: "Abastece Certo", text: text }).catch(function () {});
-      return;
-    }
+  function copyText(text) {
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(text).then(function () {
         toast("Resultado copiado");
@@ -1192,6 +1276,19 @@
       return;
     }
     toast(fallbackCopy(text) ? "Resultado copiado" : "Não foi possível copiar");
+  }
+
+  function share() {
+    if (!state.lastResult) return;
+    var text = AC.shareText(state.lastResult);
+    if (navigator.share) {
+      navigator.share({ title: "Abastece Certo", text: text }).catch(function (err) {
+        if (err && err.name === "AbortError") return;   // usuário cancelou
+        copyText(text);                                  // share falhou: cai para cópia
+      });
+      return;
+    }
+    copyText(text);
   }
 
   ui.resultOut.addEventListener("click", function (e) {
@@ -1211,6 +1308,8 @@
   var refreshing = false;
   function showUpdate(reg) {
     ui.updateBar.hidden = false;
+    document.body.classList.add("has-update");
+    announceTo(ui.liveForm, "Nova versão disponível. Use o botão Atualizar.");
     ui.updateBtn.onclick = function () {
       if (reg && reg.waiting) {
         reg.waiting.postMessage({ type: "SKIP_WAITING" });
@@ -1236,7 +1335,11 @@
       }).catch(function () { /* offline/file:// sem SW */ });
     });
 
+    var hadController = !!navigator.serviceWorker.controller;
     navigator.serviceWorker.addEventListener("controllerchange", function () {
+      // Primeiro claim (primeira visita) NÃO recarrega a página: só faz sentido
+      // recarregar quando o usuário aceitou uma atualização.
+      if (!hadController) { hadController = true; return; }
       if (refreshing) return;
       refreshing = true;
       window.location.reload();
@@ -1245,6 +1348,20 @@
 
   // ---------------------------------------------------------------- init
   loadState();
+
+  // Atalhos do manifest: ./?modo=preciso ou ./?modo=rapido
+  try {
+    var params = new URLSearchParams(location.search);
+    var qsMode = params.get("modo");
+    if (qsMode === "preciso" || qsMode === "rapido") {
+      state.mode = qsMode === "preciso" ? "precise" : "fast";
+      // Remove o parâmetro da URL para não forçar o modo em todo reload.
+      params.delete("modo");
+      var rest = params.toString();
+      history.replaceState(null, "", location.pathname + (rest ? "?" + rest : "") + location.hash);
+    }
+  } catch (e) { /* URLSearchParams/history indisponível: ignora */ }
+
   refreshVehicleSelect();
   var active = activeVehicle();
   if (active) {
@@ -1254,6 +1371,7 @@
   }
   setMode(state.mode, false);
   updateNet();
+  if (state.migrationNote) toast(state.migrationNote, 6500);
 })();
 </script>
 </body>

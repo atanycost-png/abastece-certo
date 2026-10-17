@@ -38,7 +38,12 @@ const NO_CACHE = {
 };
 
 function safePath(urlPath) {
-  const decoded = decodeURIComponent(urlPath.split("?")[0]);
+  let decoded;
+  try {
+    decoded = decodeURIComponent(urlPath.split("?")[0]);
+  } catch {
+    return null;   // URI malformada (ex.: "%" solto) -> 403, não derruba o servidor
+  }
   const target = normalize(join(ROOT, decoded));
   if (target !== ROOT && !target.startsWith(ROOT + sep)) return null;
   return target;

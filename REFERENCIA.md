@@ -65,7 +65,7 @@ Decisão central mantida: **o app continua um arquivo único, zero dependências
 3. **Preços ao vivo da ANP são inviáveis em site estático:** XLSX/ZIP/PDF servidos **sem `Access-Control-Allow-Origin`**, sem API JSON pública; o resumo semanal é XLSX de ~297 KB e a série histórica é um CSV de 72 MB.
    → o app exibe **médias de referência com data** (semana 04–10/10/2026: gasolina R$ 6,54/L, etanol R$ 4,14/L) e o usuário digita o preço do posto.
 4. **Consumo PBEV/Inmetro:** razão etanol/gasolina de 0,70–0,74 nos flex eficientes; placeholders do modo preciso viraram 12,0 / 8,6 km/L.
-5. **Ecossistema:** nenhuma dependência de runtime se paga. gzip medido: Alpine 15,8 KB, Preact+htm 5,4 KB, Lit ~5–7 KB, Chart.js 68,4 KB, uPlot 21,6 KB, workbox-window 1,3 KB, just-validate 6,9 KB — contra um app inteiro de ~49 KB sem nenhuma delas.
+5. **Ecossistema:** nenhuma dependência de runtime se paga. gzip medido: Alpine 15,8 KB, Preact+htm 5,4 KB, Lit ~5–7 KB, Chart.js 68,4 KB, uPlot 21,6 KB, workbox-window 1,3 KB, just-validate 6,9 KB — contra um app inteiro de ~58 KB sem nenhuma delas.
 6. **Instalabilidade:** service worker **não** é requisito no Chrome/Edge (manifest + ícones 192/512 + HTTPS bastam); `maskable` e `screenshots` são recomendados. O SW existe por offline, não por instalação.
 
 ### O que mudou no código
@@ -74,7 +74,7 @@ Decisão central mantida: **o app continua um arquivo único, zero dependências
 - **Perfil de veículo** em `localStorage`: nome + consumos, múltiplos veículos, salvar/excluir, limite pessoal vira preset do modo rápido.
 - **PWA de verdade**: `manifest.webmanifest` estático, PNGs 192/512 + maskable + apple-touch-icon (gerados por `tools/make-icons.py`), favicon SVG.
 - **Service worker v2**: cache versionado por prefixo, `network-first` na navegação, `stale-while-revalidate` nos estáticos, precache tolerante a 404, limpeza só dos caches do próprio app, `sw.js` nunca cacheado, atualização **sob confirmação** (barra "Nova versão disponível" → `SKIP_WAITING` → `controllerchange` → reload).
-- **Acessibilidade**: `aria-live` persistente com `role="status"` e debounce, labels em todos os campos, `aria-invalid` + dica textual, foco visível, alvos ≥ 44 px, `prefers-reduced-motion`, contraste corrigido (placeholder de 2,47:1 → ~5:1; bordas de controle ~3:1).
+- **Acessibilidade**: `aria-live` persistente com `role="status"` e debounce, regiões vivas para erro de campo e aviso de atualização, labels em todos os campos, `aria-invalid` + dica textual, foco visível (inclusive no slider), alvos de toque ≥ 40 px (44 px nos principais), `aria-valuetext` no slider, `prefers-reduced-motion`, contraste corrigido (placeholder de 2,47:1 → ~5,2:1; bordas de controle ~3,1:1).
 - **Compartilhar resultado** (Web Share API com fallback para clipboard/`execCommand`).
 - **Avisos de sanidade** (não bloqueiam): preço fora da faixa comum, relação etanol/gasolina fora de 50–100%, consumos incoerentes (razão fora de 0,55–0,85).
 - **Badge de offline** e rodapé com a data de referência do limite.
@@ -90,26 +90,39 @@ Decisão central mantida: **o app continua um arquivo único, zero dependências
 | parse silencioso (`R$ 5,89`→NaN, `1,234.56`→1,23456, `1e3`→1000, `0x10`→16) | parser pt-BR estrito: aceita R$, milhar e unidades; rejeita letras, fullwidth e separadores duplicados |
 | `∞%` / `NaN` chegando ao DOM | resultados só existem com todos os campos válidos; formatadores com guarda |
 | manifest `data:` URI + ícone SVG-only (instalação falha) | manifest estático + PNGs reais 192/512/maskable/apple |
-| localStorage sem validação/migração | `loadState` valida veículos, clampa limite e migra chaves da v1 |
-| contraste insuficiente | cores de placeholder e borda de controle ajustadas |
+| localStorage sem validação/migração | `loadState` valida veículos, valida o limite (corrompido → 72, nunca 55) e migra chaves da v1 |
+| limite 70 da v1 herdado sem aviso (E32 pede 72) | migração converte 70 → 72 e mostra um toast explicando; só preserva limite personalizado |
+| contraste insuficiente | placeholder e borda de controle ajustados (5,2:1 e 3,1:1) |
+| slider sem foco visível (`outline:none` vencia o `:focus-visible` genérico) | regra `input[type=range]:focus-visible` própria + altura de 34 px |
+| preset "seu carro" mostrava 71,7% e aplicava 71,5% | slider em passos de 0,1 e rótulo igual ao valor aplicado |
+| `"5.899"` virava 5899 (milhar) | heurística: milhar implausível + decimal plausível → lê 5,899 |
+| preço `500` gerava veredito absurdo / número gigante no card | teto duro `MAX_PRICE = 99,99` → campo marcado inválido |
+| fronteira exata ±0,5 p.p. decidida por ruído de float | `roundPp` arredonda a diferença a 9 casas antes de comparar |
+| 1ª visita recarregava a página sozinha (`clients.claim` → `controllerchange`) | primeiro claim não recarrega; só recarrega após atualização aceita |
+| erro de campo e barra de update não anunciados | região viva `#liveForm` + `role="status"` na barra |
+| `navigator.share` rejeitando sem fallback | rejeição (exceto cancelamento) cai para cópia |
+| `cache.put` sem `catch` (QuotaExceeded virava unhandled rejection) | `.catch()` nos dois caminhos do SW |
+| toast e barra de atualização se sobrepunham | toast sobe quando a barra está visível |
 
 ### Arquitetura de testes (gate de qualidade)
-- `tools/test.mjs` — **122 testes** extraindo o bloco `CORE-START/CORE-END` do `index.html` e rodando em `node:vm` (sem duplicar código): parser, formatação, cálculo dos dois modos, fronteiras de empate, invariante veredito×texto, avisos, gauge, integridade do HTML.
-- `tools/check.mjs` — **41 checagens** de pacote: arquivos, JSON do manifest × dimensões reais dos PNG, precache do SW × arquivos existentes, sintaxe do JS embutido, ARIA/ids/labels, ausência de dependências externas, orçamento de tamanho.
+- `tools/test.mjs` — **143 testes** extraindo o bloco `CORE-START/CORE-END` do `index.html` e rodando em `node:vm` (sem duplicar código): parser (inclusive 3 casas com ponto e tetos), formatação, cálculo dos dois modos, fronteiras exatas de empate, invariante veredito×texto, avisos, gauge, integridade do HTML.
+- `tools/check.mjs` — **47 checagens** de pacote: arquivos, JSON do manifest × dimensões reais dos PNG, precache do SW × arquivos existentes, sintaxe do JS embutido, ARIA/ids/labels, ausência de dependências externas, foco do slider, tetos de validação, orçamento de tamanho.
 - `tools/visual-check.mjs` — Edge headless via DevTools Protocol (WebSocket nativo do Node, sem puppeteer): preenche campos, testa validação, empate técnico, modo preciso, persistência após reload, viewport de 360 px, alvos de toque e coleta erros de console. Gera `screenshots/*.png`.
 - `tools/serve.mjs` — servidor estático local sem dependências (para testar SW/PWA).
 - `tools/make-icons.py` — gera os ícones PNG (Pillow/numpy), com gota construída por tangência exata.
 
 ### Verificação realizada em 17/10/2026
-- `node tools/test.mjs` → **122/122**.
-- `node tools/check.mjs` → **41/41** (2 avisos não bloqueantes: manifest sem screenshots e sem LICENSE — LICENSE adicionado como MIT).
-- `node tools/visual-check.mjs` → 9 etapas, **0 erros de console**, sem overflow horizontal em 360 px, veredito/texto/cor consistentes no empate.
-- Peso: `index.html` ~49 KB, `sw.js` ~3 KB, ícones ~103 KB no total.
+- `node tools/test.mjs` → **143/143**.
+- `node tools/check.mjs` → **47/47** (1 aviso não bloqueante: manifest sem screenshots, decisão consciente).
+- `node tools/visual-check.mjs` → 10 etapas, **0 erros de console**, sem overflow horizontal em 360 px, veredito/texto/cor consistentes no empate, atalho `?modo=preciso` funcionando.
+- Peso: `index.html` ~58 KB, `sw.js` ~3 KB, ícones ~103 KB no total.
 
 ### Pitfalls (novos)
 - **Edge headless não roda sob o sandbox de arquivos do harness** (Mojo/`platform_channel` falha com "Acesso negado" ao abrir pipes nomeados). Rodar `tools/visual-check.mjs` com o ambiente liberado; é ferramenta de dev, não requisito.
 - **`manifest` em `data:` URI** continua quebrando instalação (iOS/Safari e Chrome tratam mal). Sempre arquivo real, mesmo que ≥ 2 requisições.
-- **`skipWaiting()` automático** + `clients.claim()` pode servir HTML novo com CSS/JS em cache antigo. Em app pequeno o risco é baixo, mas o padrão correto é atualizar sob confirmação — foi o que a v2 faz.
+- **`skipWaiting()` automático** + `clients.claim()` pode servir HTML novo com CSS/JS em cache antigo. Em app pequeno o risco é baixo, mas o padrão correto é atualizar sob confirmação — foi o que a v2 faz. O `clients.claim()` da primeira visita **não** recarrega mais a página.
+- **Migração de SW:** a v1 usava cache-first sem versionamento; na primeira visita após publicar a v2, o service worker antigo ainda pode servir o HTML velho até o usuário fechar/recarregar. Não há como corrigir retroativamente do lado cliente — vale avisar quem já instalou a v1. Depois dessa primeira atualização, o network-first resolve.
+- **`VERSION` do SW é bump manual** a cada release (`sw.js`); trocar a versão é parte do passo de publicar.
 - **Não cachear o próprio `sw.js`** e nunca apagar caches de outras origens/escopos (prefixo obrigatório em `*.github.io`).
 - **Parse de preço nunca deve "limpar" caracteres em silêncio**: `[^\d.,]` transformava dígitos fullwidth (`５,89`) em `89`. A v2 valida a string inteira antes.
 - **Texto e cor do veredito precisam sair da mesma fonte de verdade** (`verdict`), nunca de comparações recalculadas no template.

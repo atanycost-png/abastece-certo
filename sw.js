@@ -62,7 +62,7 @@ async function networkFirst(request) {
   try {
     const fresh = await fetch(request);
     if (fresh && fresh.ok) {
-      cache.put(request, fresh.clone());
+      cache.put(request, fresh.clone()).catch(() => null);
     }
     return fresh;
   } catch (error) {
@@ -81,7 +81,8 @@ async function staleWhileRevalidate(request) {
   const network = fetch(request)
     .then((response) => {
       if (response && response.ok) {
-        cache.put(request, response.clone());
+        // QuotaExceededError/Modo privado não podem virar unhandled rejection.
+        cache.put(request, response.clone()).catch(() => null);
       }
       return response;
     })

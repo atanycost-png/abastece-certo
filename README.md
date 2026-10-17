@@ -22,7 +22,7 @@ Nada de cadastro, servidor ou conta: tudo roda no aparelho e continua funcionand
 - **Offline de verdade** — o app abre sem rede depois da primeira visita; o `index.html` também funciona com duplo clique, sem servidor.
 - **Perfil de veículo** — salva nome e consumos no `localStorage`; com um toque o limite dos 70% vira o limite real do seu carro.
 - **Compartilhar resultado** — usa a folha de compartilhamento do celular e cai para cópia em um toque quando não existe.
-- **Acessível** — abas com padrão ARIA, `aria-live` anunciando o veredito, labels em todos os campos, foco visível, alvos de toque de 44 px, respeito a `prefers-reduced-motion`.
+- **Acessível** — abas com padrão ARIA, `aria-live` anunciando o veredito e os erros de campo, labels em todos os campos, foco visível (inclusive no slider), alvos de toque confortáveis (44 px nos controles principais), respeito a `prefers-reduced-motion`.
 - **Atualização segura** — service worker com *network-first* na navegação: quem está online nunca fica preso numa versão velha em cache.
 - **Zero dependências, zero build** — um único `index.html` autocontido (HTML + CSS + JS) e nenhum arquivo gerado.
 
@@ -114,6 +114,9 @@ o app não coleta, não envia e não compartilha dados.
 - A mistura **E32 é temporária** (180 dias, prorrogável). Se o CNPE mudar o teor, ajuste o limite no controle.
 - O modo preciso depende da qualidade dos consumos informados — use o computador de bordo ou pelo menos
   duas medições de tanque cheio.
+- O app valida faixas plausíveis: preço até R$ 99,99/L e consumo entre 0,5 e 60 km/L. Fora das faixas
+  comuns (gasolina R$ 4,50–9,50; etanol R$ 2,50–7,50; razão etanol/gasolina 50–100%) ele **avisa** em vez
+  de esconder o problema — o que pega vírgula digitada errado.
 - O app é uma ferramenta de apoio, não uma garantia de economia.
 
 ## Fontes

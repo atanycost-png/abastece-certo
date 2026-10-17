@@ -245,6 +245,23 @@ check("bloco CORE delimitado para os testes", () => {
   assert(/\/\* CORE-START \*\//.test(html), "marcador CORE-START ausente");
   assert(/\/\* CORE-END \*\//.test(html), "marcador CORE-END ausente");
 });
+check("slider tem regra de foco visível própria", () => {
+  assert(/input\[type=range\]:focus-visible/.test(html), "o slider perde o foco visível para outline:none");
+});
+check("slider tem área de toque maior que o trilho", () => {
+  const block = html.match(/input\[type=range\]\s*\{([^}]*)\}/);
+  assert(block, "regra base do slider ausente");
+  const height = Number((block[1].match(/height:\s*(\d+)px/) || [])[1]);
+  assert(height >= 32, `altura do slider é ${height}px (mínimo 32)`);
+});
+check("preços têm teto duro (sem veredito absurdo com 500)", () => {
+  assert(/MAX_PRICE = 99\.99/.test(html), "MAX_PRICE ausente");
+  assert(/function parsePrice/.test(html), "parsePrice ausente");
+});
+check("diferença do empate é arredondada (sem ruído de float)", () => {
+  assert(/function roundPp/.test(html), "roundPp ausente");
+  assert(/diffPp = roundPp\(/.test(html), "diffPp não passa por roundPp");
+});
 
 // ------------------------------------------------------- orçamento de tamanho
 section("Orçamento de tamanho");

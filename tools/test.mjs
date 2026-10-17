@@ -123,7 +123,13 @@ section("parseNumber — entrada de preço pt-BR");
   [",5", 5],
   ["0", 0],
   ["1234", 1234],
-  ["1.234", 1234],
+  ["1.234", 1.234],
+  ["5.899", 5.899],
+  ["5.890", 5.89],
+  ["4.099", 4.099],
+  ["12.345", 12.345],
+  ["10.500", 10.5],
+  ["1.234.567", 1234567],
   ["12.34", 12.34],
   ["10,5 km/L", 10.5],
   ["7,3km/l", 7.3],
@@ -159,13 +165,33 @@ section("parseNumber — rejeições que a v1 aceitava errado");
 test("parseNumber(null) é NaN", () => isNaNValue(AC.parseNumber(null)));
 test("parseNumber(undefined) é NaN", () => isNaNValue(AC.parseNumber(undefined)));
 
-section("parsePositive / priceStatus");
+section("parsePositive / parsePrice / parseKmL / priceStatus");
 test('parsePositive("0") é NaN (combustível grátis não existe)', () => isNaNValue(AC.parsePositive("0")));
 test('parsePositive("5,89") === 5.89', () => eq(AC.parsePositive("5,89"), 5.89));
+test('parsePrice("6,54") === 6.54', () => eq(AC.parsePrice("6,54"), 6.54));
+test('parsePrice("5.899") === 5.899 (3 casas com ponto)', () => eq(AC.parsePrice("5.899"), 5.899));
+test('parsePrice("100") é NaN (acima do teto de 99,99)', () => isNaNValue(AC.parsePrice("100")));
+test('parsePrice("500") é NaN (erro de vírgula não gera veredito)', () => isNaNValue(AC.parsePrice("500")));
+test('parsePrice("abc") é NaN', () => isNaNValue(AC.parsePrice("abc")));
+test('parseKmL("12,5") === 12.5', () => eq(AC.parseKmL("12,5"), 12.5));
+test('parseKmL("0,4") é NaN (abaixo do mínimo)', () => isNaNValue(AC.parseKmL("0,4")));
+test('parseKmL("61") é NaN (acima do máximo)', () => isNaNValue(AC.parseKmL("61")));
+test('parseKmL("0") é NaN', () => isNaNValue(AC.parseKmL("0")));
+test("isValidKmL aceita número na faixa e rejeita o resto", () => {
+  eq(AC.isValidKmL(12), true);
+  eq(AC.isValidKmL(0.5), true);
+  eq(AC.isValidKmL(60), true);
+  eq(AC.isValidKmL(0.1), false);
+  eq(AC.isValidKmL(61), false);
+  eq(AC.isValidKmL("12"), false);
+  eq(AC.isValidKmL(NaN), false);
+  eq(AC.isValidKmL(Infinity), false);
+});
 test('priceStatus("") === "empty"', () => eq(AC.priceStatus(""), "empty"));
 test('priceStatus("   ") === "empty"', () => eq(AC.priceStatus("   "), "empty"));
 test('priceStatus("abc") === "invalid"', () => eq(AC.priceStatus("abc"), "invalid"));
 test('priceStatus("0") === "invalid"', () => eq(AC.priceStatus("0"), "invalid"));
+test('priceStatus("500") === "invalid" (teto de preço)', () => eq(AC.priceStatus("500"), "invalid"));
 test('priceStatus("5,89") === "ok"', () => eq(AC.priceStatus("5,89"), "ok"));
 
 section("formatação pt-BR");
@@ -240,6 +266,24 @@ test("preços altos continuam válidos", () => {
   const r = AC.fastResult(8.99, 6.99, 70);
   close(r.pct, 77.7530, 1e-3);
   eq(r.verdict, "gasolina");
+});
+test("preço 500 é rejeitado (sem veredito absurdo)", () => isNull(AC.fastResult(500, 4.14, 72)));
+
+section("fronteira exata do empate (±0,5 p.p.)");
+test("diferença exatamente +0,5 p.p. -> gasolina (regra é < 0,5)", () => {
+  const r = AC.fastResult(10, 7.05, 70);
+  close(r.diffPp, 0.5, 1e-9);
+  eq(r.verdict, "gasolina");
+});
+test("diferença exatamente -0,5 p.p. -> etanol", () => {
+  const r = AC.fastResult(10, 6.95, 70);
+  close(r.diffPp, -0.5, 1e-9);
+  eq(r.verdict, "etanol");
+});
+test("roundPp elimina ruído de ponto flutuante", () => {
+  eq(AC.roundPp(-0.499999999999993), -0.5);
+  eq(AC.roundPp(0.499999999999993), 0.5);
+  eq(AC.roundPp(0.1234567891234), 0.123456789);
 });
 
 section("preciseResult — custo por km");
@@ -333,10 +377,11 @@ section("avisos de sanidade");
 test("preços normais não geram aviso", () => {
   eq(AC.sanityWarnings(AC.fastResult(6.54, 4.14, 72)).length, 0);
 });
-test("preço absurdo de gasolina gera aviso (pegadinha de vírgula)", () => {
-  const w = AC.sanityWarnings(AC.fastResult(500, 4.14, 72));
-  ok(w.length > 0, "deveria avisar");
-  ok(w.some((t) => /gasolina/i.test(t)), "aviso deveria citar gasolina");
+test("preço no limite superior ainda é válido e gera aviso", () => {
+  const r = AC.fastResult(9.9, 4.14, 72);
+  ok(r, "9,90 deveria ser válido");
+  const w = AC.sanityWarnings(r);
+  ok(w.some((t) => /gasolina/i.test(t)), `avisos: ${w.join(" | ")}`);
 });
 test("etanol absurdamente caro gera aviso de relação", () => {
   const w = AC.sanityWarnings(AC.fastResult(5.0, 6.0, 72));

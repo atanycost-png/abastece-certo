@@ -42,7 +42,13 @@ const MIME = {
 // ------------------------------------------------------------------ servidor
 function startServer() {
   const server = createServer((req, res) => {
-    const urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
+    let urlPath;
+    try {
+      urlPath = decodeURIComponent((req.url || "/").split("?")[0]);
+    } catch {
+      res.writeHead(403).end("forbidden");
+      return;
+    }
     let target = normalize(join(ROOT, urlPath));
     if (target !== ROOT && !target.startsWith(ROOT + sep)) {
       res.writeHead(403).end("forbidden");
@@ -414,6 +420,19 @@ async function main() {
     console.log(`   ${JSON.stringify(a11y)}`);
     if (a11y.alvosPequenos.length) errors.push(`alvos de toque < 32px: ${a11y.alvosPequenos.join(", ")}`);
     if (!a11y.focoOk) errors.push("foco programático não funcionou na aba");
+
+    // ---- 10. atalho do manifest (?modo=preciso)
+    console.log("10) atalho do manifest ?modo=preciso");
+    const shortcutLoaded = cdp.waitFor("Page.loadEventFired", sessionId);
+    await cdp.send("Page.navigate", { url: `http://127.0.0.1:${PORT}/?modo=preciso` }, sessionId);
+    await shortcutLoaded;
+    await new Promise((r) => setTimeout(r, 400));
+    const shortcut = await page.eval(`(() => ({
+      aba: document.getElementById('tab-precise').getAttribute('aria-selected'),
+      painelVisivel: !document.getElementById('panel-precise').hidden
+    }))()`);
+    console.log(`   ${JSON.stringify(shortcut)}`);
+    if (shortcut.aba !== "true" || !shortcut.painelVisivel) errors.push("atalho ?modo=preciso não abriu o modo preciso");
 
     try { await cdp.send("Browser.close"); } catch { /* fecha junto com o WS */ }
     cdp.close();

@@ -1238,6 +1238,13 @@ test("migração v1: preços salvos são importados sem perder o limite personal
   const saved = env.saved();
   eq(saved.threshold, 73.5, "limite no storage novo");
   includes(env.$("gas").value + "|" + env.$("eta").value, "5,89|3,99");
+  eq(env.text("toast"), "", "limite preservado NÃO gera o aviso de atualização para 72%");
+});
+
+test("migração v1: limite 72 explícito também não gera aviso", () => {
+  const env = boot({ storage: { ac_gas: "5,89", ac_eta: "3,99", ac_threshold: "72" } });
+  eq(env.$("threshold").value, "72", "limite 72 preservado");
+  eq(env.text("toast"), "", "sem aviso quando o valor já era 72");
 });
 
 test("migração v1: limite padrão 70 vira 72 (E32) e o usuário é avisado", () => {
@@ -1900,6 +1907,106 @@ test("v3 histórico: exportar/limpar ficam desabilitados sem entradas", () => {
   eq(env.downloads.length, 0, "nenhum download sem entradas");
 });
 
+test("v3 histórico: cálculo do modo preciso é salvo como 'preciso' no CSV", async () => {
+  const env = boot();
+  env.$("tab-precise").click();
+  env.input("gas", "6,54");
+  env.input("eta", "4,14");
+  env.input("gasKmL", "12,0");
+  env.input("etaKmL", "8,6");
+  saveCurrent(env);
+  eq(histSaved(env)[0].mode, "precise", "modo registrado no storage");
+  env.$("histExport").click();
+  await env.flush();
+  const csv = await env.downloadText(0);
+  includes(csv, "preciso", "modo no CSV");
+  includes(csv, "6,54", "preço da gasolina no CSV");
+});
+
+// ------------------------------------------------- entradas hostis (histórico)
+test("v3 histórico hostil: timestamps futuro/negativo não geram NaN nem quebram a lista", () => {
+  const entries = [
+    histEntry({ ts: -86400000 }), // 31/12/1969
+    histEntry({ ts: 4102444800000 }), // 01/01/2100
+    histEntry({ ts: 0 }),
+    histEntry({ ts: Date.now() })
+  ];
+  const env = boot({ storage: { [HIST_KEY]: JSON.stringify(entries) } });
+  eq(env.text("histCount"), "4", "4 entradas aceitas");
+  const html = env.html("histList");
+  eq(env.$("histList").querySelectorAll("li").length, 4, "4 itens renderizados");
+  notIncludes(html, "NaN", "sem NaN na data");
+  notIncludes(html, "undefined", "sem undefined na data");
+  notIncludes(html, "Invalid Date", "sem data inválida visível");
+  note("lista com timestamps extremos: " + html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim().slice(0, 220));
+});
+
+test("v3 histórico hostil: entradas não finitas/inválidas são descartadas", () => {
+  const raw =
+    '[{"ts":1e999,"gas":5.89,"eta":3.99,"pct":67.7,"verdict":"etanol","mode":"fast"},' +
+    '{"ts":123,"gas":1e999,"eta":3.99,"pct":67.7,"verdict":"etanol","mode":"fast"},' +
+    '{"ts":123,"gas":5.89,"eta":3.99,"pct":67.7,"verdict":5,"mode":"fast"},' +
+    '{"ts":123,"gas":5.89,"eta":3.99,"pct":67.7,"verdict":"etanol","mode":"outro"},' +
+    '{"ts":123,"gas":5.89,"eta":3.99,"pct":67.7,"verdict":"etanol","mode":"fast"}]';
+  const env = boot({ storage: { [HIST_KEY]: raw } });
+  eq(env.text("histCount"), "1", "só a entrada completamente válida permanece");
+});
+
+test("v3 histórico hostil: 2000 entradas são cortadas em 50 sem travar", () => {
+  const entries = [];
+  for (let i = 0; i < 2000; i++) entries.push(histEntry({ ts: 1700000000000 + i, pct: 60 + (i % 20) }));
+  const started = Date.now();
+  const env = boot({ storage: { [HIST_KEY]: JSON.stringify(entries) } });
+  const elapsed = Date.now() - started;
+  eq(env.text("histCount"), "50", "corta em 50");
+  eq(env.$("histList").querySelectorAll("li").length, 50, "50 itens na lista");
+  ok(elapsed < 2000, "carga do histórico gigante demorou " + elapsed + "ms");
+  // o excedente só é reescrito no próximo save/clear — não é perda de dados
+  const next = bootWith(env);
+  eq(next.text("histCount"), "50", "continua 50 após reload");
+});
+
+test("v3 histórico hostil: CSV com valores extremos mantém colunas e não quebra", async () => {
+  const env = boot({
+    storage: {
+      [HIST_KEY]: JSON.stringify([
+        histEntry({ gas: 0.000001, eta: 0.0000005, pct: 50, threshold: 55 }),
+        histEntry({ gas: 99.99, eta: 99.98, pct: 99.99, threshold: 85 })
+      ])
+    }
+  });
+  env.$("histExport").click();
+  await env.flush();
+  const csv = await env.downloadText(0);
+  const lines = csv.replace(/^\uFEFF/, "").split("\r\n");
+  eq(lines.length, 3, "cabeçalho + 2 linhas");
+  for (const line of lines) eq(line.split(";").length, 8, "linha com 8 colunas: " + line.slice(0, 80));
+});
+
+test("v3 histórico hostil: veredito desconhecido não injeta HTML nem quebra o CSV", async () => {
+  const payload = '"><img src=x onerror=alert(1)>';
+  const env = boot({
+    storage: {
+      [HIST_KEY]: JSON.stringify([
+        histEntry({ verdict: payload }),
+        histEntry({ verdict: "etanol;=cmd|' /C calc'!A0" }),
+        histEntry()
+      ])
+    }
+  });
+  eq(env.text("histCount"), "3", "todas as entradas com verdict string são aceitas");
+  const list = env.html("histList");
+  notIncludes(list, "<img", "veredito é interpolado sem escape no class do <span> (injeção de DOM)");
+  notIncludes(list, "onerror", "atributo de evento injetado pela lista do histórico");
+  env.$("histExport").click();
+  await env.flush();
+  const csv = await env.downloadText(0);
+  const lines = csv.replace(/^\uFEFF/, "").split("\r\n");
+  eq(lines.length, 4, "cabeçalho + 3 linhas (sem quebra de linha extra)");
+  for (const line of lines) eq(line.split(";").length, 8, "linha com 8 colunas: " + line.slice(0, 100));
+  note("veredito adversário no innerHTML: " + list.slice(0, 260));
+});
+
 // ==========================================================================
 // M. v3 — preços de referência da ANP (precos.json)
 // ==========================================================================
@@ -2052,6 +2159,154 @@ test("v3 preços: navegador sem fetch não quebra a inicialização", () => {
   env.input("gas", "5,89");
   env.input("eta", "3,99");
   includes(env.rendered(), "67,7", "app continua calculando");
+});
+
+// O artefato REAL gerado por tools/update-prices.mjs também é entrada do gate:
+// se o schema do precos.json mudar, o app precisa continuar renderizando.
+function realWeekLabel(week) {
+  const a = String(week.inicio).split("-");
+  const b = String(week.fim).split("-");
+  if (a[0] === b[0] && a[1] === b[1]) return a[2] + "\u2013" + b[2] + "/" + b[1] + "/" + b[0];
+  return a[2] + "/" + a[1] + "/" + a[0] + "\u2013" + b[2] + "/" + b[1] + "/" + b[0];
+}
+function brl(n) {
+  return "R$ " + Number(n).toFixed(2).replace(".", ",");
+}
+
+test("v3 preços: o precos.json real do projeto é normalizado e exibido", async () => {
+  ok(existsSync(join(ROOT, "precos.json")), "precos.json ausente na raiz (precache e app dependem dele)");
+  const raw = readFileSync(join(ROOT, "precos.json"), "utf8");
+  const data = JSON.parse(raw);
+  const env = boot({ fetchImpl: () => ({ body: raw, status: 200 }) });
+  await env.flush();
+  await env.flush();
+  const ref = env.html("priceRef");
+  includes(ref, "Referência ANP", "bloco de referência");
+  includes(ref, realWeekLabel(data.semana), "semana real");
+  includes(ref, brl(data.brasil.gasolinaComum.media), "gasolina comum real");
+  includes(ref, brl(data.brasil.etanol.media), "etanol real");
+  const validUfs = Object.keys(data.estados).filter(
+    (uf) =>
+      /^[A-Z]{2}$/.test(uf) &&
+      data.estados[uf] &&
+      Number(data.estados[uf].gasolinaComum) > 0 &&
+      Number(data.estados[uf].etanol) > 0
+  );
+  const options = env.$("priceRef").querySelectorAll("option").map((o) => o.getAttribute("value"));
+  eq(options[0], "", "primeira opção é Brasil");
+  eq(options.length, validUfs.length + 1, "todas as UFs reais no seletor");
+  eq(options.slice(1).join(","), validUfs.sort().join(","), "UFs ordenadas e sem lixo");
+  eq(JSON.parse(env.storage.get(PRICES_KEY)).semana.inicio, data.semana.inicio, "cache com o dado real");
+});
+
+test("v3 preços: dado novo da rede substitui o cache antigo", async () => {
+  const stale = JSON.parse(JSON.stringify(PRICES_FIXTURE));
+  stale.brasil.gasolinaComum.media = 6.1;
+  stale.brasil.etanol.media = 3.9;
+  const env = boot({
+    storage: { [PRICES_KEY]: JSON.stringify(stale) },
+    fetchImpl: () => jsonResponse(PRICES_FIXTURE)
+  });
+  await env.flush();
+  await env.flush();
+  includes(env.html("priceRef"), "R$ 6,54", "valor novo na tela");
+  eq(JSON.parse(env.storage.get(PRICES_KEY)).brasil.etanol.media, 4.14, "cache atualizado");
+});
+
+// ---------------------------------------------------- entradas hostis (ANP)
+test("v3 preços hostis: média como string numérica é aceita; vírgula decimal é rejeitada", async () => {
+  const dotString = {
+    semana: { inicio: "2026-10-04", fim: "2026-10-10" },
+    brasil: { gasolinaComum: { media: "6.54" }, etanol: { media: "4.14" } },
+    estados: {}
+  };
+  const envDot = boot({ fetchImpl: () => jsonResponse(dotString) });
+  await envDot.flush();
+  await envDot.flush();
+  includes(envDot.html("priceRef"), "R$ 6,54", "string numérica com ponto é normalizada");
+
+  const commaString = {
+    semana: { inicio: "2026-10-04", fim: "2026-10-10" },
+    brasil: { gasolinaComum: { media: "6,54" }, etanol: { media: "4,14" } },
+    estados: {}
+  };
+  const envComma = boot({ fetchImpl: () => jsonResponse(commaString) });
+  await envComma.flush();
+  await envComma.flush();
+  includes(envComma.html("priceRef"), "Médias ANP da semana 04", "vírgula decimal não é adivinhada");
+  eq(envComma.storage.has(PRICES_KEY), false, "dado não numérico não é cacheado");
+});
+
+test("v3 preços hostis: UFs malformadas e chaves de protótipo são ignoradas", async () => {
+  const raw =
+    '{"semana":{"inicio":"2026-10-04","fim":"2026-10-10"},' +
+    '"brasil":{"gasolinaComum":{"media":6.54},"etanol":{"media":4.14}},' +
+    '"estados":{"__proto__":{"gasolinaComum":0.01,"etanol":0.01},' +
+    '"constructor":{"gasolinaComum":0.01,"etanol":0.01},' +
+    '"prototype":{"gasolinaComum":0.01,"etanol":0.01},' +
+    '"SP":{"gasolinaComum":6.49,"etanol":4.09},' +
+    '"sp":{"gasolinaComum":1,"etanol":1},"S1":{"gasolinaComum":1,"etanol":1},' +
+    '"__":{"gasolinaComum":1,"etanol":1}}}';
+  const env = boot({ fetchImpl: () => ({ body: raw, status: 200 }) });
+  await env.flush();
+  await env.flush();
+  const options = env.$("priceRef").querySelectorAll("option").map((o) => o.getAttribute("value"));
+  eq(options.join(","), ",SP", "só UF com formato válido permanece");
+  const polluted = vm.runInContext(
+    "(function(){ try { return typeof ({}).gasolinaComum !== 'undefined' || ({}).etanol === 0.01; } catch (e) { return 'erro'; } })()",
+    env.sandbox
+  );
+  eq(polluted, false, "Object.prototype não pode ser poluído pelo precos.json");
+  env.input("gas", "5,89");
+  env.input("eta", "3,99");
+  includes(env.rendered(), "67,7", "app continua calculando normalmente");
+});
+
+test("v3 preços hostis: JSON gigante é filtrado sem travar", async () => {
+  const estados = { SP: { gasolinaComum: 6.49, etanol: 4.09 } };
+  for (let i = 0; i < 2000; i++) estados["U" + i] = { gasolinaComum: 1 + (i % 5), etanol: 1 };
+  const data = {
+    fonte: "x".repeat(50000),
+    semana: { inicio: "2026-10-04", fim: "2026-10-10" },
+    brasil: { gasolinaComum: { media: 6.54, lixo: "y".repeat(20000) }, etanol: { media: 4.14 } },
+    estados
+  };
+  const started = Date.now();
+  const env = boot({ fetchImpl: () => jsonResponse(data) });
+  await env.flush();
+  await env.flush();
+  const elapsed = Date.now() - started;
+  const options = env.$("priceRef").querySelectorAll("option").map((o) => o.getAttribute("value"));
+  eq(options.join(","), ",SP", "2000 chaves inválidas filtradas");
+  ok(elapsed < 2000, "normalização do JSON gigante demorou " + elapsed + "ms");
+});
+
+test("v3 preços hostis: payloads de texto não chegam ao DOM", async () => {
+  const data = {
+    fonte: '<img src=x onerror=alert(1)>',
+    semana: { inicio: '<svg onload=alert(1)>', fim: "2026-10-10" },
+    brasil: { gasolinaComum: { media: 6.54 }, etanol: { media: 4.14 } },
+    estados: { '<img src=x>': { gasolinaComum: 1, etanol: 1 } }
+  };
+  const env = boot({ fetchImpl: () => jsonResponse(data) });
+  await env.flush();
+  await env.flush();
+  const ref = env.html("priceRef");
+  notIncludes(ref, "<img", "payload não injetado no bloco de referência");
+  notIncludes(ref, "onerror", "atributo de evento não injetado");
+  notIncludes(ref, "<svg onload", "svg malicioso não injetado");
+  eq(env.$("priceRef").querySelectorAll("option").length, 1, "só a opção Brasil");
+});
+
+test("v3 preços hostis: médias Infinity/negativas/zero caem no fallback", async () => {
+  const raw =
+    '{"semana":{"inicio":"2026-10-04","fim":"2026-10-10"},' +
+    '"brasil":{"gasolinaComum":{"media":1e999},"gasolinaAditivada":{"media":-6.72},"etanol":{"media":0}},"estados":{}}';
+  const env = boot({ fetchImpl: () => ({ body: raw, status: 200 }) });
+  await env.flush();
+  await env.flush();
+  includes(env.html("priceRef"), "Médias ANP da semana 04", "valores não finitos → fallback embutido");
+  eq(env.storage.has(PRICES_KEY), false, "dado inválido não é cacheado");
 });
 
 // ==========================================================================

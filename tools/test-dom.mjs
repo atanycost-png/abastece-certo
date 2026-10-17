@@ -1114,13 +1114,17 @@ test("cálculo rápido: entradas extremas não colocam NaN/Infinity no DOM", () 
   notIncludes(out, "undefined", "undefined no DOM");
 });
 
-test("máscara de preço: só dígitos, com zeros automáticos", () => {
+test("máscara de preço: só dígitos, com centavos automáticos", () => {
   const env = boot();
   const gas = env.$("gas");
   env.input("gas", "6");
-  eq(gas.value, "6,00", "6 → 6,00");
+  eq(gas.value, "6", "6 → 6 enquanto digita");
+  env.fire(gas, "blur", {});
+  eq(gas.value, "6,00", "6 → 6,00 ao sair");
   env.input("gas", "65");
-  eq(gas.value, "65,00", "65 → 65,00 (transitório)");
+  eq(gas.value, "65", "65 → 65");
+  env.fire(gas, "blur", {});
+  eq(gas.value, "65,00", "65 → 65,00 ao sair");
   env.input("gas", "654");
   eq(gas.value, "6,54", "654 → 6,54");
   env.input("gas", "456");
@@ -1132,47 +1136,64 @@ test("máscara de preço: só dígitos, com zeros automáticos", () => {
   env.input("gas", "abc");
   eq(gas.value, "", "letras são descartadas");
   env.input("gas", "0");
-  eq(gas.value, "0,00", "0 → 0,00");
+  eq(gas.value, "0", "0 → 0 enquanto digita");
+  env.fire(gas, "blur", {});
+  eq(gas.value, "0,00", "0 → 0,00 ao sair");
 });
 
-test("máscara de preço: digitação sequencial (beforeinput) mantém os dígitos", () => {
+test("máscara de preço: digitação sequencial mantém os dígitos", () => {
   const env = boot();
   const gas = env.$("gas");
-  function digitar(texto) {
-    env.fire(gas, "beforeinput", {
-      type: "beforeinput", inputType: "insertText", data: texto, target: gas,
-      preventDefault() {}
-    });
+  function teclar(texto) {
+    gas.value = gas.value + texto; // o navegador insere no fim do campo
+    env.fire(gas, "input", {});
   }
-  digitar("6");
-  eq(gas.value, "6,00", "1º dígito");
-  digitar("5");
-  eq(gas.value, "65,00", "2º dígito");
-  digitar("4");
+  teclar("6");
+  eq(gas.value, "6", "1º dígito");
+  teclar("5");
+  eq(gas.value, "65", "2º dígito");
+  teclar("4");
   eq(gas.value, "6,54", "3º dígito fecha 6,54");
-  env.fire(gas, "beforeinput", {
-    type: "beforeinput", inputType: "deleteContentBackward", target: gas, preventDefault() {}
-  });
-  eq(gas.value, "65,00", "backspace remove um dígito");
-  digitar("0");
-  eq(gas.value, "6,50", "novo dígito vira 6,50");
+  gas.value = gas.value.slice(0, -1); // backspace apaga um caractere
+  env.fire(gas, "input", {});
+  eq(gas.value, "65", "backspace remove um dígito");
+  // 5º dígito digitado é ignorado (10,50 já tem 4 dígitos)
+  gas.value = "10,50";
+  env.fire(gas, "input", {});
+  gas.value = gas.value + "9";
+  env.fire(gas, "input", {});
+  eq(gas.value, "10,50", "5º dígito é ignorado");
+  gas.value = "R$ 4,56"; // cola com símbolo e vírgula
+  env.fire(gas, "input", {});
+  eq(gas.value, "4,56", "cola normaliza");
 });
 
 test("máscara de preço: digitar 456 e 1050", () => {
-  function digitar(env, input, texto) {
-    env.fire(input, "beforeinput", {
-      type: "beforeinput", inputType: "insertText", data: texto, target: input,
-      preventDefault() {}
-    });
+  function teclar(env, input, texto) {
+    input.value = input.value + texto;
+    env.fire(input, "input", {});
   }
   const env = boot();
   const gas = env.$("gas");
-  ["4", "5", "6"].forEach(function (d) { digitar(env, gas, d); });
+  ["4", "5", "6"].forEach(function (d) { teclar(env, gas, d); });
   eq(gas.value, "4,56");
   const env2 = boot();
   const gas2 = env2.$("gas");
-  ["1", "0", "5", "0"].forEach(function (d) { digitar(env2, gas2, d); });
+  ["1", "0", "5", "0"].forEach(function (d) { teclar(env2, gas2, d); });
   eq(gas2.value, "10,50");
+});
+
+test("máscara de preço: sair do campo completa os centavos", () => {
+  const env = boot();
+  const gas = env.$("gas");
+  gas.value = "6";
+  env.fire(gas, "input", {});
+  env.fire(gas, "blur", {});
+  eq(gas.value, "6,00", "blur completa 6 -> 6,00");
+  gas.value = "654";
+  env.fire(gas, "input", {});
+  env.fire(gas, "blur", {});
+  eq(gas.value, "6,54", "blur mantém 6,54");
 });
 
 test("máscara de preço: valor formatado alimenta o cálculo", () => {
@@ -1195,7 +1216,7 @@ test("cálculo rápido: preço zero é rejeitado com dica e sem resultado", () =
   const env = boot();
   env.input("gas", "0");
   env.input("eta", "3,99");
-  eq(env.$("gas").value, "0,00", "máscara normaliza o zero");
+  eq(env.$("gas").value, "0", "máscara mantém o zero enquanto digita");
   eq(env.$("gas").getAttribute("aria-invalid"), "true", "aria-invalid no preço zero");
   includes(env.text("gasHint"), "Valor inválido", "dica textual");
   includes(env.rendered(), "Informe os dois preços", "volta ao estado vazio");
@@ -2516,6 +2537,90 @@ test("v3 manifest: arquivos de screenshot existem e têm as dimensões declarada
     const size = String(shot.sizes).split("x").map(Number);
     eq(width + "x" + height, size[0] + "x" + size[1], rel + " tem dimensões diferentes do manifesto");
   }
+});
+
+// ==========================================================================
+// O. v4.1: instalar, sobre, imagem e custo mensal
+// ==========================================================================
+test("v4 instalar: botão aparece com beforeinstallprompt e chama prompt()", () => {
+  const env = boot();
+  eq(env.$("installBtn").hidden, true, "começa escondido");
+  let chamou = false;
+  env.fireWindow("beforeinstallprompt", {
+    preventDefault() {},
+    prompt() { chamou = true; },
+    userChoice: Promise.resolve({ outcome: "accepted" })
+  });
+  eq(env.$("installBtn").hidden, false, "aparece com o evento");
+  env.fire(env.$("installBtn"), "click", {});
+  eq(chamou, true, "prompt() chamado");
+});
+
+test("v4 instalar: sem evento mostra instruções de instalação", () => {
+  const env = boot();
+  env.fire(env.$("installBtn"), "click", {});
+  includes(env.text("toast"), "Adicionar à Tela de Início");
+});
+
+test("v4 sobre: abre, mostra a semana da ANP e fecha", async () => {
+  const env = bootOnline();
+  await env.flush();
+  await env.flush();
+  eq(env.$("about").hidden, true, "começa escondido");
+  env.fire(env.$("aboutBtn"), "click", {});
+  eq(env.$("about").hidden, false, "abriu");
+  includes(env.text("aboutWeek"), "semana ANP");
+  env.fire(env.$("aboutClose"), "click", {});
+  eq(env.$("about").hidden, true, "fechou");
+});
+
+test("v4 sobre: apagar dados pede confirmação e limpa o storage", () => {
+  const env = boot({ storage: { "ac.theme": "light", "ac.v2": "{}", "ac.uf": "SP" } });
+  env.fire(env.$("aboutBtn"), "click", {});
+  env.fire(env.$("aboutClear"), "click", {});
+  eq(env.$("aboutClear").textContent, "Toque de novo para apagar");
+  env.fire(env.$("aboutClear"), "click", {});
+  eq(env.storage.has("ac.v2"), false, "ac.v2 limpo");
+  eq(env.storage.has("ac.theme"), false, "tema limpo");
+  eq(env.storage.has("ac.uf"), false, "UF limpa");
+  includes(env.text("toast"), "Dados apagados");
+});
+
+test("v4 compartilhar imagem: botão existe e cai no texto sem canvas", () => {
+  const env = boot();
+  env.input("gas", "654");
+  env.input("eta", "414");
+  const btn = env.$("resultOut").querySelector('[data-action="image"]');
+  ok(btn, "botão de imagem existe");
+  env.fire(env.$("resultOut"), "click", { target: btn });
+  includes(env.text("toast"), "copiado");
+});
+
+test("v4 custo mensal: km/mês aparece no resultado preciso", () => {
+  const env = boot();
+  env.fire(env.$("tab-precise"), "click", {});
+  env.input("gas", "589");
+  env.input("eta", "399");
+  env.input("gasKmL", "10,5");
+  env.input("etaKmL", "7,3");
+  env.input("kmMonth", "1000");
+  const out = env.rendered();
+  includes(out, "km/mês");
+  includes(out, "Rodando");
+});
+
+test("v4 histórico: veículo ativo aparece no item salvo", () => {
+  const env = boot();
+  env.input("vehName", "Onix 1.4");
+  env.input("gasKmL", "10,5");
+  env.input("etaKmL", "7,3");
+  env.fire(env.$("vehSave"), "click", {});
+  env.fire(env.$("tab-precise"), "click", {});
+  env.input("gas", "589");
+  env.input("eta", "399");
+  const save = env.$("resultOut").querySelector('[data-action="save"]');
+  env.fire(env.$("resultOut"), "click", { target: save });
+  includes(env.html("histList"), "Onix 1.4");
 });
 
 // ==========================================================================

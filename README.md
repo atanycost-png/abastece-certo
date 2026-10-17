@@ -1,5 +1,7 @@
 # Abastece Certo — Etanol ou Gasolina
 
+[![Qualidade](https://github.com/atanycost-png/abastece-certo/actions/workflows/quality.yml/badge.svg)](https://github.com/atanycost-png/abastece-certo/actions/workflows/quality.yml)
+
 Calculadora **PWA offline** em português que responde na hora: *compensa abastecer com etanol ou gasolina?*
 
 Dois modos, do mais rápido ao mais preciso:
@@ -17,18 +19,23 @@ e guarda um **histórico local** dos seus cálculos com gráfico e exportação 
 (A versão publicada atualiza os preços da ANP sozinha, toda semana, via GitHub Action.)
 
 <p>
-  <img src="screenshots/02-rapido-resultado.png" alt="Modo rápido no tema escuro: índice 67,7% e veredito de etanol" width="280">
-  <img src="screenshots/03-preciso-resultado.png" alt="Modo preciso no tema escuro: economia por 100 km" width="280">
-  <img src="screenshots/09-tema-claro.png" alt="Tema claro (opcional) do app" width="280">
+  <img src="screenshots/02-rapido-resultado.png" alt="Modo rápido no tema escuro: índice 67,7% e veredito de etanol" width="270">
+  <img src="screenshots/03-preciso-resultado.png" alt="Modo preciso no tema escuro: economia por 100 km" width="270">
+  <img src="screenshots/11-custo-mensal.png" alt="Custo mensal estimado a partir dos km rodados por mês" width="270">
+  <img src="screenshots/09-tema-claro.png" alt="Tema claro (opcional) do app" width="270">
 </p>
 
 ## Recursos
 
-- **Campo de preço inteligente** — só números: `6` vira R$ 6,00, `654` vira R$ 6,54, até 4 dígitos (R$ 99,99), com zero e vírgula automáticos.
+- **Campo de preço inteligente** — digite só números: `654` vira R$ 6,54, `456` vira R$ 4,56; ao sair do campo, `6` completa para R$ 6,00; teto de 4 dígitos (R$ 99,99). Digitação, cola e desfazer são normalizados sozinhos.
 - **Tema escuro como padrão** — botão no cabeçalho alterna escuro → automático (segue o sistema) → claro; cada tema tem cores próprias (não é “inversão”) e a escolha fica salva.
 - **Preços de referência da ANP** — médias semanais oficiais (Brasil e por UF) carregadas de um `precos.json` gerado por script; um toque preenche os dois preços e a UF escolhida é lembrada.
-- **Histórico local** — salve cálculos, veja a evolução do índice num gráfico próprio (SVG) e exporte em CSV compatível com Excel.
-- **Instalável (PWA)** — manifest com screenshots, ícones PNG 192/512 + maskable e service worker próprio.
+- **Custo mensal estimado** — informe quantos km você roda por mês no modo preciso e veja o gasto mensal com o combustível vencedor.
+- **Histórico local** — salve cálculos (com o veículo usado), veja a evolução do índice num gráfico próprio (SVG) e exporte em CSV compatível com Excel.
+- **Compartilhar resultado ou imagem** — texto pela folha de compartilhamento (ou cópia) e cartão PNG gerado no próprio aparelho para mandar no WhatsApp.
+- **Instalação assistida** — quando o navegador permite, aparece o botão **Instalar app**; no iPhone ele ensina o caminho (*Compartilhar → Adicionar à Tela de Início*).
+- **Sobre e dados** — versão, semana da ANP, fonte dos preços, atualizar preços e apagar tudo o que está guardado no aparelho (com confirmação).
+- **Instalável (PWA)** — manifest com screenshots, ícones PNG 192/512 + maskable e service worker próprio; botão de instalação aparece quando o navegador permite.
 - **Offline de verdade** — o app abre sem rede depois da primeira visita; o `index.html` também funciona com duplo clique, sem servidor.
 - **Perfil de veículo** — salva nome e consumos no `localStorage`; com um toque o limite dos 70% vira o limite real do seu carro.
 - **Compartilhar resultado** — usa a folha de compartilhamento do celular e cai para cópia em um toque quando não existe.

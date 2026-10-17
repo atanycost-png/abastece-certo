@@ -1,0 +1,53 @@
+name: Qualidade
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 9 * * 1"
+
+jobs:
+  testes:
+    name: Suítes (lógica, DOM, SW, preços, checagens)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: node tools/test.mjs
+      - run: node tools/test-dom.mjs
+      - run: node tools/test-sw.mjs
+      - run: node tools/test-prices.mjs
+      - run: node tools/check.mjs
+
+  lighthouse:
+    name: Lighthouse (informativo)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - run: mkdir -p lighthouse
+      - name: Lighthouse na versão publicada
+        run: |
+          npx --yes lighthouse https://atanycost-png.github.io/abastece-certo/ \
+            --output=json --output-path=./lighthouse/report.json \
+            --chrome-flags="--headless --no-sandbox --disable-gpu" \
+            --only-categories=performance,accessibility,best-practices,seo \
+            --quiet
+      - name: Resumo
+        run: |
+          node -e "
+            const r = require('./lighthouse/report.json');
+            const c = r.categories;
+            console.log('Performance:', c.performance.score);
+            console.log('Acessibilidade:', c.accessibility.score);
+            console.log('Boas práticas:', c['best-practices'].score);
+            console.log('SEO:', c.seo.score);
+          "
+      - uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse
+          path: lighthouse/report.json

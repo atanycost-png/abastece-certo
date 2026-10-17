@@ -255,3 +255,59 @@ três mockups novos (A, B, C) e o **A — "app nativo limpo"** foi o escolhido, 
 - Consumo cidade/estrada separados no modo preciso (dois campos por combustível).
 - Preços por município (o LPC tem a aba `MUNICIPIOS`) com busca por cidade.
 - Tela "sobre" com versão e data dos dados; deploy automático já existe (Pages).
+
+---
+
+## 17/10/2026 — v4.2 (máscara reescrita, instalar/sobre/imagem, custo mensal, CI)
+
+### Contexto
+Depois da v4.1 o usuário relatou que a **máscara ainda falhava** no PC e que o **tema claro não agradou**
+(por isso virou padrão escuro na v4.1). Pediu também: quais APIs dá para puxar (já pesquisadas em
+`research/FINDINGS.md`) e se estamos no limite do offline/sem backend.
+
+### Máscara: por que ainda falhava e o que mudou
+O desenho anterior guardava os dígitos em um `WeakMap` e disparava um `input` sintético para re-renderizar.
+Isso quebrava em três cenários comuns de PC: **desfazer (Ctrl+Z)**, **colar** e **selecionar parte do texto** —
+o valor do campo e o dígito guardado saíam de sincronia e a tecla seguinte entrava no lugar errado.
+- **Reescrita sem estado paralelo:** o valor exibido é sempre derivado dos dígitos do próprio campo a cada
+  `input`; digitação, cola, undo e autofill se auto-corrigem.
+- Enquanto digita: `6` → `6`, `65` → `65`, `654` → `6,54`, `456` → `4,56`, `1050` → `10,50`.
+- Ao sair do campo (`blur`): `6` → `6,00`, `65` → `65,00`.
+- 5º dígito é ignorado; colagem longa fica com os últimos 4 dígitos; letras somem; `R$ 6,54` colado vira `6,54`.
+- Sem `beforeinput` próprio e sem evento sintético: menos superfície para bug.
+
+### Outras entregas
+- **Instalar app:** `beforeinstallprompt` mostra o botão; no iOS (sem evento) o toque ensina
+  *Compartilhar → Adicionar à Tela de Início*; `appinstalled` esconde o botão.
+- **Sobre e dados:** bottom sheet com versão, semana da ANP, fonte, **Atualizar preços** e
+  **Apagar dados deste aparelho** (confirmação em dois toques; limpa `ac.theme`, `ac.uf`, `ac.v2`,
+  cache de preços e histórico).
+- **Compartilhar imagem:** cartão PNG 900×1200 desenhado em `<canvas>` (tema escuro, veredito, índice,
+  preços, semana) com `navigator.share({files})` quando suportado e download como fallback.
+- **Custo mensal:** campo opcional "Rodo por mês (km)" no modo preciso; o resultado mostra
+  "Rodando 1.000 km/mês: cerca de R$ X/mês com etanol".
+- **Histórico com veículo:** cada item salvo guarda o nome do veículo ativo (CSV continua com 8 colunas).
+- **CI de qualidade:** workflow `Qualidade` roda as 5 suítes em cada push e um **Lighthouse informativo**
+  (performance/acessibilidade/boas práticas/SEO) contra a versão publicada; acessibilidade do Lighthouse
+  já usa axe-core por baixo.
+- Screenshots do manifest agora saem no tema escuro padrão (o claro fica como captura opcional).
+
+### Verificação (17/10/2026)
+- `tools/test.mjs` → **159/159** · `tools/test-dom.mjs` → **122/122** (inclui máscara sequencial, blur,
+  instalar, sobre, apagar dados, imagem, custo mensal e veículo no histórico).
+- `tools/test-sw.mjs` → **33/33** · `tools/test-prices.mjs` → **99/99** · `tools/check.mjs` → **55/55**.
+- `tools/visual-check.mjs` → **16 etapas**, 0 erros de console: digitação real (incluindo 5º dígito e blur),
+  Sobre, custo mensal, temas escuro/automático/claro e capturas (`09-tema-claro`, `10-sobre`,
+  `11-custo-mensal`).
+
+### APIs: conclusão para este app
+Ver `research/FINDINGS.md` §2.1–2.2 (checagens de 17/10/2026): **não existe API oficial de preços com
+CORS**; a ANP publica XLSX semanal (297 KB) e CSV da série histórica (72 MB), ambos bloqueados por CORS
+para sites estáticos. O caminho atual (Action semanal → `precos.json` na mesma origem) é o teto sem backend.
+- **Candidatas gratuitas:** [API de Localidades do IBGE](https://servicodados.ibge.gov.br/api/v1/localidades/estados/SP/municipios)
+  (lista de municípios, útil para o seletor de cidade) e [Overpass API/OSM](https://overpass-api.de/)
+  (`amenity=fuel` perto do usuário; exige coordenadas e respeitar rate limit).
+- **De terceiros pagos:** scrapers/APIs da ANP no [Apify](https://apify.com/latinamericadata/anp-precos-combustiveis-brasil/api)
+  — não recomendados para este app (chave, custo, dependência de terceiro e possível violação de termos).
+- **Limite do offline/sem backend:** média nacional/UF (e município, se embutida no JSON) cabe; **preço por
+  posto em tempo real, mapa e sincronização entre aparelhos não** — exigiriam backend ou dados comunitários.

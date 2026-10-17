@@ -92,10 +92,19 @@ A v1–v3 passaram por "cara de IA" e por direções que não agradaram (papel/r
 
 ## 8. Componentes
 
-- **Campo de preço:** só aceita dígitos e mostra o valor formatado — `6` → R$ 6,00, `654` → R$ 6,54,
-  `1050` → R$ 10,50; máximo de 4 dígitos (R$ 99,99); vírgula e ponto não são digitáveis; backspace apaga
-  um dígito e focar seleciona tudo. Rótulo à esquerda, prefixo `R$` discreto e número grande à direita.
+- **Campo de preço:** deriva o valor dos dígitos do próprio campo (sem estado paralelo), então digitação,
+  cola, desfazer e autofill se auto-corrigem. Enquanto digita, `6` → `6`, `65` → `65`, `654` → `6,54`,
+  `456` → `4,56`, `1050` → `10,50`; ao sair, os centavos completam (`6` → `6,00`); máximo de 4 dígitos
+  (R$ 99,99) e o 5º é ignorado. Rótulo à esquerda, prefixo `R$` discreto e número grande à direita.
   Foco visível de 2 px; erro em texto e `aria-invalid`.
+- **Custo mensal:** campo opcional de km/mês no cartão do veículo; o resultado preciso acrescenta
+  "Rodando N km/mês: cerca de R$ X/mês com <vencedor>".
+- **Sobre e dados:** bottom sheet (overlay escuro) com versão, semana da ANP, fonte, atualizar preços e
+  apagar dados do aparelho (confirmação em dois toques).
+- **Instalar:** link no rodapé, visível só quando o navegador permite instalar; sem evento, o toque mostra
+  as instruções do iPhone/Android.
+- **Compartilhar imagem:** cartão PNG 900×1200 desenhado em `<canvas>`, compartilhado como arquivo quando
+  possível e baixado como fallback; nunca depende de serviço externo.
 - **Segmentado (abas):** trilho cinza com pílula branca/elevada no item ativo; `role=tablist` e setas.
 - **Limite:** valor grande, trilha com preenchimento verde até o limite, chips E32/E30/E25 + "seu carro".
 - **Seletor de UF:** rótulo visível "Média oficial por estado", `select` + botão "Preencher preços" e

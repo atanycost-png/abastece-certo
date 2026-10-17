@@ -412,3 +412,21 @@ console.log(sandbox.calc('5,89', '3,99', 0.72));
 
 **Bibliotecas (medição de tamanho)**
 - unpkg/jsDelivr: `alpinejs@3.14.9`, `preact@10.26.4`, `htm@3.1.1`, `lit@3.3.1`, `chart.js@4.4.9`, `uplot@1.6.32`, `workbox-window@7.3.0`, `just-validate@4.3.0` — tamanhos brutos/gzip medidos localmente em 17/10/2026.
+
+---
+
+## 2.4 APIs candidatas para a próxima etapa (atualização 17/10/2026)
+
+Complemento ao §2.1–2.2, depois da v4.2. Status: **não integradas** — só candidatas, verificadas por
+pesquisa rápida; os termos e limites de uso precisam ser confirmados antes de produção.
+
+| API | O que dá | Custo | Observação |
+|---|---|---|---|
+| [IBGE — Localidades](https://servicodados.ibge.gov.br/api/v1/localidades/estados/SP/municipios) | lista oficial de municípios por UF (JSON) | grátis | ótima para o seletor de **cidade**; pode ser consumida em runtime ou no build |
+| [Overpass API](https://overpass-api.de/) (OpenStreetMap) | postos `amenity=fuel` perto de lat/lon | grátis | exige geolocalização, respeitar rate limit; bom para "postos próximos" sem Google |
+| [Apify — ANP Preços Combustíveis](https://apify.com/latinamericadata/anp-precos-combustiveis-brasil/api) | preços/scraping da ANP | pago | chave, custo e dependência de terceiro; **não recomendado** para app estático sem backend |
+
+**Conclusão:** continua valendo o §2.2 — para *preços*, o caminho sem backend é o XLSX semanal → `precos.json`
+na mesma origem (já implementado). Para *cidades*, a API do IBGE resolve. Para *preços por posto em tempo
+real / mapa / sincronização*, só com backend ou dados comunitários.
+

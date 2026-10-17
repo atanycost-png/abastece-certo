@@ -439,6 +439,30 @@
   }
 
   footer { text-align: center; font-size: 10.5px; color: var(--faint); margin-top: 20px; }
+  .foot-line { line-height: 1.5; }
+  .foot-actions { display: flex; gap: 18px; justify-content: center; margin-top: 10px; flex-wrap: wrap; }
+  .link {
+    background: none; border: 0; padding: 6px 4px; font-family: inherit; font-size: 11.5px;
+    font-weight: 600; color: var(--muted); text-decoration: underline; text-underline-offset: 3px;
+    cursor: pointer; min-height: 32px;
+  }
+  .link:hover { color: var(--ink); }
+  .sheet {
+    position: fixed; inset: 0; z-index: 70; display: flex; align-items: flex-end;
+    justify-content: center; background: rgba(3, 6, 12, .55); padding: 12px;
+  }
+  .sheet[hidden] { display: none; }
+  .sheet-card {
+    width: 100%; max-width: 440px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 18px; padding: 18px; box-shadow: 0 -10px 40px rgba(0, 0, 0, .35);
+  }
+  .sheet-card h2 { font-size: 16px; margin-bottom: 10px; color: var(--ink); }
+  .sheet-line { font-size: 12.5px; color: var(--muted); line-height: 1.55; margin-bottom: 10px; }
+  .sheet-line strong { color: var(--ink); }
+  .sheet-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .sheet-actions .btn { flex: 1 1 130px; font-size: 12.5px; }
+  .month { margin-top: 8px; }
+  .hist-veh { font-size: 10.5px; color: var(--faint); }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { transition: none !important; animation: none !important; }
@@ -557,6 +581,14 @@
         <div class="hint" id="etaKmLHint"></div>
       </div>
     </div>
+    <div class="field no-prefix">
+      <label for="kmMonth">Rodo por mês (km) — opcional</label>
+      <div class="box">
+        <input id="kmMonth" class="has-unit" type="text" inputmode="numeric" placeholder="1000" autocomplete="off" aria-describedby="kmMonthHint">
+        <span class="unit" aria-hidden="true">km/mês</span>
+      </div>
+      <div class="hint" id="kmMonthHint"></div>
+    </div>
     <div class="field">
       <label for="vehName">Nome do veículo (opcional)</label>
       <div class="box">
@@ -639,10 +671,30 @@
     </details>
   </section>
 
-  <footer>Funciona offline · sem cadastro · cálculo local no seu aparelho · v4 · preços de referência ANP</footer>
+  <footer>
+    <div class="foot-line">Funciona offline · sem cadastro · cálculo local no seu aparelho · v4 · preços de referência ANP</div>
+    <div class="foot-actions">
+      <button type="button" class="link" id="installBtn" hidden>Instalar app</button>
+      <button type="button" class="link" id="aboutBtn">Sobre e dados</button>
+    </div>
+  </footer>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="sheet" id="about" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" hidden>
+  <div class="sheet-card">
+    <h2 id="aboutTitle">Sobre e dados</h2>
+    <p class="sheet-line">Versão <strong>v4</strong> · <span id="aboutWeek">preços de referência ANP</span></p>
+    <p class="sheet-line">Preços médios: <strong>ANP — Levantamento de Preços de Combustíveis</strong> (média por estado/município, não é o preço do seu posto). O app não coleta nem envia dados: tudo fica neste aparelho.</p>
+    <p class="sheet-line">Feito para decidir em 5 segundos: modo rápido (regra E32/E25) e modo preciso (custo por km).</p>
+    <div class="sheet-actions">
+      <button type="button" class="btn ghost" id="aboutRefresh">Atualizar preços</button>
+      <button type="button" class="btn danger" id="aboutClear">Apagar dados deste aparelho</button>
+      <button type="button" class="btn" id="aboutClose">Fechar</button>
+    </div>
+  </div>
+</div>
 
 <div class="update-bar" id="updateBar" role="status" aria-live="polite" hidden>
   <span>Nova versão disponível</span>
@@ -1104,92 +1156,90 @@
     vehicleSelect: $("vehicleSelect"), vehName: $("vehName"),
     gasKmL: $("gasKmL"), etaKmL: $("etaKmL"),
     gasKmLHint: $("gasKmLHint"), etaKmLHint: $("etaKmLHint"),
+    kmMonth: $("kmMonth"), kmMonthHint: $("kmMonthHint"),
     vehSave: $("vehSave"), vehDelete: $("vehDelete"),
     resultOut: $("resultOut"), live: $("live"), liveForm: $("liveForm"),
     priceRef: $("priceRef"),
     histCount: $("histCount"), histChart: $("histChart"), histList: $("histList"),
     histHint: $("histHint"), histExport: $("histExport"), histClear: $("histClear"),
     toast: $("toast"), netBadge: $("netBadge"),
-    updateBar: $("updateBar"), updateBtn: $("updateBtn")
+    updateBar: $("updateBar"), updateBtn: $("updateBtn"),
+    installBtn: $("installBtn"), aboutBtn: $("aboutBtn"), about: $("about"),
+    aboutWeek: $("aboutWeek"), aboutRefresh: $("aboutRefresh"),
+    aboutClear: $("aboutClear"), aboutClose: $("aboutClose")
   };
 
   // ---------------------------------------------------------------- máscara de preço
-  // O campo aceita só dígitos e formata em reais enquanto digita:
-  //   6 -> 6,00 · 65 -> 65,00 (transitório) · 654 -> 6,54 · 456 -> 4,56 · 1050 -> 10,50
-  // O estado real fica nos dígitos (WeakMap), nunca no texto formatado — senão a
-  // vírgula e os zeros entrariam no próximo dígito.
+  // Só dígitos, sem estado paralelo: o valor do campo é sempre derivado dos próprios
+  // dígitos, então digitação, cola, undo e autofill se auto-corrigem.
+  //   6 -> 6 (vira 6,00 ao sair) · 65 -> 65 · 654 -> 6,54 · 456 -> 4,56 · 1050 -> 10,50
   var PRICE_DIGITS_MAX = 4;               // teto de R$ 99,99
-  var priceDigits = new WeakMap();
 
-  function fmtPriceDigits(digits) {
+  function fmtPriceTyping(digits) {
+    if (!digits) return "";
+    if (digits.length <= 2) return digits;
+    return digits.slice(0, digits.length - 2) + "," + digits.slice(-2);
+  }
+
+  function fmtPriceFull(digits) {
     if (!digits) return "";
     if (digits.length <= 2) return digits + ",00";
     return digits.slice(0, digits.length - 2) + "," + digits.slice(-2);
   }
 
+  function priceDigitsOf(raw) {
+    return String(raw == null ? "" : raw).replace(/\D/g, "");
+  }
+
+  // Usado pelo código (médias da ANP, estado salvo): deixa o valor completo.
   function setPriceDigits(input, value) {
-    var digits = String(value == null ? "" : value).replace(/\D/g, "");
-    digits = digits.replace(/^0+(?=\d)/, "");   // "06" -> "6"
+    var digits = priceDigitsOf(value).replace(/^0+(?=\d)/, "");
     if (digits.length > PRICE_DIGITS_MAX) digits = digits.slice(digits.length - PRICE_DIGITS_MAX);
-    priceDigits.set(input, digits);
-    input.value = fmtPriceDigits(digits);
-  }
-
-  function allSelected(input) {
-    return input.value.length > 0 &&
-      input.selectionStart === 0 &&
-      input.selectionEnd === input.value.length;
-  }
-
-  var maskNotifying = new WeakMap();
-
-  function notifyInput(input) {
-    // Marca a origem do evento: o listener de fallback abaixo não pode reler o
-    // valor formatado ("6,00" viraria dígitos "600" e a digitação seguinte sairia errada).
-    maskNotifying.set(input, true);
-    try {
-      input.dispatchEvent(new Event("input", { bubbles: true }));
-    } finally {
-      maskNotifying.delete(input);
-    }
+    input.value = fmtPriceFull(digits);
   }
 
   function bindPriceMask(input) {
-    setPriceDigits(input, input.value);
+    var ultimo = fmtPriceTyping(priceDigitsOf(input.value));
+    input.value = ultimo;
 
-    input.addEventListener("keydown", function (e) {
-      if (e.key === "," || e.key === ".") e.preventDefault();
-    });
-
-    input.addEventListener("beforeinput", function (e) {
-      var tipo = e.inputType || "";
-      if (tipo.indexOf("delete") === 0) {
-        e.preventDefault();
-        setPriceDigits(input, allSelected(input) ? "" : (priceDigits.get(input) || "").slice(0, -1));
-        notifyInput(input);
-        return;
+    input.addEventListener("input", function () {
+      var digits = priceDigitsOf(input.value);
+      if (digits.length > PRICE_DIGITS_MAX) {
+        var anteriores = priceDigitsOf(ultimo).length;
+        if (digits.length - anteriores > 1) {
+          // colagem longa: fica com os últimos 4 dígitos
+          digits = digits.slice(digits.length - PRICE_DIGITS_MAX);
+        } else {
+          // 5º dígito digitado: ignora e volta ao último valor válido
+          input.value = ultimo;
+          try { input.setSelectionRange(ultimo.length, ultimo.length); } catch (e) { /* sem seleção */ }
+          return;
+        }
       }
-      if (tipo === "insertText" || tipo === "insertFromPaste" || tipo === "insertCompositionText") {
-        var entrada = e.data;
-        if (entrada == null && e.dataTransfer) entrada = e.dataTransfer.getData("text");
-        if (entrada == null) return;
-        e.preventDefault();
-        var novos = String(entrada).replace(/\D/g, "");
-        if (!novos) return;
-        var base = allSelected(input) ? "" : (priceDigits.get(input) || "");
-        setPriceDigits(input, base + novos);
-        notifyInput(input);
+      var formatado = fmtPriceTyping(digits);
+      if (input.value !== formatado) {
+        input.value = formatado;
+        try { input.setSelectionRange(formatado.length, formatado.length); } catch (e) { /* sem seleção */ }
       }
+      ultimo = formatado;
     });
 
-    // Fallback: valor definido por script/autofill (evento não confiável).
-    input.addEventListener("input", function (e) {
-      if (maskNotifying.get(input)) return;
-      if (e.isTrusted) return;
-      setPriceDigits(input, input.value);
+    // Ao sair, completa os centavos (6 -> 6,00).
+    input.addEventListener("blur", function () {
+      var digits = priceDigitsOf(input.value);
+      input.value = fmtPriceFull(digits);
+      ultimo = input.value;
     });
 
-    input.addEventListener("focus", function () { input.select(); });
+    // Ao voltar, mostra a forma de digitação (6,00 -> 600? não: mantém os dígitos)
+    input.addEventListener("focus", function () {
+      var digits = priceDigitsOf(input.value);
+      if (digits) {
+        input.value = fmtPriceTyping(digits);
+        ultimo = input.value;
+      }
+      input.select();
+    });
   }
 
   bindPriceMask(ui.gas);
@@ -1263,6 +1313,7 @@
     ui.eta.value = typeof data.eta === "string" ? data.eta : "";
     ui.gasKmL.value = typeof data.gasKmL === "string" ? data.gasKmL : "";
     ui.etaKmL.value = typeof data.etaKmL === "string" ? data.etaKmL : "";
+    if (ui.kmMonth) ui.kmMonth.value = typeof data.kmMonth === "string" ? data.kmMonth : "";
     ui.vehName.value = typeof data.vehName === "string" ? data.vehName : "";
     ui.threshold.value = String(state.threshold);
   }
@@ -1275,6 +1326,7 @@
       eta: ui.eta.value,
       gasKmL: ui.gasKmL.value,
       etaKmL: ui.etaKmL.value,
+      kmMonth: ui.kmMonth ? ui.kmMonth.value : "",
       vehName: ui.vehName.value,
       vehicles: state.vehicles,
       activeId: state.activeId
@@ -1413,6 +1465,7 @@
   function shareButtonHtml() {
     return '<div class="actions">'
       + '<button type="button" class="btn ghost" data-action="share">Compartilhar resultado</button>'
+      + '<button type="button" class="btn ghost" data-action="image">Compartilhar imagem</button>'
       + '<button type="button" class="btn ghost" data-action="save">Salvar no histórico</button>'
       + '</div>';
   }
@@ -1425,6 +1478,15 @@
       + gaugeHtml(r.pct, r.threshold, "limite", r.verdict)
       + warningsHtml(r)
       + shareButtonHtml();
+  }
+
+  function monthHtml(r) {
+    var km = monthlyKm();
+    if (!km || r.verdict === "empate") return "";
+    var winner = r.verdict === "gasolina" ? "gasolina" : "etanol";
+    var per100 = winner === "gasolina" ? r.per100Gas : r.per100Eta;
+    return '<p class="note month">Rodando <strong>' + AC.fmtNum(km, 0) + ' km/mês</strong>: cerca de <strong>'
+      + AC.fmtBRL(per100 * km / 100) + '/mês</strong> com ' + winner + '.</p>';
   }
 
   function preciseHtml(r) {
@@ -1466,6 +1528,7 @@
       + '</div>'
       + gaugeHtml(r.pct, r.personalPct, "seu limite", r.verdict)
       + '<p class="note">' + note + '</p>'
+      + monthHtml(r)
       + warningsHtml(r)
       + shareButtonHtml();
   }
@@ -1697,6 +1760,15 @@
   });
   ui.vehName.addEventListener("input", saveState);
 
+  // km por mês: custo mensal estimado no modo preciso
+  function monthlyKm() {
+    if (!ui.kmMonth) return 0;
+    var n = Number(String(ui.kmMonth.value).replace(/\D/g, ""));
+    return (isFinite(n) && n >= 100 && n <= 50000) ? Math.round(n) : 0;
+  }
+
+  if (ui.kmMonth) ui.kmMonth.addEventListener("input", function () { render(); saveState(); });
+
   // ---------------------------------------------------------------- compartilhar
   function fallbackCopy(text) {
     var ta = document.createElement("textarea");
@@ -1737,11 +1809,188 @@
     copyText(text);
   }
 
+  // ---------------------------------------------------------------- compartilhar imagem (v4.1)
+  function shareImage() {
+    if (!state.lastResult) return;
+    var r = state.lastResult;
+    var canvas = document.createElement("canvas");
+    if (!canvas || typeof canvas.getContext !== "function") {
+      copyText(AC.shareText(r));
+      return;
+    }
+    var g = canvas.getContext("2d");
+    if (!g) { copyText(AC.shareText(r)); return; }
+    var W = 900, H = 1200;
+    canvas.width = W; canvas.height = H;
+
+    g.fillStyle = "#0b0e14";
+    g.fillRect(0, 0, W, H);
+
+    g.fillStyle = "#3ddc84";
+    g.fillRect(0, 0, W, 14);
+
+    g.fillStyle = "#e8edf5";
+    g.font = "700 54px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    g.fillText("Abastece Certo", 64, 150);
+
+    g.fillStyle = "#98a2b3";
+    g.font = "400 30px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    g.fillText("Etanol ou gasolina? Decida na hora.", 64, 200);
+
+    g.fillStyle = "#98a2b3";
+    g.font = "600 26px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    g.fillText("SEU RESULTADO", 64, 320);
+
+    var titulo = r.verdict === "etanol" ? "Abasteça com etanol"
+      : r.verdict === "gasolina" ? "Abasteça com gasolina"
+        : "Empate técnico: tanto faz";
+    g.fillStyle = r.verdict === "etanol" ? "#3ddc84" : (r.verdict === "gasolina" ? "#60a5fa" : "#fbbf24");
+    g.font = "700 62px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    g.fillText(titulo, 64, 410);
+
+    g.fillStyle = "#e8edf5";
+    g.font = "700 150px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    if (state.mode === "precise") {
+      g.fillText(AC.fmtBRL(r.savingsPer100), 64, 590);
+      g.fillStyle = "#98a2b3";
+      g.font = "400 30px -apple-system, 'Segoe UI', Roboto, sans-serif";
+      g.fillText("economia a cada 100 km", 64, 635);
+    } else {
+      g.fillText(AC.fmtNum(r.pct, 1) + "%", 64, 600);
+      g.fillStyle = "#98a2b3";
+      g.font = "400 30px -apple-system, 'Segoe UI', Roboto, sans-serif";
+      g.fillText("etanol ÷ gasolina · limite " + AC.pctLabel(r.threshold), 64, 645);
+    }
+
+    g.strokeStyle = "#232a38";
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(64, 720);
+    g.lineTo(W - 64, 720);
+    g.stroke();
+
+    g.font = "400 32px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    g.fillStyle = "#98a2b3";
+    g.fillText("Gasolina", 64, 790);
+    g.fillText("Etanol", 64, 850);
+    g.fillStyle = "#e8edf5";
+    g.font = "700 38px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    g.fillText(AC.fmtBRL(r.gasPrice) + "/L", W - 64 - 210, 790);
+    g.fillText(AC.fmtBRL(r.etaPrice) + "/L", W - 64 - 210, 850);
+
+    g.fillStyle = "#98a2b3";
+    g.font = "400 26px -apple-system, 'Segoe UI', Roboto, sans-serif";
+    var semana = state.prices ? AC.formatWeek(state.prices.semana) : "";
+    g.fillText((semana ? "Médias ANP: " + semana + " · " : "") + "Funciona offline · sem cadastro", 64, 1120);
+    g.fillText("abastece-certo · cálculo local no aparelho", 64, 1160);
+
+    var done = function (blob) {
+      if (!blob) { copyText(AC.shareText(r)); return; }
+      var file = null;
+      try { file = new File([blob], "abastece-certo.png", { type: "image/png" }); } catch (e) { file = null; }
+      if (file && navigator.canShare && navigator.canShare({ files: [file] }) && navigator.share) {
+        navigator.share({ files: [file], title: "Abastece Certo", text: AC.shareText(r) })
+          .catch(function () { /* usuário cancelou */ });
+        return;
+      }
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "abastece-certo.png";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(function () { URL.revokeObjectURL(url); }, 5000);
+      toast("Imagem baixada");
+    };
+
+    if (typeof canvas.toBlob === "function") canvas.toBlob(done, "image/png");
+    else copyText(AC.shareText(r));
+  }
+
   ui.resultOut.addEventListener("click", function (e) {
     var btn = e.target.closest ? e.target.closest("[data-action]") : null;
     if (!btn) return;
-    if (btn.getAttribute("data-action") === "share") share();
-    else if (btn.getAttribute("data-action") === "save") addHistory();
+    var action = btn.getAttribute("data-action");
+    if (action === "share") share();
+    else if (action === "image") shareImage();
+    else if (action === "save") addHistory();
+  });
+
+  // ---------------------------------------------------------------- instalar app (v4.1)
+  var installPrompt = null;
+  window.addEventListener("beforeinstallprompt", function (e) {
+    if (e && e.preventDefault) e.preventDefault();
+    installPrompt = e;
+    if (ui.installBtn) ui.installBtn.hidden = false;
+  });
+  window.addEventListener("appinstalled", function () {
+    installPrompt = null;
+    if (ui.installBtn) ui.installBtn.hidden = true;
+    toast("App instalado!");
+  });
+  if (ui.installBtn) ui.installBtn.addEventListener("click", function () {
+    if (!installPrompt) {
+      toast("No iPhone: Compartilhar → Adicionar à Tela de Início. No Android: menu → Instalar app.", 7000);
+      return;
+    }
+    var prompt = installPrompt;
+    installPrompt = null;
+    if (prompt.prompt) prompt.prompt();
+    if (prompt.userChoice && prompt.userChoice.then) {
+      prompt.userChoice.then(function () { if (ui.installBtn) ui.installBtn.hidden = true; });
+    }
+  });
+
+  // ---------------------------------------------------------------- sobre e dados (v4.1)
+  var aboutArmed = false;
+  var aboutTimer = null;
+
+  function openAbout() {
+    if (!ui.about) return;
+    if (ui.aboutWeek) {
+      var semana = state.prices ? AC.formatWeek(state.prices.semana) : "";
+      ui.aboutWeek.textContent = semana ? "semana ANP " + semana : "preços de referência embutidos";
+    }
+    aboutArmed = false;
+    if (ui.aboutClear) ui.aboutClear.textContent = "Apagar dados deste aparelho";
+    ui.about.hidden = false;
+    if (ui.aboutClose) ui.aboutClose.focus();
+  }
+
+  function closeAbout() {
+    if (ui.about) ui.about.hidden = true;
+  }
+
+  if (ui.aboutBtn) ui.aboutBtn.addEventListener("click", openAbout);
+  if (ui.aboutClose) ui.aboutClose.addEventListener("click", closeAbout);
+  if (ui.about) ui.about.addEventListener("click", function (e) { if (e.target === ui.about) closeAbout(); });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && ui.about && !ui.about.hidden) closeAbout();
+  });
+  if (ui.aboutRefresh) ui.aboutRefresh.addEventListener("click", function () {
+    loadPrices();
+    toast("Buscando preços da ANP…");
+  });
+  if (ui.aboutClear) ui.aboutClear.addEventListener("click", function () {
+    if (!aboutArmed) {
+      aboutArmed = true;
+      ui.aboutClear.textContent = "Toque de novo para apagar";
+      clearTimeout(aboutTimer);
+      aboutTimer = setTimeout(function () {
+        aboutArmed = false;
+        ui.aboutClear.textContent = "Apagar dados deste aparelho";
+      }, 3000);
+      return;
+    }
+    clearTimeout(aboutTimer);
+    ["ac.theme", "ac.uf", "ac.v2", "ac.v3.prices", "ac.v3.history"].forEach(function (k) {
+      try { localStorage.removeItem(k); } catch (e) { /* storage indisponível */ }
+    });
+    toast("Dados apagados");
+    setTimeout(function () {
+      try { location.reload(); } catch (e) { /* sem reload */ }
+    }, 500);
   });
 
   // ---------------------------------------------------------------- preços ANP (v3)
@@ -1874,7 +2123,8 @@
         eta: e.eta,
         pct: e.pct,
         threshold: isFinite(e.threshold) ? e.threshold : NaN,
-        verdict: safeVerdict(e.verdict)
+        verdict: safeVerdict(e.verdict),
+        veh: typeof e.veh === "string" ? e.veh.slice(0, 30) : ""
       };
     }).slice(-HIST_MAX) : [];
   }
@@ -1890,6 +2140,8 @@
     }
     var entry = AC.historyEntry(state.lastResult, Date.now());
     if (!entry) { toast("Não foi possível salvar"); return; }
+    var ativo = activeVehicle();
+    if (ativo && ativo.name) entry.veh = String(ativo.name).slice(0, 30);
     histEntries.push(entry);
     if (histEntries.length > HIST_MAX) histEntries = histEntries.slice(-HIST_MAX);
     persistHistory();
@@ -1938,6 +2190,7 @@
         + '<span class="hist-prices">G ' + AC.fmtBRL(e.gas) + " · E " + AC.fmtBRL(e.eta) + "</span>"
         + '<span class="hist-pct">' + AC.fmtNum(e.pct, 1) + "%</span>"
         + '<span class="hist-verdict ' + v + '">' + AC.verdictShort(v) + "</span>"
+        + (e.veh ? '<span class="hist-veh">' + escapeHtml(e.veh) + "</span>" : "")
         + "</li>";
     }).join("");
   }

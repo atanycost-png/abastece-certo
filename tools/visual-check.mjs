@@ -557,8 +557,63 @@ async function main() {
       errors.push(`máscara sequencial: digitando 6,5,4 esperava 6,54, obteve ${maskSequencial}`);
     }
 
-    // ---- 15. temas: padrão escuro, alternância e automático
-    console.log("15) temas (padrão escuro → automático → claro)");
+    // 5º dígito é ignorado; sair do campo completa os centavos
+    await page.eval(`(() => { const el = document.getElementById('gas'); el.focus(); el.select(); return true; })()`);
+    await cdp.send("Input.insertText", { text: "1050" }, sessionId);
+    await new Promise((r) => setTimeout(r, 120));
+    await cdp.send("Input.insertText", { text: "9" }, sessionId);
+    await new Promise((r) => setTimeout(r, 120));
+    const maskCap = await page.eval(`document.getElementById('gas').value`);
+    if (maskCap !== "10,50") errors.push(`máscara: 5º dígito deveria ser ignorado, obteve ${maskCap}`);
+    await page.eval(`(() => { const el = document.getElementById('eta'); el.focus(); el.select(); return true; })()`);
+    await cdp.send("Input.insertText", { text: "6" }, sessionId);
+    await page.eval(`document.getElementById('tab-fast').focus()`);
+    await new Promise((r) => setTimeout(r, 150));
+    const maskBlur = await page.eval(`document.getElementById('eta').value`);
+    if (maskBlur !== "6,00") errors.push(`máscara: ao sair 6 deveria virar 6,00, obteve ${maskBlur}`);
+
+    // ---- 15. sobre/dados, instalação e custo mensal
+    console.log("15) sobre/dados, instalação e custo mensal");
+    const sobre = await page.eval(`(() => {
+      document.getElementById('aboutBtn').click();
+      const aberto = !document.getElementById('about').hidden;
+      const semana = document.getElementById('aboutWeek').textContent;
+      document.getElementById('aboutClose').click();
+      const fechado = document.getElementById('about').hidden;
+      const instalarOculto = document.getElementById('installBtn').hidden;
+      return { aberto, semana, fechado, instalarOculto };
+    })()`);
+    console.log(`   ${JSON.stringify(sobre)}`);
+    if (!sobre.aberto) errors.push("sobre não abriu");
+    if (!/semana ANP/.test(sobre.semana)) errors.push(`semana ANP ausente no sobre: ${sobre.semana}`);
+    if (!sobre.fechado) errors.push("sobre não fechou");
+    console.log(`   botão instalar oculto? ${sobre.instalarOculto} (se o navegador disparou beforeinstallprompt, aparece)`);
+
+    const mensal = await page.eval(`(() => {
+      document.getElementById('tab-precise').click();
+      const set = (id, v) => {
+        const el = document.getElementById(id);
+        el.value = v;
+        el.dispatchEvent(new Event('input', { bubbles: true }));
+      };
+      set('gasKmL', '10,5');
+      set('etaKmL', '7,3');
+      set('kmMonth', '1000');
+      set('gas', '5,89');
+      set('eta', '3,99');
+      return document.getElementById('resultOut').innerText;
+    })()`);
+    if (!/km\/mês/.test(mensal)) errors.push("custo mensal não apareceu no resultado");
+    await new Promise((r) => setTimeout(r, 250));
+    await page.shot("11-custo-mensal");
+
+    await page.eval(`(() => { document.getElementById('aboutBtn').click(); return true; })()`);
+    await new Promise((r) => setTimeout(r, 300));
+    await page.shot("10-sobre");
+    await page.eval(`document.getElementById('aboutClose').click()`);
+
+    // ---- 16. temas: padrão escuro, alternância e automático
+    console.log("16) temas (padrão escuro → automático → claro)");
     const tema = await page.eval(`(() => {
       const btn = document.getElementById('themeBtn');
       const root = document.documentElement;

@@ -9,13 +9,14 @@
 //
 // Ao publicar uma versão, mude VERSION: o activate apaga os caches antigos.
 
-const VERSION = "v2.0.0";
+const VERSION = "v3.0.0";
 const CACHE = "abastece-certo-" + VERSION;
 
 const PRECACHE = [
   "./",
   "./index.html",
   "./manifest.webmanifest",
+  "./precos.json",
   "./icons/favicon.svg",
   "./icons/icon-192.png",
   "./icons/icon-512.png",

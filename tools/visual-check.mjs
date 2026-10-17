@@ -189,12 +189,31 @@ class Page {
     return result.result.value;
   }
 
-  async setViewport(width, height) {
+  async setViewport(width, height, dsf = 2) {
     await this.cdp.send(
       "Emulation.setDeviceMetricsOverride",
-      { width, height, deviceScaleFactor: 2, mobile: width < 600 },
+      { width, height, deviceScaleFactor: dsf, mobile: width < 600 },
       this.sessionId
     );
+  }
+
+  // Captura exatamente a área pedida (para screenshots do manifest, que exigem
+  // tamanhos fixos e não podem variar com o conteúdo). O clip é em coordenadas
+  // do documento, então capturamos "além do viewport" a partir de um y escolhido.
+  async shotClip(name, width, height, y = 0) {
+    const result = await this.cdp.send(
+      "Page.captureScreenshot",
+      {
+        format: "png",
+        captureBeyondViewport: true,
+        clip: { x: 0, y, width, height, scale: 1 }
+      },
+      this.sessionId
+    );
+    const file = join(SHOTS, `${name}.png`);
+    writeFileSync(file, Buffer.from(result.data, "base64"));
+    console.log(`  screenshot ${name}.png (${width}x${height} @ y=${y})`);
+    return file;
   }
 
   async shot(name) {
@@ -296,8 +315,33 @@ async function main() {
     if (!fast.veredito || !/ETANOL/.test(fast.veredito)) errors.push(`veredito inesperado no modo rápido: ${fast.veredito}`);
     if (!/67,7/.test(fast.indice || "")) errors.push(`índice inesperado: ${fast.indice}`);
 
-    // ---- 3. veredito oposto (gasolina)
-    console.log("3) preço de etanol caro -> gasolina");
+    // ---- 3. referência ANP (precos.json) e "Usar médias"
+    console.log("3) referência ANP + usar médias");
+    const anp = await page.eval(`(() => {
+      const ref = document.getElementById('priceRef');
+      const use = document.getElementById('refUse');
+      const sel = document.getElementById('refUf');
+      if (!use) return { carregou: false, texto: ref.innerText.trim() };
+      use.click();
+      return {
+        carregou: true,
+        texto: ref.innerText.trim(),
+        opcoesUf: sel ? sel.options.length : 0,
+        gas: document.getElementById('gas').value,
+        eta: document.getElementById('eta').value,
+        indice: document.querySelector('.result .big')?.innerText.trim()
+      };
+    })()`);
+    console.log(`   ${JSON.stringify(anp)}`);
+    if (!anp.carregou) errors.push("precos.json não carregou (bloco de referência ANP ausente)");
+    if (anp.carregou && (anp.gas !== "6,54" || anp.eta !== "4,14")) {
+      errors.push(`"Usar médias" deveria preencher 6,54/4,14, obteve ${anp.gas}/${anp.eta}`);
+    }
+    if (anp.carregou && anp.opcoesUf < 2) errors.push("seletor de UF vazio");
+    await page.shot("07-referencia-anp");
+
+    // ---- 4. preço de etanol caro -> gasolina
+    console.log("4) preço de etanol caro -> gasolina");
     const gasVerdict = await page.eval(`(() => {
       const el = document.getElementById('eta');
       el.value = '4,80'; el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -306,8 +350,8 @@ async function main() {
     console.log(`   ${gasVerdict}`);
     if (!/GASOLINA/.test(gasVerdict || "")) errors.push(`esperava GASOLINA, obtive: ${gasVerdict}`);
 
-    // ---- 4. preço inválido mostra dica
-    console.log("4) validação de preço inválido");
+    // ---- 5. preço inválido mostra dica
+    console.log("5) validação de preço inválido");
     const invalid = await page.eval(`(() => {
       const el = document.getElementById('eta');
       el.value = 'abc'; el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -321,8 +365,8 @@ async function main() {
     if (!invalid.hint) errors.push("preço inválido deveria mostrar dica");
     if (invalid.invalid !== "true") errors.push("preço inválido deveria marcar aria-invalid");
 
-    // ---- 5. empate técnico: veredito, texto e cor têm de concordar
-    console.log("5) empate técnico (consistência veredito × texto × cor)");
+    // ---- 6. empate técnico: veredito, texto e cor têm de concordar
+    console.log("6) empate técnico (consistência veredito × texto × cor)");
     const tie = await page.eval(`(() => {
       const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
       const t = document.getElementById('threshold');
@@ -341,8 +385,8 @@ async function main() {
     if (/acima|abaixo/.test(tie.label || "")) errors.push(`texto contraditório no empate: ${tie.label}`);
     await page.shot("06-empate-tecnico");
 
-    // ---- 6. modo preciso
-    console.log("6) modo preciso (consumo real)");
+    // ---- 7. modo preciso
+    console.log("7) modo preciso (consumo real)");
     const precise = await page.eval(`(() => {
       const set = (id, v) => { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
       set('gas', '5,89');
@@ -362,8 +406,38 @@ async function main() {
     if (!/ETANOL/.test(precise.veredito || "")) errors.push(`modo preciso: esperava ETANOL, obtive ${precise.veredito}`);
     if (!/R\$\s*1,44/.test(precise.grande || "")) errors.push(`economia esperada R$ 1,44, obtive ${precise.grande}`);
 
-    // ---- 7. salvar veículo e recarregar (persistência em localStorage)
-    console.log("7) salvar veículo + recarregar");
+    // ---- 8. histórico local (salvar, sparkline, exportação)
+    console.log("8) histórico local (salvar, sparkline, CSV)");
+    const hist = await page.eval(`(() => {
+      const save = () => document.querySelector('[data-action="save"]').click();
+      save();
+      const g = document.getElementById('gas');
+      g.value = '6,50'; g.dispatchEvent(new Event('input', { bubbles: true }));
+      const e = document.getElementById('eta');
+      e.value = '4,10'; e.dispatchEvent(new Event('input', { bubbles: true }));
+      save();
+      const details = document.querySelector('.hist details');
+      if (details) details.open = true;
+      return {
+        contagem: document.getElementById('histCount').textContent,
+        itens: document.querySelectorAll('#histList .hist-item').length,
+        spark: !!document.querySelector('#histChart svg path'),
+        pontos: document.querySelectorAll('#histChart circle').length,
+        exportHabilitado: !document.getElementById('histExport').disabled,
+        persistiu: !!localStorage.getItem('ac.v3.history')
+      };
+    })()`);
+    console.log(`   ${JSON.stringify(hist)}`);
+    if (hist.contagem !== "2") errors.push(`histórico deveria ter 2 entradas, obteve ${hist.contagem}`);
+    if (hist.itens !== 2) errors.push(`lista do histórico deveria ter 2 itens, obteve ${hist.itens}`);
+    if (!hist.spark) errors.push("sparkline do histórico não foi gerada");
+    if (hist.pontos !== 2) errors.push(`sparkline deveria ter 2 pontos, obteve ${hist.pontos}`);
+    if (!hist.exportHabilitado) errors.push("exportar CSV deveria estar habilitado");
+    if (!hist.persistiu) errors.push("histórico não foi persistido no localStorage");
+    await page.shot("08-historico");
+
+    // ---- 9. salvar veículo e recarregar (persistência em localStorage)
+    console.log("9) salvar veículo + recarregar");
     const saved = await page.eval(`(() => {
       const el = document.getElementById('vehName');
       el.value = 'Onix 1.4'; el.dispatchEvent(new Event('input', { bubbles: true }));
@@ -383,16 +457,18 @@ async function main() {
       nome: document.getElementById('vehName').value,
       gasKmL: document.getElementById('gasKmL').value,
       opcoes: document.getElementById('vehicleSelect').options.length,
-      precoGas: document.getElementById('gas').value
+      precoGas: document.getElementById('gas').value,
+      histCount: document.getElementById('histCount').textContent
     }))()`);
     console.log(`   ${JSON.stringify(restored)}`);
     if (restored.nome !== "Onix 1.4") errors.push(`nome do veículo não restaurado: ${restored.nome}`);
     if (restored.aba !== "true") errors.push("modo preciso não restaurado após reload");
     if (restored.opcoes < 2) errors.push("veículo salvo não apareceu no seletor");
+    if (restored.histCount !== "2") errors.push(`histórico deveria sobreviver ao reload (2), obteve ${restored.histCount}`);
     await page.shot("04-preciso-veiculo-salvo");
 
-    // ---- 8. viewport estreito (360px)
-    console.log("8) viewport estreito 360px");
+    // ---- 10. viewport estreito (360px)
+    console.log("10) viewport estreito 360px");
     await page.setViewport(360, 900);
     await new Promise((r) => setTimeout(r, 300));
     const overflow = await page.eval(`(() => ({
@@ -404,8 +480,8 @@ async function main() {
     if (overflow.scrollW > overflow.clientW + 1) errors.push(`overflow horizontal em 360px (${overflow.scrollW} > ${overflow.clientW})`);
     await page.shot("05-estreito-360");
 
-    // ---- 9. acessibilidade básica: foco e tamanho de alvo
-    console.log("9) acessibilidade (alvos de toque e foco)");
+    // ---- 11. acessibilidade básica: foco e tamanho de alvo
+    console.log("11) acessibilidade (alvos de toque e foco)");
     await page.setViewport(430, 900);
     const a11y = await page.eval(`(() => {
       const small = [];
@@ -421,8 +497,8 @@ async function main() {
     if (a11y.alvosPequenos.length) errors.push(`alvos de toque < 32px: ${a11y.alvosPequenos.join(", ")}`);
     if (!a11y.focoOk) errors.push("foco programático não funcionou na aba");
 
-    // ---- 10. atalho do manifest (?modo=preciso)
-    console.log("10) atalho do manifest ?modo=preciso");
+    // ---- 12. atalho do manifest (?modo=preciso)
+    console.log("12) atalho do manifest ?modo=preciso");
     const shortcutLoaded = cdp.waitFor("Page.loadEventFired", sessionId);
     await cdp.send("Page.navigate", { url: `http://127.0.0.1:${PORT}/?modo=preciso` }, sessionId);
     await shortcutLoaded;
@@ -433,6 +509,21 @@ async function main() {
     }))()`);
     console.log(`   ${JSON.stringify(shortcut)}`);
     if (shortcut.aba !== "true" || !shortcut.painelVisivel) errors.push("atalho ?modo=preciso não abriu o modo preciso");
+
+    // ---- 13. screenshots do manifest (tamanhos fixos e estáveis)
+    console.log("13) screenshots do manifest");
+    const resultOffset = `(() => {
+      const r = document.querySelector('.result');
+      return r ? Math.max(0, Math.round(r.offsetTop) - 90) : 0;
+    })()`;
+    await page.setViewport(1280, 720, 1);
+    await new Promise((r) => setTimeout(r, 400));
+    const yWide = await page.eval(resultOffset);
+    await page.shotClip("install-wide-1280x720", 1280, 720, yWide);
+    await page.setViewport(430, 932, 1);
+    await new Promise((r) => setTimeout(r, 400));
+    const yNarrow = await page.eval(resultOffset);
+    await page.shotClip("install-narrow-430x932", 430, 932, yNarrow);
 
     try { await cdp.send("Browser.close"); } catch { /* fecha junto com o WS */ }
     cdp.close();

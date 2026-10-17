@@ -418,6 +418,143 @@ test("shareText do modo preciso menciona custos", () => {
 });
 test("shareText(null) === ''", () => eq(AC.shareText(null), ""));
 
+section("v3 — preços de referência ANP");
+const samplePrices = {
+  fonte: "ANP — Levantamento de Preços",
+  semana: { inicio: "2026-10-04", fim: "2026-10-10" },
+  brasil: {
+    gasolinaComum: { media: 6.54, min: 5.39, max: 8.99, postos: 4474 },
+    gasolinaAditivada: { media: 6.72 },
+    etanol: { media: 4.14 }
+  },
+  estados: {
+    SP: { gasolinaComum: 6.36, etanol: 3.86 },
+    RN: { gasolinaComum: 6.6, etanol: 5.03 },
+    XX: {},
+    "s": { gasolinaComum: 1, etanol: 1 }
+  }
+};
+test("normalizePrices aceita o schema do precos.json", () => {
+  const p = AC.normalizePrices(samplePrices);
+  ok(p, "deveria normalizar");
+  close(p.brasil.gasolina, 6.54, 1e-12);
+  close(p.brasil.aditivada, 6.72, 1e-12);
+  close(p.brasil.etanol, 4.14, 1e-12);
+  close(p.estados.SP.gasolina, 6.36, 1e-12);
+  close(p.estados.SP.etanol, 3.86, 1e-12);
+  eq(Object.keys(p.estados).length, 2, "UFs inválidas devem ser descartadas");
+  eq(p.semana.inicio, "2026-10-04");
+});
+test("normalizePrices rejeita dados incompletos", () => {
+  isNull(AC.normalizePrices(null));
+  isNull(AC.normalizePrices({}));
+  isNull(AC.normalizePrices({ brasil: {} }));
+  isNull(AC.normalizePrices({ brasil: { gasolinaComum: { media: 6.54 } } }), "falta etanol");
+  isNull(AC.normalizePrices({ brasil: { gasolinaComum: { media: 0 }, etanol: { media: 4 } } }), "média zero");
+  isNull(AC.normalizePrices({ brasil: { gasolinaComum: { media: "abc" }, etanol: { media: 4 } } }), "média inválida");
+});
+test("normalizePrices tolera semana malformada e estados ruins", () => {
+  const p = AC.normalizePrices({
+    brasil: { gasolinaComum: { media: 6.5 }, etanol: { media: 4.1 } },
+    semana: { inicio: "2026-10", fim: "x" },
+    estados: { sp: { gasolinaComum: 1, etanol: 1 } }
+  });
+  ok(p);
+  isNull(p.semana, "semana inválida deve virar null");
+  eq(Object.keys(p.estados).length, 0);
+});
+test("formatWeek formata mesma semana e virada de mês", () => {
+  eq(AC.formatWeek({ inicio: "2026-10-04", fim: "2026-10-10" }), "04\u201310/10/2026");
+  eq(AC.formatWeek({ inicio: "2026-09-27", fim: "2026-10-03" }), "27/09/2026\u201303/10/2026");
+  eq(AC.formatWeek({ inicio: "x", fim: "2026-10-10" }), "");
+  eq(AC.formatWeek(null), "");
+});
+
+section("v3 — histórico local");
+test("historyEntry monta entrada a partir do resultado", () => {
+  const r = AC.fastResult(6.54, 4.14, 72);
+  const e = AC.historyEntry(r, 1750000000000);
+  ok(e, "deveria criar entrada");
+  eq(e.mode, "fast");
+  close(e.gas, 6.54, 1e-12);
+  close(e.eta, 4.14, 1e-12);
+  close(e.pct, 63.3, 1e-9);
+  close(e.threshold, 72, 1e-12);
+  eq(e.verdict, "etanol");
+  eq(e.ts, 1750000000000);
+});
+test("historyEntry usa modo preciso quando aplicável", () => {
+  const e = AC.historyEntry(AC.preciseResult(6.54, 4.14, 12, 8.6), 1);
+  eq(e.mode, "precise");
+  close(e.pct, 63.3, 1e-9);
+  close(e.threshold, 71.7, 0.05);
+});
+test("historyEntry rejeita resultado/timestamp inválidos", () => {
+  isNull(AC.historyEntry(null, 1));
+  isNull(AC.historyEntry(AC.fastResult(6.54, 4.14, 72), NaN));
+  isNull(AC.historyEntry(AC.fastResult("abc", 4.14, 72), 1));
+});
+test("historyCsv tem cabeçalho, ponto e vírgula e decimal pt-BR", () => {
+  const csv = AC.historyCsv([
+    AC.historyEntry(AC.fastResult(6.54, 4.14, 72), 1750000000000),
+    AC.historyEntry(AC.preciseResult(6.54, 4.14, 12, 8.6), 1750000600000)
+  ]);
+  const lines = csv.split("\r\n");
+  eq(lines[0], "data;hora;modo;gasolina;etanol;indice_percentual;limite;veredito");
+  eq(lines.length, 3);
+  includes(lines[1], ";rapido;");
+  includes(lines[1], "6,54");
+  includes(lines[1], "4,14");
+  includes(lines[1], ";72;etanol");
+  includes(lines[2], ";preciso;");
+});
+test("historyCsv ignora entradas inválidas", () => {
+  const csv = AC.historyCsv([null, {}, { ts: "x" }, AC.historyEntry(AC.fastResult(6.5, 4.1, 72), 1)]);
+  eq(csv.split("\r\n").length, 2);
+});
+test("historyCsv sanitiza veredito hostil (sem tag e sem separador extra)", () => {
+  const csv = AC.historyCsv([{
+    ts: 1750000000000, mode: "fast", gas: 6.54, eta: 4.14,
+    pct: 63.3, threshold: 72, verdict: '"><img src=x onerror=alert(1)>'
+  }]);
+  const row = csv.split("\r\n")[1];
+  eq(row.split(";").length, 8, "linha do CSV precisa ter 8 colunas");
+  notIncludes(row, "<", "CSV não pode conter tag");
+  notIncludes(row, "alert");
+});
+test("fmtDateTime devolve dd/mm/aaaa hh:mm", () => {
+  ok(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/.test(AC.fmtDateTime(1750000000000)), AC.fmtDateTime(1750000000000));
+  eq(AC.fmtDateTime(NaN), "");
+});
+test("verdictShort", () => {
+  eq(AC.verdictShort("etanol"), "Etanol");
+  eq(AC.verdictShort("gasolina"), "Gasolina");
+  eq(AC.verdictShort("empate"), "Empate");
+  eq(AC.verdictShort("x"), "Empate");
+});
+test("sparkline precisa de ao menos 2 pontos", () => {
+  isNull(AC.sparkline([], 320, 90));
+  isNull(AC.sparkline([63], 320, 90));
+  isNull(AC.sparkline(null, 320, 90));
+});
+test("sparkline gera caminho e yFor dentro do viewBox", () => {
+  const sp = AC.sparkline([63, 70, 68, 75], 320, 90);
+  ok(sp, "deveria gerar");
+  eq(sp.points.length, 4);
+  ok(sp.path.indexOf("M") === 0, "path começa com M");
+  for (const p of sp.points) {
+    ok(p.x >= 0 && p.x <= 320, `x fora: ${p.x}`);
+    ok(p.y >= 0 && p.y <= 90, `y fora: ${p.y}`);
+  }
+  const y = sp.yFor(70);
+  ok(y >= 0 && y <= 90, `yFor fora: ${y}`);
+});
+test("sparkline lida com valores todos iguais", () => {
+  const sp = AC.sparkline([70, 70, 70], 320, 90);
+  ok(sp, "deveria gerar mesmo sem variação");
+  ok(sp.max > sp.min, "faixa precisa ser não nula");
+});
+
 section("integridade do HTML");
 test("todo id referenciado no script existe no HTML", () => {
   const ids = new Set();

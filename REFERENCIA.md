@@ -135,3 +135,66 @@ Decisão central mantida: **o app continua um arquivo único, zero dependências
 - Histórico local de preços/abastecimentos (gráfico em SVG próprio, sem Chart.js).
 - Screenshots no manifest (rich install UI) — exige imagens `wide` 1280×720 e `narrow`.
 - Rodar Lighthouse/axe reais em dispositivo Android e iOS para fechar a verificação de instalação.
+
+---
+
+## 17/10/2026 — v3 (preços semanais da ANP, histórico local e gate ampliado)
+
+### Objetivo
+Fechar os itens de backlog que mais afetavam utilidade e confiança: dados de preço atualizáveis sem backend,
+memória dos cálculos do usuário e testes de integração/runtime dentro do gate.
+
+### Decisões
+- **Preços:** XLSX oficial da ANP → `precos.json` por `tools/update-prices.mjs`, **sem dependências**
+  (leitor ZIP próprio com `node:zlib`, XML por regex, números pt-BR, validação antes de gravar e escrita
+  atômica — nunca gera JSON parcial). O GitHub Action (`atualizar-precos.yml`) roda semanalmente, roda os
+  testes, e só commita se o dado mudou; reexecução sem novidade preserva `atualizadoEm` e os bytes.
+- **App:** busca `./precos.json` na **mesma origem** (sem CORS), cacheia em `localStorage` (`ac.v3.prices`)
+  e, se o fetch falhar, mantém o cache ou o texto de referência embutido — nunca quebra a calculadora.
+  Bloco "Referência ANP" com semana, seletor Brasil/UF e botão **Usar médias**.
+- **Histórico:** `localStorage` (`ac.v3.history`, máx. 50), botão "Salvar no histórico", lista da mais nova
+  para a mais antiga, **sparkline em SVG próprio** (sem Chart.js) com linha tracejada do limite, e CSV com
+  BOM + `;` + vírgula decimal (abre corretamente no Excel pt-BR). Limpeza exige confirmação em duas etapas.
+- **PWA:** screenshots `narrow` 430×932 e `wide` 1280×720 no manifest, gerados pelo `visual-check` com
+  recorte fixo em coordenadas do documento; `precos.json` no precache; `forced-colors` para alto contraste;
+  versão **3.0.0** no app, no SW e no `package.json`.
+- **Gate:** quatro suítes — `test.mjs` (lógica pura), `test-dom.mjs` (integração com DOM simulado),
+  `test-sw.mjs` (runtime do service worker) e `test-prices.mjs` (pipeline ZIP/XLSX/schema). `npm test` roda
+  todas; `check.mjs` valida o pacote (manifesto, screenshots reais, precache, ARIA, tamanho).
+
+### O que foi promovido da revisão adversarial
+O harness `research/review-v2.mjs` virou **`tools/test-dom.mjs` + `tools/test-sw.mjs`**, agora parte do gate
+oficial. A lacuna apontada na revisão ("`test.mjs` só cobre o CORE, o SW não tem teste de runtime") foi fechada.
+
+### Verificação (17/10/2026)
+- `node tools/test.mjs` → **157/157**.
+- `node tools/test-dom.mjs` → **95/95**.
+- `node tools/test-sw.mjs` → **33/33**.
+- `node tools/test-prices.mjs` → **99/99**.
+- `node tools/check.mjs` → **52/52**.
+- `node tools/visual-check.mjs` → **13 etapas**, 0 erros de console; preços da ANP e histórico validados no
+  navegador; screenshots do manifest regravados com as dimensões exatas.
+- Dados conferidos contra a fonte oficial: gasolina **6,54**, aditivada **6,72**, etanol **4,14**
+  (semana 04–10/10/2026; 4.474 / 3.443 / 3.833 postos), 27 UFs.
+- Peso: `index.html` ~75 KB · `sw.js` ~3,5 KB · `precos.json` ~2,5 KB · ícones ~103 KB.
+
+### Pitfalls (novos)
+- **`fetch` não funciona em `file://`** — o bloco ANP só carrega quando servido por http(s); em `file://`
+  fica o texto de referência embutido. Isso é intencional e testado.
+- **Screenshot do manifest não pode variar de tamanho**: nada de captura de página inteira; usar clip fixo
+  em **coordenadas do documento** + `captureBeyondViewport: true` e `deviceScaleFactor: 1`. Com a página
+  rolada e clip em `y=0` a imagem sai vazia (aconteceu e foi corrigido).
+- **`precos.json` pode envelhecer** se a Action falhar: o app mostra a semana do arquivo e o cache local; a
+  Action preserva os bytes quando não há dado novo para não criar commit vazio.
+- **XLSX sem biblioteca** exige ZIP (EOCD/diretório central/store+deflate) e `sharedStrings.xml`; a semana do
+  LPC é **domingo–sábado**; `min`/`max` são de médias **municipais**, não de posto.
+- **Histórico é local por aparelho** (não sincroniza) e não substitui diário fiscal.
+- **Migração da v2 para a v3:** `ac.v2` continua válido; `ac.v3.prices` e `ac.v3.history` são chaves novas e
+  não apagam nada. O aviso de 70→72 só aparece quando o limite é realmente trocado.
+
+### Backlog (v4 possível)
+- Importar `resumo_semanal_lpc_*.xlsx`/CSV do próprio usuário via `FileReader`.
+- Sincronizar histórico entre aparelhos (exigiria conta/backend — decisão de produto).
+- Layout realmente “desktop” (duas colunas) para um screenshot `wide` menos espaçado.
+- Lighthouse/axe reais em Android/iOS para fechar a verificação de instalação.
+- Deploy automatizado (GitHub Pages) + versão visível numa tela "sobre".

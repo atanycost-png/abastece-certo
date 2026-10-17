@@ -1,15 +1,17 @@
 {
   "name": "abastece-certo",
-  "version": "2.0.0",
+  "version": "3.0.0",
   "private": true,
-  "description": "PWA offline que calcula se compensa abastecer com etanol ou gasolina (regra dos 70/71% e modo preciso por consumo real).",
+  "description": "PWA offline que calcula se compensa abastecer com etanol ou gasolina (regra dos 70/71/72% e modo preciso por consumo real), com preços semanais da ANP e histórico local.",
   "license": "MIT",
   "scripts": {
-    "test": "node tools/test.mjs",
+    "test": "node tools/test.mjs && node tools/test-dom.mjs && node tools/test-sw.mjs && node tools/test-prices.mjs",
+    "test:core": "node tools/test.mjs",
     "check": "node tools/check.mjs",
     "serve": "node tools/serve.mjs",
     "visual": "node tools/visual-check.mjs",
-    "icons": "python tools/make-icons.py"
+    "icons": "python tools/make-icons.py",
+    "prices": "node tools/update-prices.mjs"
   },
   "engines": {
     "node": ">=20"

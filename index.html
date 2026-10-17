@@ -247,6 +247,41 @@
   }
   .warn ul { margin: 0 0 0 16px; }
   .warn li { margin: 2px 0; }
+
+  .ref-actions { display: flex; gap: 8px; margin-top: 10px; align-items: stretch; }
+  .ref-actions select {
+    flex: 1; min-height: 44px; font-family: inherit; font-size: 14px; font-weight: 600;
+    color: var(--text); background: var(--card-2); border: 1px solid var(--border-ctrl);
+    border-radius: 10px; padding: 8px 10px; -webkit-appearance: none; appearance: none; cursor: pointer;
+  }
+  .ref-actions .btn { flex: none; font-size: 13px; }
+
+  .pill {
+    display: inline-block; min-width: 22px; padding: 1px 7px; border-radius: 999px;
+    font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: none;
+    color: var(--text); background: rgba(59,130,246,.16); border: 1px solid rgba(59,130,246,.35);
+    vertical-align: middle;
+  }
+  .hist-chart { margin: 6px 0 4px; }
+  .hist-chart svg { width: 100%; height: auto; display: block; }
+  .hist-list { list-style: none; margin: 4px 0 0; }
+  .hist-item { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; padding: 9px 0; border-top: 1px solid var(--border); font-size: 12.5px; }
+  .hist-when { color: var(--muted); font-variant-numeric: tabular-nums; }
+  .hist-prices { color: #c4cee0; font-variant-numeric: tabular-nums; }
+  .hist-pct { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .hist-verdict { font-size: 10.5px; font-weight: 700; border-radius: 999px; padding: 2px 8px; }
+  .hist-verdict.etanol { background: rgba(34,197,94,.14); color: var(--green-soft); }
+  .hist-verdict.gasolina { background: rgba(59,130,246,.14); color: var(--blue-soft); }
+  .hist-verdict.empate { background: rgba(245,158,11,.14); color: var(--amber-soft); }
+
+  @media (forced-colors: active) {
+    .card, .field input, .field select, .ref-actions select, .btn { border: 1px solid ButtonText; }
+    .gauge .track { border: 1px solid CanvasText; }
+    .gauge .marker { background: CanvasText; }
+    .gauge .dot-ratio { border: 2px solid CanvasText; background: Canvas; forced-color-adjust: none; }
+    .verdict, .hist-verdict, .warn { border: 1px solid CanvasText; }
+    .spark { forced-color-adjust: none; }
+  }
   .actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
   .actions .btn { font-size: 13px; min-height: 44px; padding: 9px 14px; }
 
@@ -347,7 +382,9 @@
       </div>
       <div class="hint" id="etaHint"></div>
     </div>
-    <p class="fineprint">Médias ANP da semana 04–10/10/2026: gasolina comum <strong>R$ 6,54/L</strong> · etanol <strong>R$ 4,14/L</strong>. Digite o preço do posto onde vai abastecer.</p>
+    <div class="ref" id="priceRef">
+      <p class="fineprint">Médias ANP da semana 04–10/10/2026: gasolina comum <strong>R$ 6,54/L</strong> · etanol <strong>R$ 4,14/L</strong>. Digite o preço do posto onde vai abastecer.</p>
+    </div>
   </section>
 
   <div class="tabs" role="tablist" aria-label="Modo de cálculo">
@@ -425,6 +462,21 @@
   <p class="sr-only" id="live" role="status" aria-live="polite"></p>
   <p class="sr-only" id="liveForm" role="status" aria-live="polite"></p>
 
+  <section class="card why hist">
+    <details>
+      <summary>Histórico de cálculos <span class="pill" id="histCount">0</span></summary>
+      <div class="body">
+        <div id="histChart" class="hist-chart"></div>
+        <ul id="histList" class="hist-list"></ul>
+        <p class="fineprint" id="histHint">Use “Salvar no histórico” no resultado. Os últimos 50 cálculos ficam guardados só neste aparelho.</p>
+        <div class="actions">
+          <button type="button" class="btn ghost" id="histExport">Exportar CSV</button>
+          <button type="button" class="btn danger" id="histClear">Limpar</button>
+        </div>
+      </div>
+    </details>
+  </section>
+
   <section class="card why">
     <details>
       <summary>Por que a regra dos 70% existe?</summary>
@@ -472,7 +524,7 @@
     </details>
   </section>
 
-  <footer>Funciona offline · sem cadastro · cálculo local no seu aparelho · v2 · limite de referência: E32 (ago/2026)</footer>
+  <footer>Funciona offline · sem cadastro · cálculo local no seu aparelho · v3 · preços de referência ANP</footer>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
@@ -705,6 +757,132 @@
       return LABELS[v] || "";
     }
 
+    function verdictShort(v) {
+      return v === "etanol" ? "Etanol" : (v === "gasolina" ? "Gasolina" : "Empate");
+    }
+
+    // ---------------- v3: preços de referência da ANP ----------------
+    // Normaliza o precos.json (gerado por tools/update-prices.mjs) e devolve null
+    // se o arquivo não tiver o mínimo confiável. É a única porta de entrada de
+    // dados externos no app, então valida tudo antes de usar.
+    function normalizePrices(data) {
+      if (!data || typeof data !== "object") return null;
+      var br = data.brasil;
+      if (!br || typeof br !== "object") return null;
+      var gc = Number(br.gasolinaComum ? br.gasolinaComum.media : NaN);
+      var et = Number(br.etanol ? br.etanol.media : NaN);
+      if (!isFinite(gc) || gc <= 0 || !isFinite(et) || et <= 0) return null;
+      var aditivada = Number(br.gasolinaAditivada ? br.gasolinaAditivada.media : NaN);
+      var week = data.semana;
+      var semana = (week && /^\d{4}-\d{2}-\d{2}$/.test(String(week.inicio)) && /^\d{4}-\d{2}-\d{2}$/.test(String(week.fim)))
+        ? { inicio: String(week.inicio), fim: String(week.fim) }
+        : null;
+      var estados = {};
+      if (data.estados && typeof data.estados === "object") {
+        Object.keys(data.estados).forEach(function (uf) {
+          if (!/^[A-Z]{2}$/.test(uf)) return;
+          var s = data.estados[uf] || {};
+          var g = Number(s.gasolinaComum);
+          var e = Number(s.etanol);
+          if (isFinite(g) && g > 0 && isFinite(e) && e > 0) {
+            estados[uf] = { gasolina: g, etanol: e };
+          }
+        });
+      }
+      return {
+        fonte: typeof data.fonte === "string" ? data.fonte : "ANP",
+        semana: semana,
+        brasil: {
+          gasolina: gc,
+          aditivada: isFinite(aditivada) && aditivada > 0 ? aditivada : null,
+          etanol: et
+        },
+        estados: estados
+      };
+    }
+
+    // "2026-10-04" + "2026-10-10" -> "04–10/10/2026"
+    function formatWeek(w) {
+      if (!w || !/^\d{4}-\d{2}-\d{2}$/.test(String(w.inicio)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(w.fim))) return "";
+      var a = String(w.inicio).split("-");
+      var b = String(w.fim).split("-");
+      if (a[0] === b[0] && a[1] === b[1]) return a[2] + "\u2013" + b[2] + "/" + b[1] + "/" + b[0];
+      return a[2] + "/" + a[1] + "/" + a[0] + "\u2013" + b[2] + "/" + b[1] + "/" + b[0];
+    }
+
+    // ---------------- v3: histórico local ----------------
+    function historyEntry(r, ts) {
+      if (!r || typeof ts !== "number" || !isFinite(ts)) return null;
+      if (!isFinite(r.gasPrice) || !isFinite(r.etaPrice) || !isFinite(r.pct)) return null;
+      return {
+        ts: ts,
+        mode: r.mode === "precise" ? "precise" : "fast",
+        gas: r.gasPrice,
+        eta: r.etaPrice,
+        pct: Math.round(r.pct * 10) / 10,
+        threshold: Math.round(r.threshold * 10) / 10,
+        verdict: r.verdict
+      };
+    }
+
+    function fmtDateTime(ts) {
+      var d = new Date(ts);
+      if (!isFinite(d.getTime())) return "";
+      function p(n) { return n < 10 ? "0" + n : String(n); }
+      return p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear()
+        + " " + p(d.getHours()) + ":" + p(d.getMinutes());
+    }
+
+    // CSV compatível com Excel pt-BR (BOM + ponto e vírgula + vírgula decimal).
+    function historyCsv(entries) {
+      var lines = ["data;hora;modo;gasolina;etanol;indice_percentual;limite;veredito"];
+      (entries || []).forEach(function (e) {
+        if (!e || typeof e.ts !== "number" || !isFinite(e.ts)) return;
+        var d = new Date(e.ts);
+        function p(n) { return n < 10 ? "0" + n : String(n); }
+        var data = p(d.getDate()) + "/" + p(d.getMonth() + 1) + "/" + d.getFullYear();
+        var hora = p(d.getHours()) + ":" + p(d.getMinutes());
+        var verdict = (e.verdict === "etanol" || e.verdict === "gasolina" || e.verdict === "empate")
+          ? e.verdict : "empate";
+        lines.push([
+          data,
+          hora,
+          e.mode === "precise" ? "preciso" : "rapido",
+          String(Number(e.gas)).replace(".", ","),
+          String(Number(e.eta)).replace(".", ","),
+          String(Number(e.pct)).replace(".", ","),
+          isFinite(e.threshold) ? String(Number(e.threshold)).replace(".", ",") : "",
+          verdict
+        ].join(";"));
+      });
+      return lines.join("\r\n");
+    }
+
+    // Sparkline (SVG próprio, sem biblioteca): dimensiona os pontos no viewBox.
+    function sparkline(values, w, h) {
+      var vals = (values || []).filter(function (v) { return typeof v === "number" && isFinite(v); });
+      if (vals.length < 2 || !(w > 0) || !(h > 0)) return null;
+      var min = Math.min.apply(null, vals);
+      var max = Math.max.apply(null, vals);
+      if (max - min < 1) { min = min - 1; max = max + 1; }
+      var pad = 4;
+      var points = vals.map(function (v, i) {
+        var x = pad + (i * (w - pad * 2)) / (vals.length - 1);
+        var y = h - pad - ((v - min) / (max - min)) * (h - pad * 2);
+        return { x: Math.round(x * 10) / 10, y: Math.round(y * 10) / 10 };
+      });
+      return {
+        min: min,
+        max: max,
+        points: points,
+        path: points.map(function (p, i) { return (i ? "L" : "M") + p.x + " " + p.y; }).join(" "),
+        yFor: function (value) {
+          var y = h - pad - ((value - min) / (max - min)) * (h - pad * 2);
+          return Math.round(y * 10) / 10;
+        }
+      };
+    }
+
     // Texto de distância ao limite. Regra única: se o veredito é empate, o texto
     // NUNCA pode dizer "acima/abaixo do limite" (era o bug da v1).
     function gapText(r) {
@@ -775,8 +953,15 @@
       gaugePos: gaugePos,
       gaugeOutside: gaugeOutside,
       verdictLabel: verdictLabel,
+      verdictShort: verdictShort,
       gapText: gapText,
       sanityWarnings: sanityWarnings,
+      normalizePrices: normalizePrices,
+      formatWeek: formatWeek,
+      historyEntry: historyEntry,
+      fmtDateTime: fmtDateTime,
+      historyCsv: historyCsv,
+      sparkline: sparkline,
       shareText: shareText
     };
   })();
@@ -797,6 +982,9 @@
     gasKmLHint: $("gasKmLHint"), etaKmLHint: $("etaKmLHint"),
     vehSave: $("vehSave"), vehDelete: $("vehDelete"),
     resultOut: $("resultOut"), live: $("live"), liveForm: $("liveForm"),
+    priceRef: $("priceRef"),
+    histCount: $("histCount"), histChart: $("histChart"), histList: $("histList"),
+    histHint: $("histHint"), histExport: $("histExport"), histClear: $("histClear"),
     toast: $("toast"), netBadge: $("netBadge"),
     updateBar: $("updateBar"), updateBtn: $("updateBtn")
   };
@@ -810,7 +998,9 @@
     threshold: 72,
     vehicles: [],
     activeId: null,
-    lastResult: null
+    lastResult: null,
+    prices: null,
+    migrationNote: ""
   };
 
   function safeGet(k) {
@@ -847,7 +1037,7 @@
         gasKmL: "", etaKmL: "", vehName: "",
         vehicles: [], activeId: null
       };
-      if (hadV1) {
+      if (hadV1 && keep === 72 && v1t !== 72) {
         state.migrationNote = "Limite atualizado para 72%: a gasolina comum agora é E32. Ajuste no controle se quiser.";
       }
     }
@@ -969,7 +1159,10 @@
   }
 
   function shareButtonHtml() {
-    return '<div class="actions"><button type="button" class="btn ghost" data-action="share">Compartilhar resultado</button></div>';
+    return '<div class="actions">'
+      + '<button type="button" class="btn ghost" data-action="share">Compartilhar resultado</button>'
+      + '<button type="button" class="btn ghost" data-action="save">Salvar no histórico</button>'
+      + '</div>';
   }
 
   function fastHtml(r) {
@@ -1292,9 +1485,231 @@
   }
 
   ui.resultOut.addEventListener("click", function (e) {
-    var btn = e.target.closest ? e.target.closest('[data-action="share"]') : null;
-    if (btn) share();
+    var btn = e.target.closest ? e.target.closest("[data-action]") : null;
+    if (!btn) return;
+    if (btn.getAttribute("data-action") === "share") share();
+    else if (btn.getAttribute("data-action") === "save") addHistory();
   });
+
+  // ---------------------------------------------------------------- preços ANP (v3)
+  var PRICES_KEY = "ac.v3.prices";
+
+  function selectedUf() {
+    var sel = ui.priceRef.querySelector("#refUf");
+    return (sel && sel.value) || "";
+  }
+
+  function refValues(uf) {
+    if (!state.prices) return null;
+    return (uf && state.prices.estados[uf]) ? state.prices.estados[uf] : state.prices.brasil;
+  }
+
+  function renderPriceRef() {
+    var p = state.prices;
+    if (!p) return;
+    var uf = selectedUf();
+    if (uf && !p.estados[uf]) uf = "";
+    var values = refValues(uf);
+    var week = AC.formatWeek(p.semana);
+    var ufs = Object.keys(p.estados).sort();
+
+    var opts = '<option value="">Brasil</option>';
+    for (var i = 0; i < ufs.length; i++) {
+      opts += '<option value="' + ufs[i] + '"' + (ufs[i] === uf ? " selected" : "") + ">" + ufs[i] + "</option>";
+    }
+
+    ui.priceRef.innerHTML =
+      '<p class="fineprint">Referência ANP' + (week ? " · semana <strong>" + week + "</strong>" : "") +
+      " · <strong>" + (uf || "Brasil") + "</strong>: gasolina <strong>" + AC.fmtBRL(values.gasolina) +
+      "</strong> · etanol <strong>" + AC.fmtBRL(values.etanol) + "</strong>.</p>" +
+      '<div class="ref-actions">' +
+      '<label class="sr-only" for="refUf">Estado da referência ANP</label>' +
+      '<select id="refUf">' + opts + "</select>" +
+      '<button type="button" class="btn ghost" id="refUse">Usar médias</button>' +
+      "</div>";
+  }
+
+  function useRefPrices() {
+    var uf = selectedUf();
+    var values = refValues(uf);
+    if (!values) return;
+    ui.gas.value = AC.toInputValue(values.gasolina);
+    ui.eta.value = AC.toInputValue(values.etanol);
+    render();
+    saveState();
+    toast("Médias de " + (uf || "Brasil") + " aplicadas");
+  }
+
+  function loadPrices() {
+    var cached = null;
+    try { cached = JSON.parse(safeGet(PRICES_KEY) || "null"); } catch (e) { cached = null; }
+    var norm = AC.normalizePrices(cached);
+    if (norm) {
+      state.prices = norm;
+      renderPriceRef();
+    }
+
+    // file:// não permite fetch; sem rede, seguimos com o cache ou com o fallback fixo.
+    if (location.protocol === "file:" || typeof fetch !== "function") return;
+
+    var ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 5000) : null;
+    fetch("./precos.json", ctrl ? { signal: ctrl.signal, cache: "no-cache" } : { cache: "no-cache" })
+      .then(function (res) {
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        return res.json();
+      })
+      .then(function (data) {
+        var n = AC.normalizePrices(data);
+        if (!n) return;
+        state.prices = n;
+        safeSet(PRICES_KEY, JSON.stringify(data));
+        renderPriceRef();
+      })
+      .catch(function () { /* offline ou precos.json ausente: mantém o fallback */ })
+      .then(function () { if (timer) clearTimeout(timer); });
+  }
+
+  ui.priceRef.addEventListener("click", function (e) {
+    if (e.target && e.target.id === "refUse") useRefPrices();
+  });
+  ui.priceRef.addEventListener("change", function (e) {
+    if (e.target && e.target.id === "refUf") renderPriceRef();
+  });
+
+  // ---------------------------------------------------------------- histórico (v3)
+  var HIST_KEY = "ac.v3.history";
+  var HIST_MAX = 50;
+  var histEntries = [];
+  var clearArmed = false;
+  var clearTimer = null;
+
+  function loadHistory() {
+    var arr = null;
+    try { arr = JSON.parse(safeGet(HIST_KEY) || "[]"); } catch (e) { arr = null; }
+    histEntries = Array.isArray(arr) ? arr.filter(function (e) {
+      return e && typeof e.ts === "number" && isFinite(e.ts)
+        && isFinite(e.gas) && isFinite(e.eta) && isFinite(e.pct)
+        && typeof e.verdict === "string"
+        && (e.mode === "fast" || e.mode === "precise");
+    }).map(function (e) {
+      // O histórico vem do localStorage (qualquer página da mesma origem pode
+      // escrever). Normalizamos o veredito já na entrada: nada hostil chega ao DOM.
+      return {
+        ts: e.ts,
+        mode: e.mode,
+        gas: e.gas,
+        eta: e.eta,
+        pct: e.pct,
+        threshold: isFinite(e.threshold) ? e.threshold : NaN,
+        verdict: safeVerdict(e.verdict)
+      };
+    }).slice(-HIST_MAX) : [];
+  }
+
+  function persistHistory() {
+    safeSet(HIST_KEY, JSON.stringify(histEntries));
+  }
+
+  function addHistory() {
+    if (!state.lastResult) {
+      toast("Preencha os campos para salvar");
+      return;
+    }
+    var entry = AC.historyEntry(state.lastResult, Date.now());
+    if (!entry) { toast("Não foi possível salvar"); return; }
+    histEntries.push(entry);
+    if (histEntries.length > HIST_MAX) histEntries = histEntries.slice(-HIST_MAX);
+    persistHistory();
+    renderHistory();
+    toast("Salvo no histórico (" + histEntries.length + ")");
+  }
+
+  function safeVerdict(v) {
+    return (v === "etanol" || v === "gasolina" || v === "empate") ? v : "empate";
+  }
+
+  function renderHistory() {
+    if (!ui.histCount) return;
+    ui.histCount.textContent = String(histEntries.length);
+    ui.histExport.disabled = histEntries.length === 0;
+    ui.histClear.disabled = histEntries.length === 0;
+
+    var points = AC.sparkline(histEntries.map(function (e) { return e.pct; }), 320, 90);
+    if (points) {
+      var last = histEntries[histEntries.length - 1];
+      var y = (last && isFinite(last.threshold) && last.threshold >= points.min && last.threshold <= points.max)
+        ? points.yFor(last.threshold) : null;
+      var circles = "";
+      for (var i = 0; i < points.points.length; i++) {
+        var pt = points.points[i];
+        var v = safeVerdict(histEntries[i].verdict);
+        var fill = v === "etanol" ? "#4ade80" : (v === "gasolina" ? "#60a5fa" : "#fbbf24");
+        circles += '<circle cx="' + pt.x + '" cy="' + pt.y + '" r="2.6" fill="' + fill + '"/>';
+      }
+      ui.histChart.innerHTML =
+        '<svg class="spark" viewBox="0 0 320 90" role="img" aria-label="Evolução do índice etanol/gasolina nos cálculos salvos">'
+        + (y !== null ? '<line x1="4" y1="' + y + '" x2="316" y2="' + y + '" stroke="#8a97b0" stroke-width="1" stroke-dasharray="4 4"/>' : "")
+        + '<path d="' + points.path + '" fill="none" stroke="#93c5fd" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+        + circles
+        + "</svg>";
+      ui.histHint.textContent = "Linha tracejada = limite do último cálculo salvo. Guardado só neste aparelho (até " + HIST_MAX + ").";
+    } else {
+      ui.histChart.innerHTML = "";
+      ui.histHint.textContent = "Use “Salvar no histórico” no resultado. Os últimos " + HIST_MAX + " cálculos ficam guardados só neste aparelho.";
+    }
+
+    ui.histList.innerHTML = histEntries.slice().reverse().map(function (e) {
+      var v = safeVerdict(e.verdict);
+      return '<li class="hist-item">'
+        + '<span class="hist-when">' + AC.fmtDateTime(e.ts) + "</span>"
+        + '<span class="hist-prices">G ' + AC.fmtBRL(e.gas) + " · E " + AC.fmtBRL(e.eta) + "</span>"
+        + '<span class="hist-pct">' + AC.fmtNum(e.pct, 1) + "%</span>"
+        + '<span class="hist-verdict ' + v + '">' + AC.verdictShort(v) + "</span>"
+        + "</li>";
+    }).join("");
+  }
+
+  function clearHistory() {
+    if (!clearArmed) {
+      clearArmed = true;
+      ui.histClear.textContent = "Confirmar limpeza";
+      clearTimer = setTimeout(function () {
+        clearArmed = false;
+        ui.histClear.textContent = "Limpar";
+      }, 3000);
+      return;
+    }
+    clearTimeout(clearTimer);
+    clearArmed = false;
+    ui.histClear.textContent = "Limpar";
+    histEntries = [];
+    persistHistory();
+    renderHistory();
+    toast("Histórico apagado");
+  }
+
+  function exportHistory() {
+    if (!histEntries.length) { toast("Histórico vazio"); return; }
+    var csv = "\uFEFF" + AC.historyCsv(histEntries);
+    try {
+      var blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "abastece-certo-historico.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+      toast("CSV exportado");
+    } catch (e) {
+      toast("Não foi possível exportar");
+    }
+  }
+
+  ui.histExport.addEventListener("click", exportHistory);
+  ui.histClear.addEventListener("click", clearHistory);
 
   // ---------------------------------------------------------------- rede
   function updateNet() {
@@ -1363,6 +1778,9 @@
   } catch (e) { /* URLSearchParams/history indisponível: ignora */ }
 
   refreshVehicleSelect();
+  loadHistory();
+  renderHistory();
+  loadPrices();
   var active = activeVehicle();
   if (active) {
     ui.gasKmL.value = AC.toInputValue(active.gasKmL);

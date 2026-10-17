@@ -112,6 +112,26 @@ check("dimensões reais dos PNG batem com o manifesto", () => {
     assert(width === w && height === h, `${rel} é ${width}x${height}, manifesto diz ${icon.sizes}`);
   }
 });
+check("screenshots do manifest existem, são PNG e têm o tamanho declarado", () => {
+  const shots = manifest.screenshots || [];
+  assert(shots.length >= 2, "esperava 2 screenshots (narrow + wide)");
+  const variants = new Set();
+  for (const shot of shots) {
+    const rel = String(shot.src || "").replace(/^\.\//, "");
+    assert(rel, "screenshot sem src");
+    assert(existsSync(join(ROOT, rel)), `screenshot ausente: ${rel}`);
+    const buf = readFileSync(join(ROOT, rel));
+    assert(buf.slice(1, 4).toString() === "PNG", `${rel} não é PNG`);
+    const width = buf.readUInt32BE(16);
+    const height = buf.readUInt32BE(20);
+    const [w, h] = String(shot.sizes).split("x").map(Number);
+    assert(width === w && height === h, `${rel} é ${width}x${height}, manifesto diz ${shot.sizes}`);
+    assert(["narrow", "wide"].includes(shot.form_factor), `form_factor inválido: ${shot.form_factor}`);
+    assert(shot.label, `screenshot sem label: ${rel}`);
+    variants.add(shot.form_factor);
+  }
+  assert(variants.has("narrow") && variants.has("wide"), "precisa de um screenshot narrow e um wide");
+});
 
 // -------------------------------------------------------------------- ícone
 section("Ícone vetorial");
@@ -155,9 +175,39 @@ check("sw.js não intercepta requisições de outros domínios", () => {
   assert(/request\.method !== "GET"/.test(src), "sem checagem de método");
 });
 
+// ------------------------------------------------------------- dados de preços
+const html = read("index.html");
+section("Dados de preços (ANP)");
+let prices = null;
+check("precos.json existe e é JSON válido", () => {
+  assert(existsSync(join(ROOT, "precos.json")), "precos.json não encontrado");
+  prices = JSON.parse(read("precos.json"));
+  assert(prices && typeof prices === "object", "precos.json não é objeto");
+});
+check("precos.json segue o schema mínimo que o app consome", () => {
+  assert(prices, "precos.json não carregou");
+  assert(typeof prices.fonte === "string" && prices.fonte.length > 0, "fonte ausente");
+  assert(prices.semana && /^\d{4}-\d{2}-\d{2}$/.test(prices.semana.inicio), "semana.inicio inválida");
+  assert(/^\d{4}-\d{2}-\d{2}$/.test(prices.semana.fim), "semana.fim inválida");
+  assert(typeof prices.atualizadoEm === "string", "atualizadoEm ausente");
+  assert(prices.brasil && prices.brasil.gasolinaComum, "brasil.gasolinaComum ausente");
+  assert(prices.brasil.etanol, "brasil.etanol ausente");
+  const g = Number(prices.brasil.gasolinaComum.media);
+  const e = Number(prices.brasil.etanol.media);
+  assert(isFinite(g) && g > 2 && g < 15, `média da gasolina implausível: ${g}`);
+  assert(isFinite(e) && e > 1 && e < 12, `média do etanol implausível: ${e}`);
+  assert(prices.estados && Object.keys(prices.estados).length >= 5, "estados ausentes/insuficientes");
+});
+check("index.html busca precos.json na mesma origem (sem CORS)", () => {
+  assert(/fetch\("\.\/precos\.json"/.test(html), "fetch relativo de precos.json ausente");
+  assert(/normalizePrices/.test(html), "normalizePrices ausente no app");
+});
+check("precos.json está no precache do service worker", () => {
+  assert(read("sw.js").includes('"./precos.json"'), "precos.json fora do PRECACHE");
+});
+
 // --------------------------------------------------------------------- HTML
 section("Integridade do index.html");
-const html = read("index.html");
 // Para as checagens de marcação, ignora o conteúdo dos <script>: strings e
 // comentários do JS não são HTML e gerariam falso positivo.
 const markup = html.replace(/<script[\s\S]*?<\/script>/gi, "");

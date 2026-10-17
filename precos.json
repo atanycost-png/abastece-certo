@@ -1,0 +1,138 @@
+{
+  "fonte": "ANP — Levantamento de Preços de Combustíveis",
+  "url": "https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/arquivos-lpc/2026/resumo_semanal_lpc_2026-10-04_2026-10-10.xlsx",
+  "semana": {
+    "inicio": "2026-10-04",
+    "fim": "2026-10-10"
+  },
+  "atualizadoEm": "2026-10-17T14:29:00.262Z",
+  "brasil": {
+    "gasolinaComum": {
+      "media": 6.54,
+      "min": 5.39,
+      "max": 8.99,
+      "postos": 4474
+    },
+    "gasolinaAditivada": {
+      "media": 6.72,
+      "min": 5.59,
+      "max": 8.99,
+      "postos": 3443
+    },
+    "etanol": {
+      "media": 4.14,
+      "min": 3.09,
+      "max": 6.59,
+      "postos": 3833
+    }
+  },
+  "estados": {
+    "AC": {
+      "gasolinaComum": 7.26,
+      "etanol": 4.84
+    },
+    "AL": {
+      "gasolinaComum": 6.66,
+      "etanol": 4.94
+    },
+    "AM": {
+      "gasolinaComum": 7.31,
+      "etanol": 5.26
+    },
+    "AP": {
+      "gasolinaComum": 6.68
+    },
+    "BA": {
+      "gasolinaComum": 6.77,
+      "etanol": 4.57
+    },
+    "CE": {
+      "gasolinaComum": 6.97,
+      "etanol": 4.99
+    },
+    "DF": {
+      "gasolinaComum": 6.6,
+      "etanol": 4.42
+    },
+    "ES": {
+      "gasolinaComum": 6.44,
+      "etanol": 4.65
+    },
+    "GO": {
+      "gasolinaComum": 6.62,
+      "etanol": 4.32
+    },
+    "MA": {
+      "gasolinaComum": 6.61,
+      "etanol": 4.93
+    },
+    "MG": {
+      "gasolinaComum": 6.34,
+      "etanol": 4.28
+    },
+    "MS": {
+      "gasolinaComum": 6.42,
+      "etanol": 3.99
+    },
+    "MT": {
+      "gasolinaComum": 6.9,
+      "etanol": 4.21
+    },
+    "PA": {
+      "gasolinaComum": 6.6,
+      "etanol": 4.61
+    },
+    "PB": {
+      "gasolinaComum": 6.42,
+      "etanol": 4.57
+    },
+    "PE": {
+      "gasolinaComum": 6.92,
+      "etanol": 4.96
+    },
+    "PI": {
+      "gasolinaComum": 6.78,
+      "etanol": 4.81
+    },
+    "PR": {
+      "gasolinaComum": 6.59,
+      "etanol": 4.2
+    },
+    "RJ": {
+      "gasolinaComum": 6.62,
+      "etanol": 4.76
+    },
+    "RN": {
+      "gasolinaComum": 6.6,
+      "etanol": 5.03
+    },
+    "RO": {
+      "gasolinaComum": 7.42,
+      "etanol": 5.08
+    },
+    "RR": {
+      "gasolinaComum": 7.56,
+      "etanol": 5.37
+    },
+    "RS": {
+      "gasolinaComum": 6.22,
+      "etanol": 4.54
+    },
+    "SC": {
+      "gasolinaComum": 6.45,
+      "etanol": 4.54
+    },
+    "SE": {
+      "gasolinaComum": 6.94,
+      "etanol": 5.26
+    },
+    "SP": {
+      "gasolinaComum": 6.36,
+      "etanol": 3.86
+    },
+    "TO": {
+      "gasolinaComum": 7.02,
+      "etanol": 5.03
+    }
+  }
+}

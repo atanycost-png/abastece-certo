@@ -1,0 +1,70 @@
+name: Atualizar preços da ANP
+
+# Pipeline semanal de preços do Abastece Certo.
+# - Segunda 06:00 UTC (03:00 em Brasília): pega a semana se a ANP já publicou.
+# - Terça 13:00 UTC (10:00 em Brasília): segunda chance, caso a publicação atrase.
+# - Também roda manualmente (Actions > "Atualizar preços da ANP" > Run workflow),
+#   com a opção de forçar uma semana específica.
+#
+# Não há `npm install`: o script usa só módulos nativos do Node.
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+    - cron: '0 13 * * 2'
+  workflow_dispatch:
+    inputs:
+      semana:
+        description: 'Semana a forçar (AAAA-MM-DD_AAAA-MM-DD). Vazio = a mais recente da página da ANP.'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+concurrency:
+  group: atualizar-precos
+  cancel-in-progress: false
+
+jobs:
+  atualizar-precos:
+    name: Baixar ANP e commitar precos.json
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout do repositório
+        uses: actions/checkout@v4
+
+      - name: Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Testes do pipeline (zero dependências)
+        run: node tools/test-prices.mjs
+
+      - name: Atualizar precos.json com os dados da ANP
+        env:
+          SEMANA: ${{ github.event.inputs.semana || '' }}
+        run: |
+          if [ -n "$SEMANA" ]; then
+            node tools/update-prices.mjs --semana "$SEMANA"
+          else
+            node tools/update-prices.mjs
+          fi
+
+      - name: Commitar somente se precos.json mudou
+        run: |
+          if git diff --quiet -- precos.json; then
+            echo "precos.json não mudou nesta execução; nada a commitar."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add precos.json
+          git commit -m "chore(dados): atualiza precos.json com a semana mais recente da ANP"
+          if ! git push; then
+            git pull --rebase --autostash
+            git push
+          fi
+          echo "precos.json atualizado e enviado ao repositório."

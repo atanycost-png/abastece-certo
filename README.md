@@ -36,7 +36,8 @@ e guarda um **histórico local** dos seus cálculos com gráfico e exportação 
 - **Postos perto de mim** — com um toque, usa a sua localização (só na hora, nada é guardado) e lista os postos num raio de 2 km via **OpenStreetMap**; dá para abrir no Google Maps ou copiar o nome para salvar o preço. Sem rede ou sem permissão, cai para o link do Google Maps.
 - **Custo mensal estimado** — informe quantos km você roda por mês no modo preciso e veja o gasto mensal com o combustível vencedor.
 - **Consumo cidade/estrada** — informe o km/L na cidade e na estrada para cada combustível e ajuste quanto você roda na cidade (padrão 70%); a média é harmônica e o limite pessoal sai do consumo ponderado.
-- **Diário de abastecimentos** — registre litros e km rodados desde o último abastecimento, veja o km/L de cada registro e o consumo real por combustível; com um toque o app joga a média no modo preciso.
+- **Diário de abastecimentos** — registre litros e o **hodômetro total**; o primeiro registro guarda a leitura e os próximos calculam os km rodados sozinhos (com recálculo ao excluir). Veja o km/L de cada registro e o consumo real por combustível; com um toque o app joga a média no modo preciso.
+- **Relatório mensal** — custo por mês (litros × preço salvo no registro), km/L médio e economia acumulada comparando com o outro combustível; atualiza sozinho conforme o diário.
 - **Histórico local** — salve cálculos (com o veículo usado), veja a evolução do índice num gráfico próprio (SVG) e exporte em CSV compatível com Excel.
 - **Compartilhar resultado ou imagem** — texto pela folha de compartilhamento (ou cópia) e cartão PNG gerado no próprio aparelho para mandar no WhatsApp.
 - **Instalação assistida** — quando o navegador permite, aparece o botão **Instalar app**; no iPhone ele ensina o caminho (*Compartilhar → Adicionar à Tela de Início*).

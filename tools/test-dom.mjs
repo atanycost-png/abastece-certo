@@ -2714,21 +2714,41 @@ test("v4.5 veículo guarda cidade, estrada e peso", () => {
   eq(v.cityPct, 60);
 });
 
-test("v4.5 diário: salva, calcula consumo real e aplica no modo preciso", () => {
+test("v4.5 diário: hodômetro calcula km, consumo real e relatório", () => {
   const env = boot();
   env.fire(env.$("tab-precise"), "click", {});
-  env.input("fillLiters", "30");
-  env.input("fillKm", "360");
-  env.fire(env.$("fillSave"), "click", {});
+  env.input("gas", "589");
+  env.input("eta", "399");
+  env.input("gasKmL", "10");
+  env.input("etaKmL", "7");
+  // leitura inicial do hodômetro
   env.input("fillLiters", "20");
-  env.input("fillKm", "260");
+  env.input("fillOdometer", "45000");
+  env.fire(env.$("fillSave"), "click", {});
+  eq(env.$("fillCount").textContent, "1");
+  includes(env.text("fillSummary"), "próximo abastecimento");
+  // segundo registro: 620 km rodados com 50 L -> 12,4 km/L
+  env.input("fillLiters", "50");
+  env.input("fillOdometer", "45620");
   env.fire(env.$("fillSave"), "click", {});
   eq(env.$("fillCount").textContent, "2");
   includes(env.text("fillSummary"), "12,4 km/L");
-  includes(env.html("fillList"), "Gasolina");
+  includes(env.html("fillList"), "+620 km");
+  // hodômetro menor é recusado
+  env.input("fillLiters", "10");
+  env.input("fillOdometer", "45600");
+  env.fire(env.$("fillSave"), "click", {});
+  eq(env.$("fillCount").textContent, "2", "não salva hodômetro menor");
+  includes(env.text("toast"), "menor que o último");
+  // aplica no modo preciso
   env.fire(env.$("fillUse"), "click", {});
   eq(env.$("gasKmL").value, "12,4");
   eq(env.$("gasRoadKmL").value, "12,4");
+  // relatório mensal
+  includes(env.text("reportSummary"), "média 12,4 km/L");
+  includes(env.text("reportSummary"), "Custo");
+  includes(env.html("reportList"), "km/L");
+  // exclui um e limpa
   const del = env.$("fillList").querySelector('[data-fill="del"]');
   env.fire(env.$("fillList"), "click", { target: del });
   eq(env.$("fillCount").textContent, "1");

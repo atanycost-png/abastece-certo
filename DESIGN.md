@@ -115,9 +115,13 @@ A v1–v3 passaram por "cara de IA" e por direções que não agradaram (papel/r
   a média é **harmônica** (`1 / (w/consumo_cidade + (1-w)/consumo_estrada)`), com fallback para o único
   valor informado (compatível com veículos salvos antes da v4.5). Abaixo do slider aparece o consumo
   efetivo considerado.
-- **Diário de abastecimentos:** seção recolhível com combustível, litros e km rodados; lista com km/L de
-  cada registro, resumo por combustível (litros e km somados) e botão "Usar consumo real no modo preciso"
-  que preenche cidade/estrada com a média. Até 80 registros, só no aparelho.
+- **Diário de abastecimentos:** seção recolhível com combustível, litros e **hodômetro total**; o primeiro
+  registro é a leitura inicial (km = 0) e os seguintes calculam a diferença. Lista com km/L de cada
+  registro, resumo por combustível e botão "Usar consumo real no modo preciso". Ao excluir, a cadeia de
+  distâncias é recalculada. Até 80 registros, só no aparelho.
+- **Relatório mensal:** seção recolhível alimentada pelo diário; por mês mostra custo (litros × preço salvo),
+  km/L médio, km, litros, nº de abastecimentos e economia estimada vs. o outro combustível; total no topo.
+  Registros sem preço entram em km/litros, mas não no custo.
 - **Status de instalação:** linha no "Sobre e dados" com modo (instalado/navegador) e service worker
   (ativo/inativo) — serve para o teste de instalação no celular.
 - **Postos perto de mim:** botão dentro de "Meus postos" (só aparece com geolocalização); pede a posição

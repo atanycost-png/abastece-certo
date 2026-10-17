@@ -692,12 +692,13 @@
           </div>
         </div>
         <div class="field no-prefix">
-          <label for="fillKm">Km rodados desde o último abastecimento</label>
+          <label for="fillOdometer">Hodômetro (km total do carro)</label>
           <div class="box">
-            <input id="fillKm" class="has-unit" type="text" inputmode="numeric" placeholder="320" autocomplete="off" aria-describedby="fillHint">
+            <input id="fillOdometer" class="has-unit" type="text" inputmode="numeric" placeholder="45.320" autocomplete="off" aria-describedby="fillHint">
             <span class="unit" aria-hidden="true">km</span>
           </div>
         </div>
+        <p class="fineprint">O primeiro registro só guarda a leitura do hodômetro; os próximos calculam os km rodados sozinhos.</p>
         <div class="veh-actions">
           <button type="button" class="btn" id="fillSave">Salvar abastecimento</button>
         </div>
@@ -730,6 +731,17 @@
           <button type="button" class="btn ghost" id="histExport">Exportar CSV</button>
           <button type="button" class="btn danger" id="histClear">Limpar</button>
         </div>
+      </div>
+    </details>
+  </section>
+
+  <section class="card why">
+    <details>
+      <summary>Relatório mensal</summary>
+      <div class="body">
+        <p class="fineprint" id="reportSummary">Registre abastecimentos no diário para ver custo, km/L e economia por mês.</p>
+        <ul id="reportList" class="station-list"></ul>
+        <p class="fineprint">O custo usa o preço que estava no app quando você salvou o abastecimento; a economia compara com o outro combustível naquele momento. Registros sem preço entram nos litros/km, mas não no custo.</p>
       </div>
     </details>
   </section>
@@ -975,6 +987,104 @@
       var kmL = km / litros;
       if (!isFinite(kmL) || kmL < MIN_KML || kmL > MAX_KML) return null;
       return { fuel: alvo || "todos", kmL: kmL, liters: litros, km: km, entries: n };
+    }
+
+    /**
+     * Recalcula os km rodados a partir das leituras de hodômetro.
+     * Entradas com hodômetro são ordenadas por ele; a primeira é só a leitura
+     * inicial (km = 0) e cada seguinte ganha a diferença desde a anterior.
+     * Entradas antigas (sem hodômetro, só com km) são preservadas.
+     */
+    function recomputeOdometerKm(entries) {
+      if (!Array.isArray(entries)) return [];
+      var saida = entries.map(function (e) { return e && typeof e === "object" ? e : null; }).filter(Boolean);
+      var comOdometro = saida.filter(function (e) { return isFinite(e.odometer) && e.odometer >= 0; });
+      comOdometro.sort(function (a, b) {
+        if (a.odometer !== b.odometer) return a.odometer - b.odometer;
+        return (a.ts || 0) - (b.ts || 0);
+      });
+      var anterior = null;
+      for (var i = 0; i < comOdometro.length; i++) {
+        var item = comOdometro[i];
+        if (anterior === null) {
+          item.km = 0;
+        } else {
+          var delta = item.odometer - anterior;
+          item.km = isFinite(delta) && delta > 0 ? Math.round(delta * 10) / 10 : 0;
+        }
+        anterior = item.odometer;
+      }
+      return saida;
+    }
+
+    /**
+     * Relatório mensal a partir do diário de abastecimentos.
+     * Por mês: litros, km, custo (litros × preço salvo), km/L real (só registros
+     * com km) e economia estimada vs. o outro combustível no momento do registro.
+     * Registros sem preço continuam contando em litros/km, mas não em custo.
+     */
+    function monthlyReport(entries) {
+      var lista = Array.isArray(entries) ? entries : [];
+      var meses = {};
+      var total = { liters: 0, km: 0, cost: 0, savings: 0, entries: 0, months: 0, priced: 0 };
+      for (var i = 0; i < lista.length; i++) {
+        var f = lista[i];
+        if (!f || !isFinite(f.liters) || f.liters <= 0 || !isFinite(f.ts)) continue;
+        var data = new Date(f.ts);
+        if (!isFinite(data.getTime())) continue;
+        var chave = data.getFullYear() + "-" + (data.getMonth() + 1 < 10 ? "0" : "") + (data.getMonth() + 1);
+        if (!meses[chave]) {
+          meses[chave] = { month: chave, liters: 0, litersKm: 0, km: 0, cost: 0, savings: 0, entries: 0, priced: 0 };
+        }
+        var m = meses[chave];
+        m.entries++;
+        m.liters += f.liters;
+        total.liters += f.liters;
+        total.entries++;
+        var km = isFinite(f.km) && f.km > 0 ? f.km : 0;
+        if (km > 0) {
+          m.km += km;
+          m.litersKm += f.liters;
+          total.km += km;
+        }
+        if (isFinite(f.price) && f.price > 0) {
+          m.cost += f.liters * f.price;
+          total.cost += f.liters * f.price;
+          m.priced++;
+          total.priced++;
+        }
+        if (
+          km > 0 &&
+          isFinite(f.price) && f.price > 0 &&
+          isFinite(f.otherPrice) && f.otherPrice > 0 &&
+          isFinite(f.kmL) && f.kmL >= MIN_KML && f.kmL <= MAX_KML &&
+          isFinite(f.otherKmL) && f.otherKmL >= MIN_KML && f.otherKmL <= MAX_KML
+        ) {
+          var custoReal = f.liters * f.price;
+          var custoAlternativo = (km / f.otherKmL) * f.otherPrice;
+          var economia = custoAlternativo - custoReal;
+          m.savings += economia;
+          total.savings += economia;
+        }
+      }
+      var saida = Object.keys(meses).sort().map(function (chave) {
+        var m = meses[chave];
+        return {
+          month: chave,
+          liters: m.liters,
+          km: m.km,
+          cost: m.cost,
+          savings: m.savings,
+          entries: m.entries,
+          priced: m.priced,
+          kmL: m.km > 0 && m.litersKm > 0 ? m.km / m.litersKm : null
+        };
+      });
+      total.months = saida.length;
+      var litrosComKm = 0;
+      for (var j = 0; j < saida.length; j++) litrosComKm += meses[saida[j].month].litersKm;
+      total.kmL = litrosComKm > 0 ? total.km / litrosComKm : null;
+      return { months: saida, totals: total };
     }
 
     function pctLabel(v) {
@@ -1356,6 +1466,8 @@
       isValidKmL: isValidKmL,
       weightedKmL: weightedKmL,
       averageConsumption: averageConsumption,
+      recomputeOdometerKm: recomputeOdometerKm,
+      monthlyReport: monthlyReport,
       MAX_PRICE: MAX_PRICE,
       MIN_KML: MIN_KML,
       MAX_KML: MAX_KML,
@@ -1403,9 +1515,10 @@
     gasKmLHint: $("gasKmLHint"), etaKmLHint: $("etaKmLHint"),
     gasRoadKmLHint: $("gasRoadKmLHint"), etaRoadKmLHint: $("etaRoadKmLHint"),
     cityPct: $("cityPct"), cityPctVal: $("cityPctVal"), kmLEffective: $("kmLEffective"),
-    fillFuel: $("fillFuel"), fillLiters: $("fillLiters"), fillKm: $("fillKm"),
+    fillFuel: $("fillFuel"), fillLiters: $("fillLiters"), fillOdometer: $("fillOdometer"),
     fillSave: $("fillSave"), fillList: $("fillList"), fillSummary: $("fillSummary"),
     fillUse: $("fillUse"), fillClear: $("fillClear"), fillHint: $("fillHint"), fillCount: $("fillCount"),
+    reportSummary: $("reportSummary"), reportList: $("reportList"),
     kmMonth: $("kmMonth"), kmMonthHint: $("kmMonthHint"),
     vehSave: $("vehSave"), vehDelete: $("vehDelete"),
     resultOut: $("resultOut"), live: $("live"), liveForm: $("liveForm"),
@@ -2715,20 +2828,30 @@
   function loadFills() {
     var arr = null;
     try { arr = JSON.parse(safeGet(FILLS_KEY) || "[]"); } catch (e) { arr = null; }
+    function optNum(v, min, max) {
+      var n = Number(v);
+      return isFinite(n) && n >= min && n <= max ? n : null;
+    }
     fills = Array.isArray(arr) ? arr.filter(function (f) {
       return f && (f.fuel === "gasolina" || f.fuel === "etanol")
         && isFinite(f.liters) && f.liters > 0 && f.liters <= 200
-        && isFinite(f.km) && f.km > 0 && f.km <= 3000
-        && isFinite(f.ts);
+        && isFinite(f.ts)
+        && ((isFinite(f.odometer) && f.odometer >= 0) || (isFinite(f.km) && f.km >= 0));
     }).map(function (f) {
       return {
         id: typeof f.id === "string" ? f.id.slice(0, 20) : "f" + Math.random().toString(36).slice(2, 8),
         fuel: f.fuel,
         liters: Number(f.liters),
-        km: Number(f.km),
-        ts: Number(f.ts)
+        ts: Number(f.ts),
+        odometer: optNum(f.odometer, 0, 2000000),
+        km: optNum(f.km, 0, 3000) || 0,
+        price: optNum(f.price, 0.5, 30),
+        otherPrice: optNum(f.otherPrice, 0.5, 30),
+        kmL: optNum(f.kmL, 0.5, 60),
+        otherKmL: optNum(f.otherKmL, 0.5, 60)
       };
     }).slice(-FILLS_MAX) : [];
+    fills = AC.recomputeOdometerKm(fills);
   }
 
   function persistFills() {
@@ -2750,55 +2873,135 @@
     }
     ui.fillSummary.textContent = partes.length
       ? "Consumo real: " + partes.join(" · ") + "."
-      : "Sem abastecimentos registrados.";
+      : (fills.length
+        ? "Registre o próximo abastecimento para calcular o consumo real."
+        : "Sem abastecimentos registrados.");
     if (ui.fillCount) ui.fillCount.textContent = String(fills.length);
     if (ui.fillUse) ui.fillUse.disabled = !g && !e;
     if (ui.fillClear) ui.fillClear.disabled = fills.length === 0;
     ui.fillList.innerHTML = fills.slice().reverse().map(function (f) {
-      var kmL = f.km / f.liters;
+      var kmL = f.km > 0 ? f.km / f.liters : 0;
+      var leitura = isFinite(f.odometer) ? "Hodômetro " + AC.fmtNum(f.odometer, 0) : "Registro antigo";
+      var kmTexto = f.km > 0 ? "+" + AC.fmtNum(f.km, 0) + " km" : "leitura inicial";
       return '<li class="station-item">'
         + '<span class="station-name">' + (f.fuel === "etanol" ? "Etanol" : "Gasolina") + "</span>"
-        + '<span class="station-prices">' + AC.fmtNum(f.liters, 1) + " L · " + AC.fmtNum(f.km, 0) + " km</span>"
-        + '<span class="station-idx">' + AC.fmtNum(kmL, 1) + " km/L</span>"
+        + '<span class="station-prices">' + leitura + " · " + AC.fmtNum(f.liters, 1) + " L · " + kmTexto + "</span>"
+        + (kmL > 0 ? '<span class="station-idx">' + AC.fmtNum(kmL, 1) + " km/L</span>" : "")
         + '<span class="station-actions">'
         + '<button type="button" class="btn danger" data-fill="del" data-fid="' + escapeHtml(f.id) + '">Excluir</button>'
         + "</span>"
         + '<span class="hist-when">' + AC.fmtDateTime(f.ts) + "</span>"
         + "</li>";
     }).join("");
+    renderReport();
+  }
+
+  function renderReport() {
+    if (!ui.reportSummary) return;
+    var rel = AC.monthlyReport(fills);
+    var t = rel.totals;
+    if (!t.months) {
+      ui.reportSummary.textContent = "Registre abastecimentos no diário para ver custo, km/L e economia por mês.";
+      if (ui.reportList) ui.reportList.innerHTML = "";
+      return;
+    }
+    var partes = [];
+    if (t.cost > 0) partes.push("Custo " + AC.fmtBRL(t.cost));
+    if (t.kmL) partes.push("média " + AC.fmtNum(t.kmL, 1) + " km/L");
+    if (t.km > 0) partes.push(AC.fmtNum(t.km, 0) + " km");
+    if (t.cost > 0 && t.savings !== 0) {
+      partes.push((t.savings > 0 ? "economia " : "a mais ") + AC.fmtBRL(Math.abs(t.savings)));
+    }
+    ui.reportSummary.textContent = "Total: " + partes.join(" · ") + ".";
+    var meses = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+    if (ui.reportList) {
+      ui.reportList.innerHTML = rel.months.slice().reverse().map(function (m) {
+        var partesMes = m.month.split("-");
+        var rotulo = meses[Number(partesMes[1]) - 1] + "/" + partesMes[0];
+        return '<li class="station-item">'
+          + '<span class="station-name">' + rotulo + "</span>"
+          + '<span class="station-prices">' + (m.cost > 0 ? AC.fmtBRL(m.cost) : "sem preço") + "</span>"
+          + (m.kmL ? '<span class="station-idx">' + AC.fmtNum(m.kmL, 1) + " km/L</span>" : "")
+          + '<span class="hist-when">' + AC.fmtNum(m.km, 0) + " km · " + AC.fmtNum(m.liters, 1) + " L · " + m.entries + " abast.</span>"
+          + (m.savings !== 0 ? '<span class="station-prices">' + (m.savings > 0 ? "economia " : "a mais ") + AC.fmtBRL(Math.abs(m.savings)) + "</span>" : "")
+          + "</li>";
+      }).join("");
+    }
   }
 
   function saveFill() {
     var fuel = ui.fillFuel.value === "etanol" ? "etanol" : "gasolina";
     var liters = AC.parseNumber(ui.fillLiters.value);
-    var km = AC.parseNumber(ui.fillKm.value);
+    var odometro = AC.parseNumber(ui.fillOdometer.value);
     if (!isFinite(liters) || liters <= 0 || liters > 200) {
       toast("Informe os litros abastecidos (até 200 L)");
       if (ui.fillLiters.focus) ui.fillLiters.focus();
       return;
     }
-    if (!isFinite(km) || km <= 0 || km > 3000) {
-      toast("Informe os km rodados desde o último abastecimento (até 3.000 km)");
-      if (ui.fillKm.focus) ui.fillKm.focus();
+    if (!isFinite(odometro) || odometro < 0 || odometro > 2000000) {
+      toast("Informe o hodômetro (km total do carro)");
+      if (ui.fillOdometer.focus) ui.fillOdometer.focus();
       return;
     }
+    var ultimo = NaN;
+    for (var i = 0; i < fills.length; i++) {
+      if (isFinite(fills[i].odometer) && (!isFinite(ultimo) || fills[i].odometer > ultimo)) {
+        ultimo = fills[i].odometer;
+      }
+    }
+    var km = 0;
+    if (isFinite(ultimo)) {
+      km = Math.round((odometro - ultimo) * 10) / 10;
+      if (!(km > 0)) {
+        toast("Hodômetro menor que o último registro (" + AC.fmtNum(ultimo, 0) + " km)");
+        if (ui.fillOdometer.focus) ui.fillOdometer.focus();
+        return;
+      }
+      if (km > 3000) {
+        toast("Diferença de km muito grande — confira o hodômetro");
+        if (ui.fillOdometer.focus) ui.fillOdometer.focus();
+        return;
+      }
+    }
+    var dados = fuel === "gasolina"
+      ? {
+        price: AC.parsePrice(ui.gas.value),
+        otherPrice: AC.parsePrice(ui.eta.value),
+        kmL: AC.weightedKmL(ui.gasKmL.value, ui.gasRoadKmL.value, ui.cityPct.value),
+        otherKmL: AC.weightedKmL(ui.etaKmL.value, ui.etaRoadKmL.value, ui.cityPct.value)
+      }
+      : {
+        price: AC.parsePrice(ui.eta.value),
+        otherPrice: AC.parsePrice(ui.gas.value),
+        kmL: AC.weightedKmL(ui.etaKmL.value, ui.etaRoadKmL.value, ui.cityPct.value),
+        otherKmL: AC.weightedKmL(ui.gasKmL.value, ui.gasRoadKmL.value, ui.cityPct.value)
+      };
     fills.push({
       id: "f" + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
       fuel: fuel,
       liters: liters,
+      odometer: odometro,
       km: km,
-      ts: Date.now()
+      ts: Date.now(),
+      price: isFinite(dados.price) ? dados.price : null,
+      otherPrice: isFinite(dados.otherPrice) ? dados.otherPrice : null,
+      kmL: isFinite(dados.kmL) ? dados.kmL : null,
+      otherKmL: isFinite(dados.otherKmL) ? dados.otherKmL : null
     });
     if (fills.length > FILLS_MAX) fills = fills.slice(-FILLS_MAX);
+    fills = AC.recomputeOdometerKm(fills);
     persistFills();
     renderFills();
     ui.fillLiters.value = "";
-    ui.fillKm.value = "";
-    toast("Abastecimento salvo");
+    ui.fillOdometer.value = "";
+    toast(km > 0
+      ? "Abastecimento salvo (" + AC.fmtNum(km, 0) + " km)"
+      : "Leitura inicial salva — o próximo já calcula os km");
   }
 
   function deleteFill(id) {
     fills = fills.filter(function (f) { return f.id !== id; });
+    fills = AC.recomputeOdometerKm(fills);
     persistFills();
     renderFills();
     toast("Abastecimento removido");

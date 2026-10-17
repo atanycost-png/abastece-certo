@@ -531,6 +531,41 @@ test("averageConsumption soma litros e km por combustível", () => {
   isNull(AC.averageConsumption(null, "gasolina"));
   isNull(AC.averageConsumption([{ fuel: "gasolina", liters: 10, km: 1 }], "gasolina"), "consumo implausível é descartado");
 });
+test("recomputeOdometerKm encadeia distâncias e preserva registros antigos", () => {
+  const a = { id: "a", fuel: "gasolina", liters: 20, odometer: 45000, ts: 1 };
+  const b = { id: "b", fuel: "etanol", liters: 30, odometer: 45350, ts: 2 };
+  const c = { id: "c", fuel: "gasolina", liters: 10, odometer: 45400, ts: 3 };
+  const legado = { id: "d", fuel: "gasolina", liters: 10, km: 200, ts: 4 };
+  const out = AC.recomputeOdometerKm([c, a, legado, b]);
+  eq(out.length, 4);
+  eq(a.km, 0, "primeira leitura é a base");
+  eq(b.km, 350);
+  eq(c.km, 50);
+  eq(legado.km, 200, "registro antigo preservado");
+  eq(AC.recomputeOdometerKm(null).length, 0);
+});
+test("monthlyReport agrupa por mês e calcula custo, km/L e economia", () => {
+  const fills = [
+    { fuel: "gasolina", liters: 20, odometer: 45000, km: 0, ts: Date.UTC(2026, 9, 5, 12), price: 6, otherPrice: 4, kmL: 10, otherKmL: 7 },
+    { fuel: "gasolina", liters: 50, odometer: 45620, km: 620, ts: Date.UTC(2026, 9, 20, 12), price: 6, otherPrice: 4, kmL: 10, otherKmL: 7 },
+    { fuel: "etanol", liters: 30, odometer: 45980, km: 360, ts: Date.UTC(2026, 10, 2, 12), price: 4, otherPrice: 6, kmL: 7, otherKmL: 10 }
+  ];
+  const r = AC.monthlyReport(fills);
+  eq(r.months.length, 2);
+  const out = r.months[0];
+  eq(out.month, "2026-10");
+  close(out.cost, 70 * 6, 1e-9);
+  close(out.kmL, 620 / 50, 1e-9);
+  close(out.savings, (620 / 7) * 4 - 50 * 6, 1e-9);
+  close(out.km, 620, 1e-9);
+  eq(r.totals.months, 2);
+  close(r.totals.cost, 70 * 6 + 30 * 4, 1e-9);
+  close(r.totals.km, 980, 1e-9);
+  close(r.totals.kmL, 980 / 80, 1e-9);
+  const vazio = AC.monthlyReport([]);
+  eq(vazio.months.length, 0);
+  isNull(vazio.totals.kmL);
+});
 test("formatWeek formata mesma semana e virada de mês", () => {
   eq(AC.formatWeek({ inicio: "2026-10-04", fim: "2026-10-10" }), "04\u201310/10/2026");
   eq(AC.formatWeek({ inicio: "2026-09-27", fim: "2026-10-03" }), "27/09/2026\u201303/10/2026");

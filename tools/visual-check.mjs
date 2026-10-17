@@ -798,6 +798,8 @@ async function main() {
       document.getElementById('tab-precise').click();
       const details = document.getElementById('fillDetails');
       if (details) details.open = true;
+      set('gas', '5,89');
+      set('eta', '3,99');
       set('gasKmL', '10');
       set('gasRoadKmL', '14');
       set('etaKmL', '7');
@@ -805,18 +807,23 @@ async function main() {
       const pct = document.getElementById('cityPct');
       pct.value = '60';
       pct.dispatchEvent(new Event('input', { bubbles: true }));
-      set('fillLiters', '30');
-      set('fillKm', '360');
-      document.getElementById('fillSave').click();
       set('fillLiters', '20');
-      set('fillKm', '260');
+      set('fillOdometer', '45000');
+      document.getElementById('fillSave').click();
+      set('fillLiters', '50');
+      set('fillOdometer', '45620');
       document.getElementById('fillSave').click();
       const summary = document.getElementById('fillSummary').textContent;
       const effective = document.getElementById('kmLEffective').textContent;
+      const report = document.getElementById('reportSummary').textContent;
       document.getElementById('fillUse').click();
+      const relatorio = [...document.querySelectorAll('details')]
+        .find((d) => /Relatório mensal/.test(d.querySelector('summary').textContent));
+      if (relatorio) relatorio.open = true;
       return {
         summary,
         effective,
+        report,
         gasKmL: document.getElementById('gasKmL').value,
         gasRoad: document.getElementById('gasRoadKmL').value,
         count: document.getElementById('fillCount').textContent
@@ -826,6 +833,9 @@ async function main() {
     if (!/12,4 km\/L/.test(consumo.summary)) errors.push(`diário não calculou 12,4 km/L: ${consumo.summary}`);
     if (!/Consumo médio considerado/.test(consumo.effective)) errors.push("consumo ponderado não exibido");
     if (consumo.gasKmL !== "12,4") errors.push(`consumo real não aplicado: ${consumo.gasKmL}`);
+    if (!/média 12,4 km\/L/.test(consumo.report)) errors.push(`relatório sem km/L: ${consumo.report}`);
+    if (!/Custo/.test(consumo.report)) errors.push(`relatório sem custo: ${consumo.report}`);
+    if (consumo.count !== "2") errors.push(`diário deveria ter 2 registros: ${consumo.count}`);
     await new Promise((r) => setTimeout(r, 300));
     await page.shot("14-consumo-real");
 

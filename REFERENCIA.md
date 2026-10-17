@@ -446,3 +446,48 @@ O usuário escolheu as duas próximas melhorias do roadmap: **consumo ponderado 
   na exibição.
 - **Orçamento de tamanho**: arquivo único passou de 120 KB; o gate agora usa 150 KB e o número real de
   gzip é reportado no README/check.
+
+---
+
+## 17/10/2026 — v4.6 (hodômetro no diário + relatório mensal)
+
+### Contexto
+O usuário escolheu as duas melhorias seguintes: **hodômetro** (em vez de “km desde o último abastecimento”)
+e **relatório mensal** com custo, km/L e economia acumulada.
+
+### Hodômetro no diário
+- O campo do diário virou **“Hodômetro (km total do carro)”** (`#fillOdometer`). O primeiro registro é só a
+  **leitura inicial** (km = 0); os seguintes calculam `hodômetro - anterior` automaticamente.
+- `recomputeOdometerKm` (CORE) ordena as leituras por hodômetro e reencadeia as distâncias — é usado na
+  leitura do storage, ao salvar e **ao excluir** (excluir um registro não deixa distâncias órfãs).
+- Regras: hodômetro não pode regredir; diferença máxima de 3.000 km por registro; entrada antiga (sem
+  hodômetro, só com km) continua válida e é preservada.
+- Cada registro mostra a leitura, litros e `+X km` (ou “leitura inicial”); ao salvar, toast informa os km
+  calculados.
+
+### Relatório mensal
+- `monthlyReport` (CORE) agrupa o diário por mês (`AAAA-MM`): **litros**, **km**, **custo**
+  (`litros × preço salvo no registro`), **km/L real** (só registros com km) e **economia estimada**
+  (`(km/consumo_outro) × preço_outro - litros × preço_atual`).
+- Cada abastecimento passa a guardar `price`, `otherPrice`, `kmL` e `otherKmL` do momento do registro;
+  registros antigos (sem preço) entram em litros/km, mas não em custo/economia.
+- Card “Relatório mensal” com total no topo e linhas mês a mês; atualiza junto com o diário.
+
+### Verificação (17/10/2026)
+- `tools/test.mjs` → **166/166** (recompute: encadeamento, ordem, legado; monthlyReport: agrupamento,
+  custo, km/L, economia com números fechados) · `tools/test-dom.mjs` → **128/128** (hodômetro inicial,
+  segundo registro 620 km/50 L → 12,4 km/L, regressão recusada, relatório no resumo, usar/excluir/limpar) ·
+  `tools/test-sw.mjs` → **33/33** · `tools/test-prices.mjs` → **99/99** · `tools/check.mjs` → **55/55** ·
+  `tools/visual-check.mjs` → **18 etapas** (diário real com hodômetro + relatório; screenshot
+  `14-consumo-real.png`).
+- Versão **4.6.0** (app, SW e `package.json`).
+
+### Pitfalls
+- **Hodômetro é do carro, não do combustível**: a distância desde a leitura anterior é atribuída ao
+  abastecimento atual (mesma convenção de apps de consumo).
+- **Excluir no meio da cadeia** muda as distâncias seguintes: por isso o recálculo é centralizado em
+  `recomputeOdometerKm` e roda em toda mutação.
+- **Custo só existe com preço no registro**: capturamos os preços do app na hora do salvamento; sem eles,
+  o relatório mostra km/L mas “sem preço”.
+- **Meses usam data local** (`getFullYear/getMonth`), não UTC — registros perto da meia-noite caem no mês
+  local correto.

@@ -1,0 +1,264 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup 2 — Editorial quente</title>
+<style>
+  :root{
+    --cream:#f8f2e7; --paper:#fffdf8; --ink:#241f1a; --ink2:#6d6355; --rule:#ded2bf;
+    --terracota:#a8471f; --oliva:#4f5d33; --petroleo:#3f5d6b; --mostarda:#c9931e;
+    --serif:Georgia,"Iowan Old Style","Times New Roman",serif;
+    --sans:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"Cascadia Mono",Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--cream);color:var(--ink);font-family:var(--sans);
+    line-height:1.5;padding:30px 20px 40px;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:460px;margin:0 auto;position:relative}
+  .badge{position:absolute;top:-24px;right:0;font-size:10px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--ink2)}
+  .kicker{font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--terracota);
+    font-weight:700;margin-bottom:10px}
+  h1{font-family:var(--serif);font-size:36px;line-height:1.08;letter-spacing:-.02em;font-weight:400}
+  h1 em{font-style:italic;color:var(--terracota)}
+  .lead{font-size:13.5px;color:var(--ink2);margin-top:10px;max-width:36ch}
+  .rule{border:0;border-top:1px solid var(--rule);margin:22px 0}
+  .rule.thick{border-top:2px solid var(--ink)}
+  .eyebrow{font-size:10.5px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink2);
+    font-weight:700;margin-bottom:12px}
+  .ledger{padding:4px 0}
+  .ledger .line{display:flex;align-items:flex-end;gap:10px;padding:12px 0}
+  .ledger .line + .line{border-top:1px solid var(--rule)}
+  .ledger .name{font-family:var(--serif);font-size:19px;white-space:nowrap}
+  .ledger .dots{flex:1;border-bottom:1px dotted var(--rule);height:10px;margin:0 2px}
+  .ledger .field{display:flex;align-items:baseline;gap:5px}
+  .ledger .rs{font-family:var(--mono);font-size:12px;color:var(--ink2)}
+  .ledger input{font-family:var(--serif);font-size:30px;text-align:right;width:132px;border:0;
+    border-bottom:1px solid transparent;background:transparent;color:var(--ink);outline:none;padding:0}
+  .ledger input:focus{border-bottom-color:var(--terracota)}
+  .ledger .tone{width:8px;height:8px;border-radius:50%;margin-bottom:10px;flex:none}
+  .tone.gas{background:var(--petroleo)} .tone.eta{background:var(--oliva)}
+  .hint{font-size:11.5px;color:var(--ink2);margin-top:10px;font-style:italic}
+  .hint b{font-style:normal;font-weight:600;color:var(--ink)}
+  .ref{margin-top:18px;padding-top:14px;border-top:1px solid var(--rule)}
+  .ref-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .ref-top strong{font-family:var(--serif);font-size:16px;font-weight:400}
+  .ref-top span{font-size:11px;color:var(--ink2)}
+  .ref-row{display:flex;gap:8px;margin-top:10px}
+  select{flex:1;font:inherit;font-size:13px;padding:10px;border:1px solid var(--rule);
+    border-radius:2px;background:var(--paper);color:var(--ink);-webkit-appearance:none;appearance:none}
+  button{font:inherit;cursor:pointer}
+  .btn{background:var(--ink);color:var(--cream);border:1px solid var(--ink);border-radius:2px;
+    padding:11px 14px;font-size:12.5px;font-weight:700;letter-spacing:.02em}
+  .btn.ghost{background:transparent;color:var(--ink)}
+  .ref-values{font-size:12px;color:var(--ink2);margin-top:10px}
+  .ref-values b{color:var(--ink);font-family:var(--mono);font-size:11.5px}
+  .tabs{display:flex;gap:22px;margin-top:2px}
+  .tabs button{background:none;border:0;padding:0 0 6px;font-size:13px;color:var(--ink2);
+    border-bottom:2px solid transparent;letter-spacing:.02em}
+  .tabs button.on{color:var(--ink);border-bottom-color:var(--terracota);font-weight:700}
+  .limit{display:flex;align-items:baseline;justify-content:space-between;gap:16px;margin:6px 0 16px}
+  .limit .big{font-family:var(--serif);font-size:52px;line-height:1;letter-spacing:-.03em}
+  .limit .lbl{font-size:12.5px;color:var(--ink2);max-width:14ch}
+  .presets{display:flex;gap:16px;margin-bottom:14px}
+  .presets button{background:none;border:0;padding:0 0 4px;font-size:12px;color:var(--ink2);
+    border-bottom:1px solid transparent}
+  .presets button.on{color:var(--ink);border-bottom-color:var(--ink);font-weight:700}
+  .presets small{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink2)}
+  input[type=range]{width:100%;accent-color:var(--terracota);height:22px}
+  .scale{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--ink2)}
+  .result{padding-top:6px}
+  .num-line{display:flex;align-items:baseline;gap:10px}
+  .num-line .num{font-family:var(--serif);font-size:64px;line-height:1;letter-spacing:-.04em}
+  .num-line .num small{font-size:26px}
+  .num-line .cap{font-size:12px;color:var(--ink2);max-width:20ch;line-height:1.4}
+  .quote{margin-top:22px;padding:18px 0 18px 18px;border-left:4px solid var(--oliva)}
+  .quote blockquote{font-family:var(--serif);font-size:27px;line-height:1.15;letter-spacing:-.01em}
+  .quote blockquote em{font-style:italic;color:var(--oliva)}
+  .quote p{font-size:12px;color:var(--ink2);margin-top:8px}
+  .gauge{margin-top:24px}
+  .track{position:relative;height:6px;background:var(--rule);border-radius:3px}
+  .marker{position:absolute;top:-5px;bottom:-5px;width:2px;background:var(--ink)}
+  .mark-lbl{position:absolute;top:-18px;font-size:10px;color:var(--ink2);transform:translateX(-50%);white-space:nowrap}
+  .point{position:absolute;top:50%;width:12px;height:12px;border-radius:50%;background:var(--oliva);
+    transform:translate(-50%,-50%);box-shadow:0 0 0 3px var(--cream)}
+  .axis{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;color:var(--ink2);margin-top:8px}
+  .actions{display:flex;gap:10px;margin-top:24px}
+  .actions .btn{flex:1;font-size:12px;padding:11px 6px}
+  .hist .row{display:flex;justify-content:space-between;gap:10px;font-size:12px;padding:10px 0;
+    border-top:1px solid var(--rule)}
+  .hist .row .when{color:var(--ink2);font-family:var(--mono);font-size:11px}
+  .hist .row .val{font-family:var(--mono);font-size:11.5px}
+  .hist .tag{font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--oliva);font-weight:700}
+  .spark{margin:10px 0}
+  footer{font-size:11px;color:var(--ink2);text-align:center;margin-top:26px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <span class="badge">mockup 2 · editorial quente</span>
+
+  <div class="kicker">Etanol ou gasolina</div>
+  <h1>Vale a pena <em>encher</em><br>de álcool?</h1>
+  <p class="lead">Dois preços e uma conta. Sem cadastro, sem internet, sem achismo.</p>
+
+  <hr class="rule thick">
+
+  <div class="eyebrow">Preços na bomba</div>
+  <div class="ledger">
+    <div class="line">
+      <span class="tone gas"></span>
+      <span class="name">Gasolina</span>
+      <span class="dots"></span>
+      <span class="field"><span class="rs">R$</span><input id="gas" inputmode="numeric" aria-label="Preço da gasolina"></span>
+    </div>
+    <div class="line">
+      <span class="tone eta"></span>
+      <span class="name">Etanol</span>
+      <span class="dots"></span>
+      <span class="field"><span class="rs">R$</span><input id="eta" inputmode="numeric" aria-label="Preço do etanol"></span>
+    </div>
+  </div>
+  <p class="hint">Digite só números: <b>6 → R$ 6,00</b> · <b>456 → R$ 4,56</b> · até 4 dígitos.</p>
+
+  <div class="ref">
+    <div class="ref-top"><strong>Média da ANP</strong><span>semana 04–10/10/2026</span></div>
+    <div class="eyebrow" style="margin:12px 0 6px">Por estado</div>
+    <div class="ref-row">
+      <select id="uf" aria-label="Estado">
+        <option value="">Brasil (média nacional)</option>
+        <option value="SP">São Paulo</option>
+        <option value="RJ">Rio de Janeiro</option>
+        <option value="MG">Minas Gerais</option>
+      </select>
+      <button class="btn" id="fill">Preencher preços</button>
+    </div>
+    <div class="ref-values">Gasolina <b id="refGas">R$ 6,54</b> · Etanol <b id="refEta">R$ 4,14</b></div>
+  </div>
+
+  <hr class="rule">
+
+  <div class="tabs">
+    <button class="on">Rápido · só preços</button>
+    <button>Preciso · consumo real</button>
+  </div>
+
+  <hr class="rule">
+
+  <div class="eyebrow">Limite de decisão</div>
+  <div class="limit">
+    <span class="big">72<span style="font-size:24px">%</span></span>
+    <span class="lbl">do preço da gasolina é o teto do etanol</span>
+  </div>
+  <div class="presets">
+    <button class="on">72%<small>E32 atual</small></button>
+    <button>71%<small>E30</small></button>
+    <button>70%<small>E25 premium</small></button>
+  </div>
+  <input type="range" min="55" max="85" value="72" aria-label="Limite">
+  <div class="scale"><span>55</span><span>70</span><span>85</span></div>
+
+  <hr class="rule">
+
+  <div class="result">
+    <div class="eyebrow">Seu resultado</div>
+    <div class="num-line">
+      <span class="num">63,3<small>%</small></span>
+      <span class="cap">etanol ÷ gasolina<br>limite 72% · 8,7 p.p. abaixo</span>
+    </div>
+
+    <div class="quote">
+      <blockquote>Abasteça com <em>etanol</em>.</blockquote>
+      <p>R$ 4,14 contra R$ 6,54 por litro — o índice ficou abaixo do seu limite.</p>
+    </div>
+
+    <div class="gauge">
+      <div class="track">
+        <span class="mark-lbl" style="left:56.7%">limite 72%</span>
+        <span class="marker" style="left:56.7%"></span>
+        <span class="point" style="left:27.7%"></span>
+      </div>
+      <div class="axis"><span>55%</span><span>70%</span><span>85%</span></div>
+    </div>
+
+    <div class="actions">
+      <button class="btn ghost">Compartilhar</button>
+      <button class="btn">Salvar no histórico</button>
+    </div>
+  </div>
+
+  <hr class="rule">
+
+  <div class="eyebrow">Histórico · 2 cálculos</div>
+  <svg class="spark" width="100%" height="46" viewBox="0 0 400 46" role="img" aria-label="Evolução do índice">
+    <line x1="0" y1="16" x2="400" y2="16" stroke="#ded2bf" stroke-dasharray="3 4"/>
+    <polyline points="20,34 380,12" fill="none" stroke="#4f5d33" stroke-width="1.5"/>
+    <circle cx="20" cy="34" r="2.6" fill="#4f5d33"/>
+    <circle cx="380" cy="12" r="2.6" fill="#4f5d33"/>
+  </svg>
+  <div class="hist">
+    <div class="row"><span class="when">17/10 11:35</span><span class="val">6,50 · 4,10</span><span class="val">63,1%</span><span class="tag">etanol</span></div>
+    <div class="row"><span class="when">17/10 11:32</span><span class="val">5,89 · 3,99</span><span class="val">67,7%</span><span class="tag">etanol</span></div>
+  </div>
+
+  <footer>Funciona offline · sem cadastro · cálculo local · dados da ANP</footer>
+</div>
+
+<script>
+  (function () {
+    "use strict";
+    var DIGITS_MAX = 4;
+    function fmt(d) {
+      if (!d) return "";
+      if (d.length <= 2) return d + ",00";
+      return d.slice(0, d.length - 2) + "," + d.slice(-2);
+    }
+    var store = new WeakMap();
+    function setPrice(input, digits) {
+      digits = String(digits).replace(/\D/g, "").slice(0, DIGITS_MAX);
+      store.set(input, digits);
+      input.value = fmt(digits);
+    }
+    function getDigits(input) { return store.get(input) || ""; }
+    function bind(input) {
+      setPrice(input, getDigits(input));
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "," || e.key === ".") { e.preventDefault(); return; }
+        if (e.key === "Backspace") {
+          e.preventDefault();
+          setPrice(input, getDigits(input).slice(0, -1));
+        }
+      });
+      input.addEventListener("beforeinput", function (e) {
+        if (e.data && /\d/.test(e.data)) {
+          e.preventDefault();
+          var d = getDigits(input) + (e.data.match(/\d/g) || []).join("");
+          setPrice(input, d.slice(Math.max(0, d.length - DIGITS_MAX)));
+        }
+      });
+      input.addEventListener("input", function () {
+        setPrice(input, input.value.replace(/\D/g, "").slice(-DIGITS_MAX));
+      });
+      input.addEventListener("focus", function () { input.select(); });
+    }
+    var gas = document.getElementById("gas");
+    var eta = document.getElementById("eta");
+    setPrice(gas, "654"); setPrice(eta, "414");
+    bind(gas); bind(eta);
+    var medias = {
+      "": { gas: "654", eta: "414" },
+      SP: { gas: "636", eta: "386" },
+      RJ: { gas: "660", eta: "503" },
+      MG: { gas: "641", eta: "429" }
+    };
+    document.getElementById("fill").addEventListener("click", function () {
+      var m = medias[document.getElementById("uf").value] || medias[""];
+      setPrice(gas, m.gas); setPrice(eta, m.eta);
+      document.getElementById("refGas").textContent = "R$ " + fmt(m.gas);
+      document.getElementById("refEta").textContent = "R$ " + fmt(m.eta);
+    });
+  })();
+</script>
+</body>
+</html>

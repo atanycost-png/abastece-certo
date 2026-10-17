@@ -106,6 +106,7 @@ limite pessoal 71,7% · gasolina R$ 54,50/100 km · etanol R$ 48,14/100 km · **
 | `precos.json` | Médias semanais da ANP (Brasil + UF), geradas por script. |
 | `icons/` | Ícones PNG 192, 512, maskable e apple-touch-icon + `favicon.svg`. |
 | `screenshots/` | Capturas usadas no README e no manifest (`install-*` têm tamanho fixo). |
+| `mockups/` | Três direções visuais para a v4 (HTML autocontido, abertos no navegador). |
 | `tools/test.mjs` | Testes da lógica pura (extrai o bloco CORE do HTML e roda no `node:vm`). |
 | `tools/test-dom.mjs` | Testes de integração do app com DOM simulado (migração, storage, XSS, ARIA, histórico, preços). |
 | `tools/test-sw.mjs` | Testes de runtime do service worker (install, activate, network-first, offline, update). |

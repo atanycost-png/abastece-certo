@@ -3,9 +3,18 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
 <title>Abastece Certo — Etanol ou Gasolina</title>
-<meta name="description" content="Calculadora de combustível: descubra na hora se compensa abastecer com etanol ou gasolina, pela regra do 70/71%.">
+<meta name="description" content="Calculadora offline que mostra na hora se compensa abastecer com etanol ou gasolina: regra dos 70/71% no modo rápido e custo por quilômetro real no modo preciso.">
 <meta name="theme-color" content="#0b1020">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Abastece">
+<link rel="manifest" href="./manifest.webmanifest">
+<link rel="icon" type="image/svg+xml" href="./icons/favicon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="./icons/icon-192.png">
+<link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 <style>
   :root {
     --bg: #0b1020;
@@ -13,15 +22,22 @@
     --card: #121a2e;
     --card-2: #0d1526;
     --border: rgba(255,255,255,.08);
+    --border-strong: rgba(255,255,255,.16);
+    --border-ctrl: rgba(255,255,255,.34);   /* contraste ≥ 3:1 para controles (WCAG 1.4.11) */
     --text: #e6edf7;
     --muted: #8a97b0;
     --green: #22c55e;
+    --green-soft: #4ade80;
     --blue: #3b82f6;
+    --blue-soft: #60a5fa;
     --amber: #f59e0b;
+    --amber-soft: #fbbf24;
+    --danger: #f87171;
     --radius: 18px;
     --accent: linear-gradient(90deg, #3b82f6, #22c55e);
   }
   * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
   html { -webkit-text-size-adjust: 100%; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -34,6 +50,8 @@
   }
   .wrap { max-width: 460px; margin: 0 auto; }
 
+  :focus-visible { outline: 2px solid var(--blue-soft); outline-offset: 2px; border-radius: 6px; }
+
   header { padding: 28px 4px 20px; display: flex; align-items: center; gap: 12px; }
   .logo {
     width: 44px; height: 44px; border-radius: 13px; flex: none;
@@ -42,8 +60,14 @@
     box-shadow: 0 6px 20px rgba(34,197,94,.25), 0 6px 20px rgba(59,130,246,.2);
   }
   .logo svg { width: 24px; height: 24px; }
+  .head-text { min-width: 0; }
   header h1 { font-size: 20px; font-weight: 700; letter-spacing: -.02em; }
   header p { font-size: 13px; color: var(--muted); }
+  .net-badge {
+    margin-left: auto; flex: none; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--amber-soft); background: rgba(245,158,11,.12);
+    border: 1px solid rgba(245,158,11,.3); border-radius: 999px; padding: 4px 9px;
+  }
 
   .card {
     background: var(--card);
@@ -65,30 +89,60 @@
     position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
     font-size: 18px; color: var(--muted); font-weight: 600; pointer-events: none;
   }
-  .field input {
+  .field input[type="text"], .field input[type="number"], .field select {
     width: 100%; font-size: 22px; font-weight: 700; color: var(--text);
-    background: var(--card-2); border: 1px solid var(--border);
+    background: var(--card-2); border: 1px solid var(--border-ctrl);
     border-radius: 12px; padding: 14px 14px 14px 40px;
     outline: none; transition: border-color .15s, box-shadow .15s;
     -webkit-appearance: none; appearance: none;
+    font-family: inherit;
   }
-  .field input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,.18); }
-  .field input::placeholder { color: #4a566e; font-weight: 500; }
+  .field select { padding-left: 14px; font-size: 16px; font-weight: 600; cursor: pointer; }
+  .field input:focus, .field select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(59,130,246,.18); }
+  .field input::placeholder { color: #7c89a3; font-weight: 500; }
+  .field input[aria-invalid="true"] { border-color: rgba(248,113,113,.65); }
   .field .dot { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); width: 10px; height: 10px; border-radius: 50%; }
   .dot.gas { background: var(--blue); }
   .dot.eta { background: var(--green); }
-
-  .threshold-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-  .threshold-row .val { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .presets { display: flex; gap: 8px; margin-bottom: 14px; }
-  .presets button {
-    flex: 1; background: var(--card-2); color: var(--muted);
-    border: 1px solid var(--border); border-radius: 10px;
-    padding: 9px 8px; font-size: 13px; font-weight: 600; cursor: pointer;
-    transition: all .12s;
+  .field .unit {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    font-size: 12px; color: var(--muted); font-weight: 600; pointer-events: none;
   }
-  .presets button.active { color: var(--text); border-color: var(--blue); background: rgba(59,130,246,.12); }
-  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+  .field.no-prefix input { padding-left: 14px; }
+  .field.no-prefix input.has-unit { padding-right: 52px; }
+  .hint { font-size: 12px; color: var(--danger); margin-top: 6px; }
+  .hint:empty { display: none; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .grid2 .field input { font-size: 19px; padding-left: 14px; }
+
+  .tabs {
+    display: flex; gap: 6px; background: var(--card-2);
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 5px; margin-bottom: 14px;
+  }
+  .tabs button {
+    flex: 1; min-height: 44px; border: 1px solid transparent; border-radius: 10px;
+    background: transparent; color: var(--muted); cursor: pointer;
+    font-family: inherit; font-size: 14px; font-weight: 700;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 2px; padding: 7px 8px; transition: background .12s, color .12s, border-color .12s;
+  }
+  .tabs button .tab-sub { font-size: 11px; font-weight: 500; opacity: .8; }
+  .tabs button[aria-selected="true"] {
+    background: rgba(59,130,246,.14); border-color: rgba(59,130,246,.45); color: var(--text);
+  }
+
+  .threshold-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; gap: 12px; }
+  .threshold-row .val { font-size: 24px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .presets { display: grid; grid-template-columns: repeat(auto-fit, minmax(78px, 1fr)); gap: 8px; margin-bottom: 16px; }
+  .presets button {
+    min-height: 44px; background: var(--card-2); color: var(--muted);
+    border: 1px solid var(--border-ctrl); border-radius: 10px;
+    padding: 8px 6px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    font-family: inherit; transition: all .12s;
+  }
+  .presets button.active { color: var(--text); border-color: var(--blue-soft); background: rgba(59,130,246,.16); }
+  .presets button small { display: block; font-weight: 400; color: var(--muted); font-size: 10px; white-space: nowrap; }
 
   input[type=range] {
     width: 100%; -webkit-appearance: none; appearance: none; height: 6px;
@@ -106,20 +160,35 @@
   }
   .scale { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 6px; }
 
+  .btn {
+    min-height: 44px; padding: 11px 16px; border-radius: 11px;
+    background: var(--accent); color: #06101f; border: 1px solid transparent;
+    font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  }
+  .btn.ghost { background: transparent; color: var(--text); border-color: var(--border-ctrl); }
+  .btn.danger { background: transparent; color: var(--danger); border-color: rgba(248,113,113,.5); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn:active { transform: translateY(1px); }
+  .veh-actions { display: flex; gap: 8px; }
+  .veh-actions .btn { flex: 1; }
+  .fineprint { font-size: 12px; color: var(--muted); margin-top: 12px; }
+  .fineprint strong { color: #c4cee0; font-weight: 600; }
+
   .result { text-align: center; padding: 22px 18px; }
   .result .empty { color: var(--muted); font-size: 15px; padding: 8px 0; }
-  .result .big { font-size: 44px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; }
-  .result .label { font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .result .big { font-size: 44px; font-weight: 800; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .result .big .big-unit { font-size: 22px; font-weight: 700; }
+  .result .label { font-size: 13px; color: var(--muted); margin-top: 4px; }
   .verdict {
-    margin-top: 16px; border-radius: 14px; padding: 16px; font-size: 18px; font-weight: 700;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
+    margin-top: 16px; border-radius: 14px; padding: 14px; font-size: 18px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center; gap: 10px; line-height: 1.25;
   }
-  .verdict.etanol { background: rgba(34,197,94,.14); color: #4ade80; border: 1px solid rgba(34,197,94,.3); }
-  .verdict.gasolina { background: rgba(59,130,246,.14); color: #60a5fa; border: 1px solid rgba(59,130,246,.3); }
-  .verdict.empate { background: rgba(245,158,11,.14); color: #fbbf24; border: 1px solid rgba(245,158,11,.3); }
+  .verdict.etanol { background: rgba(34,197,94,.14); color: var(--green-soft); border: 1px solid rgba(34,197,94,.3); }
+  .verdict.gasolina { background: rgba(59,130,246,.14); color: var(--blue-soft); border: 1px solid rgba(59,130,246,.3); }
+  .verdict.empate { background: rgba(245,158,11,.14); color: var(--amber-soft); border: 1px solid rgba(245,158,11,.3); }
   .verdict svg { width: 22px; height: 22px; flex: none; }
 
-  .gauge { margin-top: 18px; }
+  .gauge { margin-top: 34px; }
   .gauge .track {
     position: relative; height: 12px; border-radius: 8px; overflow: visible;
     background: linear-gradient(90deg, rgba(34,197,94,.55), rgba(34,197,94,.2) 60%, rgba(59,130,246,.2), rgba(59,130,246,.55));
@@ -129,7 +198,7 @@
     background: #fff; transform: translateX(-1.5px); box-shadow: 0 0 6px rgba(0,0,0,.5);
   }
   .gauge .marker::after {
-    content: "limite"; position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
+    content: attr(data-label); position: absolute; top: -20px; left: 50%; transform: translateX(-50%);
     font-size: 10px; color: var(--muted); white-space: nowrap; font-weight: 600;
   }
   .gauge .dot-ratio {
@@ -137,29 +206,97 @@
     width: 20px; height: 20px; border-radius: 50%; border: 3px solid var(--card);
     box-shadow: 0 2px 8px rgba(0,0,0,.5); transition: left .25s ease;
   }
-  .gauge .dot-ratio.green { background: #4ade80; }
-  .gauge .dot-ratio.blue { background: #60a5fa; }
-  .gauge .axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .gauge .dot-ratio.green { background: var(--green-soft); }
+  .gauge .dot-ratio.blue { background: var(--blue-soft); }
+  .gauge .dot-ratio.amber { background: var(--amber-soft); }
+  .gauge .dot-ratio.clamped::before {
+    content: ""; position: absolute; inset: -6px; border-radius: 50%;
+    border: 1px dashed rgba(255,255,255,.45);
+  }
+  .gauge .axis { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 8px; }
+
+  .cmp { margin-top: 16px; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; text-align: left; }
+  .cmp-row {
+    display: grid; grid-template-columns: 1.15fr 1fr 1fr; gap: 4px;
+    padding: 9px 12px; font-size: 13px; border-top: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  .cmp-row:first-child { border-top: 0; }
+  .cmp-row.head { background: var(--card-2); color: var(--muted); font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+  .cmp-row span:not(:first-child) { text-align: right; }
+  .cmp-row .win { color: var(--green-soft); font-weight: 700; }
+  .cmp-row .lose { color: var(--muted); }
+  .note { font-size: 12px; color: var(--muted); margin-top: 14px; }
+  .note strong { color: #c4cee0; font-weight: 600; }
+  .warn {
+    margin-top: 14px; text-align: left; font-size: 12px; line-height: 1.45;
+    color: var(--amber-soft); background: rgba(245,158,11,.09);
+    border: 1px solid rgba(245,158,11,.3); border-radius: 10px; padding: 9px 12px;
+  }
+  .warn ul { margin: 0 0 0 16px; }
+  .warn li { margin: 2px 0; }
+  .actions { display: flex; gap: 8px; justify-content: center; margin-top: 16px; flex-wrap: wrap; }
+  .actions .btn { font-size: 13px; min-height: 40px; padding: 9px 14px; }
 
   .why summary {
     cursor: pointer; list-style: none; font-size: 13px; font-weight: 600;
     text-transform: uppercase; letter-spacing: .08em; color: var(--muted);
-    display: flex; align-items: center; justify-content: space-between;
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    min-height: 28px;
   }
   .why summary::-webkit-details-marker { display: none; }
-  .why summary::after { content: "＋"; font-size: 16px; transition: transform .2s; }
+  .why summary::after { content: "＋"; font-size: 16px; transition: transform .2s; flex: none; }
   .why[open] summary::after { transform: rotate(45deg); }
   .why .body { margin-top: 14px; font-size: 14px; color: #c4cee0; }
   .why .body p { margin-bottom: 10px; }
+  .why .body p:last-child { margin-bottom: 0; }
   .why .body .formula {
     background: var(--card-2); border: 1px solid var(--border); border-radius: 10px;
     padding: 10px 12px; font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
-    font-size: 13px; text-align: center; margin: 12px 0;
+    font-size: 13px; text-align: center; margin: 12px 0; overflow-x: auto;
   }
-  .why .body a { color: #60a5fa; text-decoration: none; }
+  .why .body a { color: var(--blue-soft); text-decoration: none; }
+  .why .body a:hover { text-decoration: underline; }
+  .why .body ul { margin: 0 0 10px 18px; }
+  .why .body li { margin-bottom: 6px; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
+    transform: translateX(-50%) translateY(16px);
+    max-width: calc(100vw - 32px); padding: 11px 16px; border-radius: 12px;
+    background: #1b2540; color: var(--text); border: 1px solid var(--border-strong);
+    font-size: 13px; font-weight: 600; box-shadow: 0 10px 30px rgba(0,0,0,.5);
+    opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; z-index: 50;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .update-bar {
+    position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom));
+    transform: translateX(-50%); z-index: 60;
+    display: flex; align-items: center; gap: 12px;
+    max-width: calc(100vw - 32px); padding: 10px 12px 10px 16px; border-radius: 12px;
+    background: #1b2540; border: 1px solid var(--border-strong);
+    box-shadow: 0 10px 30px rgba(0,0,0,.5); font-size: 13px; font-weight: 600;
+  }
+  .update-bar .btn { min-height: 34px; padding: 6px 12px; font-size: 12px; }
+
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
 
   footer { text-align: center; font-size: 11px; color: var(--muted); margin-top: 22px; }
   footer a { color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { transition: none !important; animation: none !important; }
+    .gauge .dot-ratio { transition: none; }
+  }
+  @media (max-width: 360px) {
+    .result .big { font-size: 38px; }
+    .grid2 { grid-template-columns: 1fr; gap: 0; }
+    .grid2 .field { margin-bottom: 14px; }
+    .grid2 .field:last-child { margin-bottom: 0; }
+  }
 </style>
 </head>
 <body>
@@ -169,10 +306,11 @@
     <div class="logo" aria-hidden="true">
       <svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5C8.6 6.8 6 9.9 6 12.9a6 6 0 0 0 12 0c0-3-2.6-6.1-6-10.4z" fill="#fff" opacity=".95"/><path d="M12 10.5a3 3 0 0 1 3 3c0 1.4-1 2.4-2 2.9-.3-1-1.3-1.5-2.2-1.3.1-.5.4-1 .9-1.3.3-.2.4-.6.2-.9-.1-.1-.2-.3-.3-.4z" fill="#0b1020"/></svg>
     </div>
-    <div>
+    <div class="head-text">
       <h1>Abastece Certo</h1>
       <p>Etanol ou gasolina? Decida na hora.</p>
     </div>
+    <span class="net-badge" id="netBadge" hidden>offline</span>
   </header>
 
   <section class="card">
@@ -180,208 +318,942 @@
     <div class="field">
       <label for="gas">Gasolina</label>
       <div class="box">
-        <span class="prefix">R$</span>
-        <input id="gas" type="text" inputmode="decimal" placeholder="5,89" autocomplete="off">
-        <span class="dot gas"></span>
+        <span class="prefix" aria-hidden="true">R$</span>
+        <input id="gas" type="text" inputmode="decimal" placeholder="6,54" autocomplete="off" enterkeyhint="next" aria-describedby="gasHint">
+        <span class="dot gas" aria-hidden="true"></span>
       </div>
+      <div class="hint" id="gasHint"></div>
     </div>
     <div class="field">
       <label for="eta">Etanol (álcool)</label>
       <div class="box">
-        <span class="prefix">R$</span>
-        <input id="eta" type="text" inputmode="decimal" placeholder="3,99" autocomplete="off">
-        <span class="dot eta"></span>
+        <span class="prefix" aria-hidden="true">R$</span>
+        <input id="eta" type="text" inputmode="decimal" placeholder="4,14" autocomplete="off" enterkeyhint="done" aria-describedby="etaHint">
+        <span class="dot eta" aria-hidden="true"></span>
       </div>
+      <div class="hint" id="etaHint"></div>
     </div>
+    <p class="fineprint">Médias ANP da semana 04–10/10/2026: gasolina comum <strong>R$ 6,54/L</strong> · etanol <strong>R$ 4,14/L</strong>. Digite o preço do posto onde vai abastecer.</p>
   </section>
 
-  <section class="card">
+  <div class="tabs" role="tablist" aria-label="Modo de cálculo">
+    <button type="button" role="tab" id="tab-fast" aria-selected="true" aria-controls="panel-fast" tabindex="0">
+      <span class="tab-title">Rápido</span>
+      <span class="tab-sub">só os preços</span>
+    </button>
+    <button type="button" role="tab" id="tab-precise" aria-selected="false" aria-controls="panel-precise" tabindex="-1">
+      <span class="tab-title">Preciso</span>
+      <span class="tab-sub">consumo real</span>
+    </button>
+  </div>
+
+  <section class="card" id="panel-fast" role="tabpanel" aria-labelledby="tab-fast" tabindex="0">
     <h2>Limite de decisão</h2>
     <div class="threshold-row">
-      <span class="label" style="font-size:13px;color:var(--muted)">Etanol compensa até</span>
-      <span class="val" id="thresholdVal">70%</span>
+      <span id="thresholdLabel" style="font-size:13px;color:var(--muted)">Etanol compensa até</span>
+      <span class="val" id="thresholdVal">72%</span>
     </div>
-    <div class="presets">
-      <button data-t="70" class="active">70%<small>regra clássica</small></button>
-      <button data-t="71">71%<small>gasolina E30</small></button>
+    <div class="presets" id="presets">
+      <button type="button" data-t="72" class="active">72%<small>E32 · atual</small></button>
+      <button type="button" data-t="71">71%<small>E30</small></button>
+      <button type="button" data-t="70">70%<small>E25 premium</small></button>
+      <button type="button" id="presetCar" hidden></button>
     </div>
-    <input id="threshold" type="range" min="60" max="80" step="1" value="70">
-    <div class="scale"><span>60%</span><span>80%</span></div>
+    <label for="threshold" class="sr-only">Limite de decisão (porcentagem)</label>
+    <input id="threshold" type="range" min="55" max="85" step="0.5" value="72" aria-describedby="thresholdHelp">
+    <div class="scale" aria-hidden="true"><span>55%</span><span>70%</span><span>85%</span></div>
+    <p class="fineprint" id="thresholdHelp">Se o etanol custar até esse percentual do preço da gasolina, ele compensa. A gasolina comum/aditivada é <strong>E32</strong> desde ago/2026 → use <strong>72%</strong> (faixa 71–73%); a <strong>premium</strong> segue <strong>E25</strong> → use <strong>70%</strong>. Com o carro salvo no modo preciso, vale o limite pessoal.</p>
   </section>
 
-  <section class="card result" id="result">
-    <div class="empty">Informe os dois preços para ver o resultado.</div>
+  <section class="card" id="panel-precise" role="tabpanel" aria-labelledby="tab-precise" tabindex="0" hidden>
+    <h2>Seu veículo</h2>
+    <div class="field">
+      <label for="vehicleSelect">Veículo salvo</label>
+      <select id="vehicleSelect">
+        <option value="">— digitar manualmente —</option>
+      </select>
+    </div>
+    <div class="grid2">
+      <div class="field no-prefix">
+        <label for="gasKmL">Com gasolina</label>
+        <div class="box">
+          <input id="gasKmL" class="has-unit" type="text" inputmode="decimal" placeholder="12,0" autocomplete="off" aria-describedby="gasKmLHint">
+          <span class="unit" aria-hidden="true">km/L</span>
+        </div>
+        <div class="hint" id="gasKmLHint"></div>
+      </div>
+      <div class="field no-prefix">
+        <label for="etaKmL">Com etanol</label>
+        <div class="box">
+          <input id="etaKmL" class="has-unit" type="text" inputmode="decimal" placeholder="8,6" autocomplete="off" aria-describedby="etaKmLHint">
+          <span class="unit" aria-hidden="true">km/L</span>
+        </div>
+        <div class="hint" id="etaKmLHint"></div>
+      </div>
+    </div>
+    <div class="field">
+      <label for="vehName">Nome do veículo (opcional)</label>
+      <div class="box">
+        <input id="vehName" type="text" placeholder="Ex.: Onix 1.4" maxlength="30" autocomplete="off" style="font-size:16px;font-weight:600;padding-left:14px">
+      </div>
+    </div>
+    <div class="veh-actions">
+      <button type="button" class="btn" id="vehSave">Salvar veículo</button>
+      <button type="button" class="btn danger" id="vehDelete" disabled>Excluir</button>
+    </div>
+    <p class="fineprint">Use a média do <strong>computador de bordo</strong> ou o cálculo de tanque cheio: encha, zere o hodômetro parcial, rode pelo menos 200 km, encha de novo e divida os km pelos litros. Repita 2–3 vezes para tirar a média.</p>
   </section>
+
+  <section class="card result">
+    <h2 class="sr-only">Resultado</h2>
+    <div id="resultOut"></div>
+  </section>
+  <p class="sr-only" id="live" role="status" aria-live="polite"></p>
 
   <section class="card why">
     <details>
-      <summary>Por que essa regra existe?</summary>
+      <summary>Por que a regra dos 70% existe?</summary>
       <div class="body">
-        <p>O etanol hidratado carrega cerca de <strong>70% da energia por litro</strong> da gasolina (poder calorífico). Por isso, se o etanol custar até ~70% do preço da gasolina, em tese o custo por quilômetro fica empatado ou menor.</p>
-        <p>Desde agosto de 2025 a gasolina brasileira é <strong>E30</strong> (30% de etanol anidro na mistura, antes 27%). Isso reduziu um pouco a energia por litro da gasolina, então o ponto de referência subiu para <strong>~71%</strong>.</p>
-        <p><strong>Mas é só uma aproximação.</strong> A conta exata usa o consumo real do seu carro:</p>
-        <div class="formula">etanol compensa se &nbsp;P<sub>etanol</sub>/P<sub>gasolina</sub> &lt; C<sub>etanol</sub>/C<sub>gasolina</sub></div>
-        <p>A “regra dos 70%” assume C<sub>etanol</sub>/C<sub>gasolina</sub> = 0,70. Em motores modernos essa relação varia (tipicamente 0,70–0,78), conforme taxa de compressão, injeção, turbo e calibração — por isso o ideal é medir o consumo do próprio veículo.</p>
-        <p style="font-size:12px;color:var(--muted)">Fonte: <a href="https://www.fecombustiveis.org.br/noticia/etanol-ou-gasolina-entenda-como-a-regra-dos-70-pode-fazer-voce-perder-dinheiro/263643" target="_blank" rel="noopener">Fecombustíveis / O Estado de S. Paulo</a> — com declarações de Rogério Gonçalves (AEA) e Vitor Sabag (Gasola).</p>
+        <p>O etanol hidratado entrega <strong>cerca de 66% da energia por litro</strong> da gasolina pura. Na gasolina C brasileira — que já leva etanol anidro — a razão sobe para <strong>~73%</strong>. Se a conta fosse só de energia, o etanol compensaria até ~73% do preço da gasolina.</p>
+        <p>Só que energia por litro não é consumo por litro: motor flex aproveita melhor a octanagem do etanol e ganha eficiência. Por isso, desde o lançamento do flex em 2003, o mercado usa um número <em>empírico de consumo</em>: <strong>~70% do preço</strong>. Não é lei da física — é calibração.</p>
+        <p>E o número sobe quando a mistura aumenta. A gasolina comum e a aditivada são <strong>E32 desde 01/08/2026</strong> (Resolução CNPE nº 9/2026, temporária), enquanto a <strong>premium segue E25</strong>. Com isso, a referência atual é <strong>~72% para a comum (faixa 71–73%)</strong> e <strong>~70% para a premium</strong>.</p>
+        <p><strong>É aproximação, não garantia:</strong> a relação real varia de carro para carro (tipicamente 0,65 a 0,78). O modo preciso existe para usar o seu número, não o da média.</p>
       </div>
     </details>
   </section>
 
-  <footer>Funciona offline · sem cadastro · cálculo local no seu aparelho</footer>
+  <section class="card why">
+    <details>
+      <summary>Como o modo preciso calcula</summary>
+      <div class="body">
+        <p>A conta exata é por <strong>custo por quilômetro</strong>: divida o preço do litro pelo consumo (km/L). Vence o combustível que roda mais barato.</p>
+        <div class="formula">etanol compensa se &nbsp;P<sub>etanol</sub> / P<sub>gasolina</sub> &lt; C<sub>etanol</sub> / C<sub>gasolina</sub></div>
+        <p>O lado direito é o <strong>seu limite pessoal</strong>: a razão entre os consumos do seu carro. Se o etanol roda 8,6 km/L e a gasolina 12,0 km/L, o limite é 8,6 ÷ 12,0 = <strong>71,7%</strong> — e o app passa a usar esse número em vez da estimativa de mercado.</p>
+        <ul>
+          <li><strong>Custo por 100 km:</strong> preço do litro × 100 ÷ km/L.</li>
+          <li><strong>Preço de equilíbrio do etanol:</strong> preço da gasolina × limite pessoal.</li>
+          <li><strong>Preço de equilíbrio da gasolina:</strong> preço do etanol ÷ limite pessoal.</li>
+        </ul>
+        <p>Como você informa o consumo real, aqui a economia em reais é honesta — diferente do modo rápido, que não inventa economias porque não conhece o seu carro.</p>
+      </div>
+    </details>
+  </section>
+
+  <section class="card why">
+    <details>
+      <summary>Fontes e limitações</summary>
+      <div class="body">
+        <p><strong>Mistura e regra dos 70%:</strong></p>
+        <ul>
+          <li><a href="https://www.gov.br/anp/pt-br/canais_atendimento/imprensa/noticias-comunicados/e32-gasolina-com-32-de-etanol-passa-a-valer-temporariamente-a-partir-de-amanha-1-8" target="_blank" rel="noopener noreferrer">ANP — E32 em vigor desde 01/08/2026</a> (Resolução CNPE nº 9/2026, temporária; premium segue E25).</li>
+          <li><a href="https://www.gov.br/mme/pt-br/assuntos/conselhos-e-comites/cnpe/comunicacoes/cnpe-aprova-elevacao-do-teor-de-etanol-anidro-na-gasolina-para-32" target="_blank" rel="noopener noreferrer">MME/CNPE — aprovação do teor de 32%</a>.</li>
+          <li><a href="https://minaspetro.com.br/etanol-ou-gasolina-entenda-como-a-regra-dos-70-pode-fazer-voce-perder-dinheiro/" target="_blank" rel="noopener noreferrer">Estadão / Fecombustíveis</a> — origem da regra dos 70% e por que ela pode fazer você perder dinheiro.</li>
+          <li><a href="https://minaspetro.com.br/gasolina-e32-aprenda-a-calcular-se-o-etanol-vale-mais-a-pena/" target="_blank" rel="noopener noreferrer">AUTOTEMPO / Minaspetro</a> — faixa de 73–75% em motores modernos com E32.</li>
+          <li><a href="https://www.engineeringtoolbox.com/fuels-higher-calorific-values-d_169.html" target="_blank" rel="noopener noreferrer">Engineering ToolBox</a> — poder calorífico: gasolina 32,0 MJ/L, etanol anidro 21,1 MJ/L.</li>
+        </ul>
+        <p><strong>Preços de referência:</strong> <a href="https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/levantamento-de-precos-de-combustiveis-ultimas-semanas-pesquisadas" target="_blank" rel="noopener noreferrer">Levantamento de Preços da ANP</a>, semana 04–10/10/2026: gasolina comum R$ 6,54/L e etanol R$ 4,14/L. O app não busca preços ao vivo: a ANP não libera CORS e os arquivos são XLSX/CSV pesados. O preço usado é sempre o do posto onde você vai abastecer.</p>
+        <p><strong>Limitações:</strong> a mistura E32 é temporária (180 dias, prorrogável uma vez) e pode mudar — se mudar, ajuste o limite no controle acima. A regra rápida é heurística de mercado; não existe limiar oficial. O modo preciso depende da qualidade dos consumos informados.</p>
+      </div>
+    </details>
+  </section>
+
+  <footer>Funciona offline · sem cadastro · cálculo local no seu aparelho · v2 · limite de referência: E32 (ago/2026)</footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<div class="update-bar" id="updateBar" hidden>
+  <span>Nova versão disponível</span>
+  <button type="button" class="btn" id="updateBtn">Atualizar</button>
 </div>
 
 <script>
 (function () {
   "use strict";
 
-  var gas = document.getElementById("gas");
-  var eta = document.getElementById("eta");
-  var threshold = document.getElementById("threshold");
-  var thresholdVal = document.getElementById("thresholdVal");
-  var result = document.getElementById("result");
-  var presets = document.querySelectorAll(".presets button");
+  /* CORE-START */
+  var AC = (function () {
+    "use strict";
 
-  var EPS = 0.005; // 0,5 p.p. => empate técnico
+    var EPS_PP = 0.5;      // empate técnico: 0,5 ponto percentual
+    var GAUGE_MIN = 55;
+    var GAUGE_MAX = 85;
 
-  // Parse pt-BR: "5,89" | "5.89" | "1.234,56" => Number
-  function parsePrice(v) {
-    var s = String(v).trim();
-    if (!s) return NaN;
-    if (s.indexOf(",") !== -1) {
-      s = s.replace(/\./g, "").replace(",", ".");
+    var LABELS = {
+      etanol: "Abasteça com ETANOL",
+      gasolina: "Abasteça com GASOLINA",
+      empate: "Empate técnico — indiferente"
+    };
+
+    var nfCache = {};
+    function formatter(d) {
+      var k = String(d);
+      if (!(k in nfCache)) {
+        try {
+          nfCache[k] = new Intl.NumberFormat("pt-BR", {
+            minimumFractionDigits: d,
+            maximumFractionDigits: d
+          });
+        } catch (e) {
+          nfCache[k] = null;
+        }
+      }
+      return nfCache[k];
     }
-    var n = Number(s);
-    return isFinite(n) ? n : NaN;
+
+    function fmtNum(n, d) {
+      d = (d === null || d === undefined) ? 1 : d;
+      if (typeof n !== "number" || !isFinite(n)) return "\u2014";
+      if (n === 0) n = 0;   // normaliza -0 para não exibir "-0,0"
+      var f = formatter(d);
+      return f ? f.format(n) : n.toFixed(d).replace(".", ",");
+    }
+
+    function fmtBRL(n, d) {
+      if (typeof n !== "number" || !isFinite(n)) return "\u2014";
+      return "R$ " + fmtNum(n, (d === null || d === undefined) ? 2 : d);
+    }
+
+    // Aceita "5,89", "5.89", "R$ 5,89", "1.234,56", "1,234.56", "5," (digitando).
+    function parseNumber(raw) {
+      if (raw === null || raw === undefined) return NaN;
+      var s = String(raw).trim().toLowerCase();
+      if (!s) return NaN;
+      if (s.charAt(0) === "-" || s.charAt(0) === "+") return NaN;
+      s = s.replace(/r\$/g, "").trim();
+      s = s.replace(/\s*(km\/l|km|l|reais|real)$/i, "").trim();
+      if (!s || /\s/.test(s)) return NaN;
+      if (!/^[0-9.,]+$/.test(s)) return NaN;   // rejeita letras, dígitos fullwidth, etc.
+      s = s.replace(/^[.,]+/, "").replace(/[.,]+$/, "");
+      if (!s) return NaN;
+
+      var lastComma = s.lastIndexOf(",");
+      var lastDot = s.lastIndexOf(".");
+      if (lastComma >= 0 && lastDot >= 0) {
+        if (lastComma > lastDot) {
+          s = s.replace(/\./g, "").replace(",", ".");
+        } else {
+          s = s.replace(/,/g, "");
+        }
+      } else if (lastComma >= 0) {
+        s = s.replace(",", ".");
+      } else if (/^\d{1,3}(\.\d{3})+$/.test(s)) {
+        s = s.replace(/\./g, "");
+      }
+      if (!/^\d+(\.\d+)?$/.test(s)) return NaN;
+      var n = Number(s);
+      return isFinite(n) ? n : NaN;
+    }
+
+    function parsePositive(raw) {
+      var n = parseNumber(raw);
+      return (isFinite(n) && n > 0) ? n : NaN;
+    }
+
+    function priceStatus(raw) {
+      var s = String(raw === null || raw === undefined ? "" : raw).trim();
+      if (!s) return "empty";
+      return isFinite(parsePositive(s)) ? "ok" : "invalid";
+    }
+
+    function clamp(v, lo, hi) {
+      return Math.min(hi, Math.max(lo, v));
+    }
+
+    function pctLabel(v) {
+      var r = Math.round(v * 10) / 10;
+      return fmtNum(r, r % 1 === 0 ? 0 : 1) + "%";
+    }
+
+    // Valor para preencher o campo de texto sem perder precisão (10.5 -> "10,5", 10 -> "10").
+    function toInputValue(n) {
+      if (typeof n !== "number" || !isFinite(n)) return "";
+      return String(n).replace(".", ",");
+    }
+
+    function fastResult(gasPrice, etaPrice, thresholdPct) {
+      var g = parsePositive(gasPrice);
+      var e = parsePositive(etaPrice);
+      var t = Number(thresholdPct);
+      if (!isFinite(g) || !isFinite(e) || !isFinite(t) || t <= 0) return null;
+
+      var ratio = e / g;
+      var pct = ratio * 100;
+      var diffPp = pct - t;
+      var verdict = Math.abs(diffPp) < EPS_PP
+        ? "empate"
+        : (diffPp < 0 ? "etanol" : "gasolina");
+
+      return {
+        mode: "fast",
+        verdict: verdict,
+        ratio: ratio,
+        pct: pct,
+        threshold: t,
+        diffPp: diffPp,
+        gapPp: Math.abs(diffPp),
+        gasPrice: g,
+        etaPrice: e
+      };
+    }
+
+    function preciseResult(gasPrice, etaPrice, gasKmL, etaKmL) {
+      var g = parsePositive(gasPrice);
+      var e = parsePositive(etaPrice);
+      var gk = parsePositive(gasKmL);
+      var ek = parsePositive(etaKmL);
+      if (!isFinite(g) || !isFinite(e) || !isFinite(gk) || !isFinite(ek)) return null;
+
+      var priceRatio = e / g;
+      var personalRatio = ek / gk;
+      var pct = priceRatio * 100;
+      var personalPct = personalRatio * 100;
+      var diffPp = pct - personalPct;
+      var verdict = Math.abs(diffPp) < EPS_PP
+        ? "empate"
+        : (diffPp < 0 ? "etanol" : "gasolina");
+
+      var costGas = g / gk;   // R$ por km
+      var costEta = e / ek;   // R$ por km
+      var per100Gas = costGas * 100;
+      var per100Eta = costEta * 100;
+
+      return {
+        mode: "precise",
+        verdict: verdict,
+        ratio: priceRatio,
+        pct: pct,
+        threshold: personalPct,
+        personalPct: personalPct,
+        diffPp: diffPp,
+        gapPp: Math.abs(diffPp),
+        gasPrice: g,
+        etaPrice: e,
+        gasKmL: gk,
+        etaKmL: ek,
+        costGas: costGas,
+        costEta: costEta,
+        per100Gas: per100Gas,
+        per100Eta: per100Eta,
+        savingsPer100: Math.abs(per100Gas - per100Eta),
+        breakEvenEta: g * personalRatio,
+        breakEvenGas: e / personalRatio,
+        litersPer100Gas: 100 / gk,
+        litersPer100Eta: 100 / ek
+      };
+    }
+
+    function gaugePos(pct) {
+      if (typeof pct !== "number" || !isFinite(pct)) return 0;
+      return clamp(((pct - GAUGE_MIN) / (GAUGE_MAX - GAUGE_MIN)) * 100, 0, 100);
+    }
+
+    function gaugeOutside(pct) {
+      return !(typeof pct === "number" && isFinite(pct)) || pct < GAUGE_MIN || pct > GAUGE_MAX;
+    }
+
+    function verdictLabel(v) {
+      return LABELS[v] || "";
+    }
+
+    // Texto de distância ao limite. Regra única: se o veredito é empate, o texto
+    // NUNCA pode dizer "acima/abaixo do limite" (era o bug da v1).
+    function gapText(r) {
+      if (!r) return "";
+      if (r.verdict === "empate") {
+        return "dentro da margem de " + fmtNum(EPS_PP, 1) + " p.p.";
+      }
+      return fmtNum(r.gapPp, 1) + " p.p. " + (r.diffPp < 0 ? "abaixo" : "acima") + " do limite";
+    }
+
+    // Avisos de sanidade: não bloqueiam, mas pegam vírgula errada e consumo improvável.
+    function sanityWarnings(r) {
+      var out = [];
+      if (!r) return out;
+      if (r.gasPrice < 4.5 || r.gasPrice > 9.5) {
+        out.push("Preço da gasolina fora da faixa comum (R$ 4,50–9,50). Confira se digitou certo.");
+      }
+      if (r.etaPrice < 2.5 || r.etaPrice > 7.5) {
+        out.push("Preço do etanol fora da faixa comum (R$ 2,50–7,50). Confira se digitou certo.");
+      }
+      if (r.ratio < 0.5 || r.ratio > 1) {
+        out.push("Relação etanol/gasolina em " + fmtNum(r.pct, 1) + "% — fora da faixa normal (50–100%). Confira os preços.");
+      }
+      if (r.mode === "precise") {
+        var cr = r.etaKmL / r.gasKmL;
+        if (cr < 0.55 || cr > 0.85) {
+          out.push("Consumos inconsistentes: com etanol o carro costuma rodar 65–80% do que roda com gasolina (aqui é "
+            + fmtNum(cr * 100, 0) + "%).");
+        }
+      }
+      return out;
+    }
+
+    function shareText(r) {
+      if (!r) return "";
+      if (r.mode === "fast") {
+        return "Abastece Certo — índice E/G " + fmtNum(r.pct, 1) + "% (limite " + pctLabel(r.threshold) + "). "
+          + verdictLabel(r.verdict) + ". Gasolina " + fmtBRL(r.gasPrice) + "/L · Etanol " + fmtBRL(r.etaPrice) + "/L.";
+      }
+      var best = r.verdict === "etanol" ? "ETANOL" : (r.verdict === "gasolina" ? "GASOLINA" : "empate técnico");
+      return "Abastece Certo — " + fmtNum(r.gasKmL, 1) + " km/L na gasolina e " + fmtNum(r.etaKmL, 1)
+        + " km/L no etanol. Custo por 100 km: gasolina " + fmtBRL(r.per100Gas) + ", etanol " + fmtBRL(r.per100Eta)
+        + ". Melhor: " + best
+        + (r.verdict === "empate" ? "." : " (economia de " + fmtBRL(r.savingsPer100) + " a cada 100 km).");
+    }
+
+    return {
+      EPS_PP: EPS_PP,
+      GAUGE_MIN: GAUGE_MIN,
+      GAUGE_MAX: GAUGE_MAX,
+      LABELS: LABELS,
+      parseNumber: parseNumber,
+      parsePositive: parsePositive,
+      priceStatus: priceStatus,
+      fmtNum: fmtNum,
+      fmtBRL: fmtBRL,
+      pctLabel: pctLabel,
+      toInputValue: toInputValue,
+      fastResult: fastResult,
+      preciseResult: preciseResult,
+      gaugePos: gaugePos,
+      gaugeOutside: gaugeOutside,
+      verdictLabel: verdictLabel,
+      gapText: gapText,
+      sanityWarnings: sanityWarnings,
+      shareText: shareText
+    };
+  })();
+  /* CORE-END */
+
+  // ---------------------------------------------------------------- DOM
+  function $(id) { return document.getElementById(id); }
+
+  var ui = {
+    gas: $("gas"), eta: $("eta"),
+    gasHint: $("gasHint"), etaHint: $("etaHint"),
+    tabs: [$("tab-fast"), $("tab-precise")],
+    panels: { fast: $("panel-fast"), precise: $("panel-precise") },
+    threshold: $("threshold"), thresholdVal: $("thresholdVal"),
+    presets: $("presets"), presetCar: $("presetCar"),
+    vehicleSelect: $("vehicleSelect"), vehName: $("vehName"),
+    gasKmL: $("gasKmL"), etaKmL: $("etaKmL"),
+    gasKmLHint: $("gasKmLHint"), etaKmLHint: $("etaKmLHint"),
+    vehSave: $("vehSave"), vehDelete: $("vehDelete"),
+    resultOut: $("resultOut"), live: $("live"),
+    toast: $("toast"), netBadge: $("netBadge"),
+    updateBar: $("updateBar"), updateBtn: $("updateBtn")
+  };
+
+  // ---------------------------------------------------------------- storage
+  var KEY = "ac.v2";
+  var V1_GAS = "ac_gas", V1_ETA = "ac_eta", V1_THRESHOLD = "ac_threshold";
+
+  var state = {
+    mode: "fast",
+    threshold: 72,
+    vehicles: [],
+    activeId: null,
+    lastResult: null
+  };
+
+  function safeGet(k) {
+    try { return localStorage.getItem(k); } catch (e) { return null; }
   }
-  function fmt(n, d) {
-    return n.toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d });
+  function safeSet(k, v) {
+    try { localStorage.setItem(k, v); } catch (e) { /* modo privado/quota */ }
   }
 
-  function persist() {
-    try {
-      localStorage.setItem("ac_threshold", threshold.value);
-      localStorage.setItem("ac_gas", gas.value);
-      localStorage.setItem("ac_eta", eta.value);
-    } catch (e) {}
-  }
-  function restore() {
-    try {
-      var t = localStorage.getItem("ac_threshold");
-      if (t) { threshold.value = t; }
-      gas.value = localStorage.getItem("ac_gas") || "";
-      eta.value = localStorage.getItem("ac_eta") || "";
-      syncPresets();
-    } catch (e) {}
+  function loadState() {
+    var raw = safeGet(KEY);
+    var data = null;
+    if (raw) {
+      try { data = JSON.parse(raw); } catch (e) { data = null; }
+    }
+    if (!data || typeof data !== "object") {
+      // migração da v1 (chaves soltas) — uma única vez, sem apagar nada
+      data = {
+        mode: "fast",
+        threshold: Number(safeGet(V1_THRESHOLD)) || 72,
+        gas: safeGet(V1_GAS) || "",
+        eta: safeGet(V1_ETA) || "",
+        gasKmL: "", etaKmL: "", vehName: "",
+        vehicles: [], activeId: null
+      };
+    }
+    state.mode = data.mode === "precise" ? "precise" : "fast";
+    var t = Number(data.threshold);
+    state.threshold = isFinite(t) ? Math.min(85, Math.max(55, t)) : 72;
+    state.vehicles = Array.isArray(data.vehicles) ? data.vehicles.filter(function (v) {
+      return v && typeof v.id === "string" && AC.parsePositive(v.gasKmL) > 0 && AC.parsePositive(v.etaKmL) > 0;
+    }).slice(0, 20) : [];
+    state.activeId = typeof data.activeId === "string" ? data.activeId : null;
+    if (state.activeId && !state.vehicles.some(function (v) { return v.id === state.activeId; })) {
+      state.activeId = null;
+    }
+    ui.gas.value = typeof data.gas === "string" ? data.gas : "";
+    ui.eta.value = typeof data.eta === "string" ? data.eta : "";
+    ui.gasKmL.value = typeof data.gasKmL === "string" ? data.gasKmL : "";
+    ui.etaKmL.value = typeof data.etaKmL === "string" ? data.etaKmL : "";
+    ui.vehName.value = typeof data.vehName === "string" ? data.vehName : "";
+    ui.threshold.value = String(state.threshold);
   }
 
-  function syncPresets() {
-    presets.forEach(function (b) {
-      b.classList.toggle("active", b.getAttribute("data-t") === threshold.value);
-    });
+  function saveState() {
+    var data = {
+      mode: state.mode,
+      threshold: Number(ui.threshold.value),
+      gas: ui.gas.value,
+      eta: ui.eta.value,
+      gasKmL: ui.gasKmL.value,
+      etaKmL: ui.etaKmL.value,
+      vehName: ui.vehName.value,
+      vehicles: state.vehicles,
+      activeId: state.activeId
+    };
+    safeSet(KEY, JSON.stringify(data));
+  }
+
+  // ---------------------------------------------------------------- helpers
+  var toastTimer = null;
+  function toast(msg) {
+    ui.toast.textContent = msg;
+    ui.toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { ui.toast.classList.remove("show"); }, 2200);
+  }
+
+  function setHint(input, hintEl, status) {
+    input.setAttribute("aria-invalid", status === "invalid" ? "true" : "false");
+    hintEl.textContent = status === "invalid" ? "Valor inválido — use, por exemplo, 5,89." : "";
+  }
+
+  function announce(text) {
+    clearTimeout(announce.timer);
+    announce.timer = setTimeout(function () {
+      ui.live.textContent = "";
+      ui.live.textContent = text;
+    }, 350);
+  }
+
+  function activeVehicle() {
+    if (!state.activeId) return null;
+    for (var i = 0; i < state.vehicles.length; i++) {
+      if (state.vehicles[i].id === state.activeId) return state.vehicles[i];
+    }
+    return null;
+  }
+
+  function personalPct() {
+    var gk = AC.parsePositive(ui.gasKmL.value);
+    var ek = AC.parsePositive(ui.etaKmL.value);
+    if (!isFinite(gk) || !isFinite(ek)) return NaN;
+    return (ek / gk) * 100;
+  }
+
+  // ---------------------------------------------------------------- render
+  var ICONS = {
+    etanol: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 2.5C8.6 6.8 6 9.9 6 12.9a6 6 0 0 0 12 0c0-3-2.6-6.1-6-10.4z"/></svg>',
+    gasolina: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M3 21h4V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v15h3"/><rect x="3" y="14" width="16" height="7" rx="1.5"/></svg>',
+    empate: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/></svg>'
+  };
+
+  function gaugeHtml(pct, thresholdPct, markerLabel, verdict) {
+    var left = AC.gaugePos(pct);
+    var mleft = AC.gaugePos(thresholdPct);
+    var cls = AC.gaugeOutside(pct) ? " clamped" : "";
+    // A cor do ponto segue o VEREDITO (nunca só a comparação seca), para não
+    // existir "empate técnico" pintado de azul ou verde.
+    var color = verdict === "empate" ? "amber" : (verdict === "etanol" ? "green" : "blue");
+    var dotCls = "dot-ratio " + color;
+    return '<div class="gauge">'
+      + '<div class="track">'
+      + '<div class="marker" style="left:' + mleft.toFixed(2) + '%" data-label="' + markerLabel + '"></div>'
+      + '<div class="' + dotCls + cls + '" style="left:' + left.toFixed(2) + '%"></div>'
+      + '</div>'
+      + '<div class="axis" aria-hidden="true"><span>' + AC.GAUGE_MIN + '%</span><span>70%</span><span>' + AC.GAUGE_MAX + '%</span></div>'
+      + '</div>';
+  }
+
+  function warningsHtml(r) {
+    var list = AC.sanityWarnings(r);
+    if (!list.length) return "";
+    var items = list.map(function (text) { return "<li>" + text + "</li>"; }).join("");
+    return '<div class="warn" role="note"><ul>' + items + '</ul></div>';
+  }
+
+  function shareButtonHtml() {
+    return '<div class="actions"><button type="button" class="btn ghost" data-action="share">Compartilhar resultado</button></div>';
+  }
+
+  function fastHtml(r) {
+    return ''
+      + '<div class="big">' + AC.fmtNum(r.pct, 1) + '<span class="big-unit">%</span></div>'
+      + '<div class="label">etanol ÷ gasolina · limite ' + AC.pctLabel(r.threshold) + ' · ' + AC.gapText(r) + '</div>'
+      + '<div class="verdict ' + r.verdict + '">' + ICONS[r.verdict] + '<span>' + AC.verdictLabel(r.verdict) + '</span></div>'
+      + gaugeHtml(r.pct, r.threshold, "limite", r.verdict)
+      + warningsHtml(r)
+      + shareButtonHtml();
+  }
+
+  function preciseHtml(r) {
+    var isTie = r.verdict === "empate";
+    var winner = r.verdict === "gasolina" ? "gasolina" : "etanol";
+    var big, bigLabel;
+    if (isTie) {
+      big = AC.fmtBRL(Math.min(r.per100Gas, r.per100Eta));
+      bigLabel = "custo por 100 km — empate técnico";
+    } else {
+      big = AC.fmtBRL(r.savingsPer100);
+      bigLabel = "economia a cada 100 km abastecendo com " + winner;
+    }
+
+    var gasWin = r.verdict === "gasolina";
+    var etaWin = r.verdict === "etanol";
+    var clsGas = gasWin ? "win" : (etaWin ? "lose" : "");
+    var clsEta = etaWin ? "win" : (gasWin ? "lose" : "");
+
+    var note;
+    if (isTie) {
+      note = 'Seu limite pessoal: <strong>' + AC.pctLabel(r.personalPct) + '</strong>. Os dois combustíveis custam praticamente o mesmo por quilômetro.';
+    } else if (etaWin) {
+      note = 'Seu limite pessoal: <strong>' + AC.pctLabel(r.personalPct) + '</strong>. O etanol compensa até <strong>'
+        + AC.fmtBRL(r.breakEvenEta) + '/L</strong> (hoje está ' + AC.fmtBRL(r.etaPrice) + ').';
+    } else {
+      note = 'Seu limite pessoal: <strong>' + AC.pctLabel(r.personalPct) + '</strong>. A gasolina compensa até <strong>'
+        + AC.fmtBRL(r.breakEvenGas) + '/L</strong> (hoje está ' + AC.fmtBRL(r.gasPrice) + ').';
+    }
+
+    return ''
+      + '<div class="big">' + big + '</div>'
+      + '<div class="label">' + bigLabel + '</div>'
+      + '<div class="verdict ' + r.verdict + '">' + ICONS[r.verdict] + '<span>' + AC.verdictLabel(r.verdict) + '</span></div>'
+      + '<div class="cmp" role="table" aria-label="Comparação de custo por 100 km">'
+      +   '<div class="cmp-row head" role="row"><span role="columnheader">Por 100 km</span><span role="columnheader">Etanol</span><span role="columnheader">Gasolina</span></div>'
+      +   '<div class="cmp-row" role="row"><span role="cell">Litros</span><span role="cell">' + AC.fmtNum(r.litersPer100Eta, 1) + ' L</span><span role="cell">' + AC.fmtNum(r.litersPer100Gas, 1) + ' L</span></div>'
+      +   '<div class="cmp-row" role="row"><span role="cell">Custo</span><span role="cell" class="' + clsEta + '">' + AC.fmtBRL(r.per100Eta) + '</span><span role="cell" class="' + clsGas + '">' + AC.fmtBRL(r.per100Gas) + '</span></div>'
+      + '</div>'
+      + gaugeHtml(r.pct, r.personalPct, "seu limite", r.verdict)
+      + '<p class="note">' + note + '</p>'
+      + warningsHtml(r)
+      + shareButtonHtml();
+  }
+
+  function emptyHtml() {
+    var msg = state.mode === "fast"
+      ? "Informe os dois preços para ver o resultado."
+      : "Informe os preços e o consumo do seu carro para ver o resultado.";
+    return '<div class="empty">' + msg + '</div>';
   }
 
   function render() {
-    thresholdVal.textContent = threshold.value + "%";
-    var g = parsePrice(gas.value);
-    var e = parsePrice(eta.value);
-    var t = Number(threshold.value) / 100;
+    var gasStatus = AC.priceStatus(ui.gas.value);
+    var etaStatus = AC.priceStatus(ui.eta.value);
+    setHint(ui.gas, ui.gasHint, gasStatus);
+    setHint(ui.eta, ui.etaHint, etaStatus);
 
-    if (!(g > 0) || !(e > 0)) {
-      result.innerHTML = '<div class="empty">Informe os dois preços para ver o resultado.</div>';
-      return;
-    }
-
-    var ratio = e / g;
-    var pct = ratio * 100;
-    var diff = ratio - t; // negativo => etanol compensa
-    var verdict, cls, icon;
-
-    if (Math.abs(diff) < EPS) {
-      verdict = "Empate técnico — indiferente";
-      cls = "empate";
-      icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" y1="12" x2="19" y2="12"/></svg>';
-    } else if (diff <= 0) {
-      verdict = "Abasteça com ETANOL";
-      cls = "etanol";
-      icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.5C8.6 6.8 6 9.9 6 12.9a6 6 0 0 0 12 0c0-3-2.6-6.1-6-10.4z"/></svg>';
+    var r = null;
+    if (state.mode === "fast") {
+      r = AC.fastResult(ui.gas.value, ui.eta.value, state.threshold);
     } else {
-      verdict = "Abasteça com GASOLINA";
-      cls = "gasolina";
-      icon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h4V6a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v15h3"/><rect x="3" y="14" width="16" height="7" rx="1.5"/></svg>';
+      var gkStatus = AC.priceStatus(ui.gasKmL.value);
+      var ekStatus = AC.priceStatus(ui.etaKmL.value);
+      setHint(ui.gasKmL, ui.gasKmLHint, gkStatus);
+      setHint(ui.etaKmL, ui.etaKmLHint, ekStatus);
+      r = AC.preciseResult(ui.gas.value, ui.eta.value, ui.gasKmL.value, ui.etaKmL.value);
     }
 
-    var gapAbs = Math.abs(diff) * 100;
-    var gapTxt = gapAbs >= 0.05
-      ? "· " + fmt(gapAbs, 1) + " p.p. " + (diff <= 0 ? "abaixo" : "acima") + " do limite"
-      : "· exatamente no limite";
+    state.lastResult = r;
+    ui.resultOut.innerHTML = r ? (state.mode === "fast" ? fastHtml(r) : preciseHtml(r)) : emptyHtml();
 
-    // posição no gauge: escala 60%..80% mapeada em 0%..100%
-    var left = Math.min(100, Math.max(0, ((pct - 60) / (80 - 60)) * 100));
-    var markerLeft = Math.min(100, Math.max(0, ((t * 100 - 60) / (80 - 60)) * 100));
-    var dotCls = diff <= 0 ? "green" : "blue";
+    if (r) {
+      var say;
+      if (state.mode === "fast") {
+        say = AC.verdictLabel(r.verdict) + ". Índice " + AC.fmtNum(r.pct, 1) + " por cento.";
+      } else {
+        say = AC.verdictLabel(r.verdict) + ".";
+        if (r.verdict !== "empate") {
+          say += " Economia de " + AC.fmtBRL(r.savingsPer100) + " a cada 100 km.";
+        }
+      }
+      announce(say);
+    } else {
+      announce("");
+    }
 
-    result.innerHTML =
-      '<div class="big">' + fmt(pct, 1) + '<span style="font-size:22px">%</span></div>' +
-      '<div class="label">etanol ÷ gasolina · limite ' + threshold.value + '% ' + gapTxt + '</div>' +
-      '<div class="verdict ' + cls + '">' + icon + '<span>' + verdict + '</span></div>' +
-      '<div class="gauge">' +
-        '<div class="track">' +
-          '<div class="marker" style="left:' + markerLeft + '%"></div>' +
-          '<div class="dot-ratio ' + dotCls + '" style="left:' + left + '%"></div>' +
-        '</div>' +
-        '<div class="axis"><span>60%</span><span>70%</span><span>80%</span></div>' +
-      '</div>';
+    updatePresets();
   }
 
-  gas.addEventListener("input", function () { persist(); render(); });
-  eta.addEventListener("input", function () { persist(); render(); });
-  threshold.addEventListener("input", function () { syncPresets(); persist(); render(); });
-  presets.forEach(function (b) {
-    b.addEventListener("click", function () { threshold.value = b.getAttribute("data-t"); syncPresets(); persist(); render(); });
+  // ---------------------------------------------------------------- threshold / presets
+  function updatePresets() {
+    ui.thresholdVal.textContent = AC.pctLabel(state.threshold);
+    var buttons = ui.presets.querySelectorAll("button[data-t]");
+    for (var i = 0; i < buttons.length; i++) {
+      var t = Number(buttons[i].getAttribute("data-t"));
+      buttons[i].classList.toggle("active", Math.abs(t - state.threshold) < 0.001);
+      buttons[i].setAttribute("aria-pressed", Math.abs(t - state.threshold) < 0.001 ? "true" : "false");
+    }
+
+    var p = personalPct();
+    if (isFinite(p) && p >= 55 && p <= 85) {
+      ui.presetCar.hidden = false;
+      ui.presetCar.setAttribute("data-t", String(Math.round(p * 2) / 2));
+      ui.presetCar.innerHTML = AC.pctLabel(p) + '<small>seu carro</small>';
+    } else {
+      ui.presetCar.hidden = true;
+    }
+  }
+
+  function setThreshold(v) {
+    var t = Number(v);
+    if (!isFinite(t)) return;
+    state.threshold = Math.min(85, Math.max(55, t));
+    ui.threshold.value = String(state.threshold);
+    updatePresets();
+    render();
+    saveState();
+  }
+
+  // ---------------------------------------------------------------- tabs
+  function setMode(mode, focusPanel) {
+    state.mode = mode === "precise" ? "precise" : "fast";
+    for (var i = 0; i < ui.tabs.length; i++) {
+      var isFast = ui.tabs[i].id === "tab-fast";
+      var selected = (state.mode === "fast") === isFast;
+      ui.tabs[i].setAttribute("aria-selected", selected ? "true" : "false");
+      ui.tabs[i].setAttribute("tabindex", selected ? "0" : "-1");
+    }
+    ui.panels.fast.hidden = state.mode !== "fast";
+    ui.panels.precise.hidden = state.mode !== "precise";
+    if (focusPanel) ui.panels[state.mode].focus();
+    render();
+    saveState();
+  }
+
+  ui.tabs.forEach(function (tab, idx) {
+    tab.addEventListener("click", function () {
+      setMode(idx === 0 ? "fast" : "precise", false);
+    });
+    tab.addEventListener("keydown", function (e) {
+      var key = e.key;
+      if (key === "ArrowRight" || key === "ArrowLeft" || key === "Home" || key === "End") {
+        e.preventDefault();
+        var toPrecise = (key === "ArrowRight" || key === "End");
+        setMode(toPrecise ? "precise" : "fast", false);
+        ui.tabs[toPrecise ? 1 : 0].focus();
+      }
+    });
   });
 
-  restore();
-  render();
+  // ---------------------------------------------------------------- inputs
+  ui.gas.addEventListener("input", function () { render(); saveState(); });
+  ui.eta.addEventListener("input", function () { render(); saveState(); });
+  ui.threshold.addEventListener("input", function () {
+    state.threshold = Number(ui.threshold.value);
+    updatePresets();
+    render();
+    saveState();
+  });
 
-  // ---- PWA: favicon, apple-touch-icon e manifest (gerados em runtime, sem arquivos extras) ----
-  function svgIcon(color) {
-    var s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 2.5C8.6 6.8 6 9.9 6 12.9a6 6 0 0 0 12 0c0-3-2.6-6.1-6-10.4z" fill="' + color + '"/></svg>';
-    return "data:image/svg+xml," + encodeURIComponent(s);
+  ui.presets.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest("button[data-t]") : null;
+    if (!btn) return;
+    setThreshold(btn.getAttribute("data-t"));
+  });
+
+  // ---------------------------------------------------------------- veículos
+  function refreshVehicleSelect() {
+    var current = state.activeId || "";
+    var html = '<option value="">— digitar manualmente —</option>';
+    for (var i = 0; i < state.vehicles.length; i++) {
+      var v = state.vehicles[i];
+      var sel = v.id === current ? ' selected' : '';
+      html += '<option value="' + v.id + '"' + sel + '>' + escapeHtml(v.name || "Meu carro") + '</option>';
+    }
+    ui.vehicleSelect.innerHTML = html;
+    ui.vehDelete.disabled = !state.activeId;
   }
-  function setIcon(href) {
-    var link = document.createElement("link");
-    link.rel = "icon"; link.href = href;
-    document.head.appendChild(link);
-    var apple = document.createElement("link");
-    apple.rel = "apple-touch-icon"; apple.href = href;
-    document.head.appendChild(apple);
-  }
-  var greenIcon = svgIcon("#22c55e");
-  setIcon(greenIcon);
 
-  var manifest = {
-    name: "Abastece Certo",
-    short_name: "Abastece",
-    description: "Etanol ou gasolina? Calcule na hora pela regra do 70/71%.",
-    start_url: ".",
-    scope: ".",
-    display: "standalone",
-    orientation: "portrait",
-    background_color: "#0b1020",
-    theme_color: "#0b1020",
-    icons: [{ src: greenIcon, sizes: "any", type: "image/svg+xml", purpose: "any" }]
-  };
-  var mlink = document.createElement("link");
-  mlink.rel = "manifest";
-  mlink.href = "data:application/manifest+json," + encodeURIComponent(JSON.stringify(manifest));
-  document.head.appendChild(mlink);
-
-  // Service worker (offline + install) — só quando servido por http(s); ignora em file://
-  if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    window.addEventListener("load", function () {
-      navigator.serviceWorker.register("./sw.js").catch(function () {});
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
     });
   }
+
+  function newId() {
+    return "v" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  }
+
+  function applyVehicle(v) {
+    ui.gasKmL.value = AC.toInputValue(v.gasKmL);
+    ui.etaKmL.value = AC.toInputValue(v.etaKmL);
+    ui.vehName.value = v.name || "";
+    state.activeId = v.id;
+    refreshVehicleSelect();
+    updatePresets();
+    render();
+    saveState();
+  }
+
+  ui.vehicleSelect.addEventListener("change", function () {
+    var id = ui.vehicleSelect.value;
+    if (!id) {
+      state.activeId = null;
+      refreshVehicleSelect();
+      render();
+      saveState();
+      return;
+    }
+    for (var i = 0; i < state.vehicles.length; i++) {
+      if (state.vehicles[i].id === id) { applyVehicle(state.vehicles[i]); return; }
+    }
+  });
+
+  function saveVehicle() {
+    var gk = AC.parsePositive(ui.gasKmL.value);
+    var ek = AC.parsePositive(ui.etaKmL.value);
+    if (!isFinite(gk) || !isFinite(ek)) {
+      toast("Informe os dois consumos (km/L) para salvar");
+      (isFinite(gk) ? ui.etaKmL : ui.gasKmL).focus();
+      return;
+    }
+    if (ek >= gk * 1.001) {
+      toast("Consumo com etanol maior que com gasolina — confira os valores");
+    }
+    var name = (ui.vehName.value || "").trim().slice(0, 30) || "Meu carro";
+    var existing = activeVehicle();
+    if (existing) {
+      existing.name = name;
+      existing.gasKmL = gk;
+      existing.etaKmL = ek;
+    } else {
+      var v = { id: newId(), name: name, gasKmL: gk, etaKmL: ek };
+      state.vehicles.push(v);
+      state.activeId = v.id;
+    }
+    refreshVehicleSelect();
+    updatePresets();
+    render();
+    saveState();
+    toast("Veículo salvo");
+  }
+
+  function deleteVehicle() {
+    var v = activeVehicle();
+    if (!v) return;
+    state.vehicles = state.vehicles.filter(function (x) { return x.id !== v.id; });
+    state.activeId = null;
+    refreshVehicleSelect();
+    updatePresets();
+    render();
+    saveState();
+    toast("Veículo excluído");
+  }
+
+  ui.vehSave.addEventListener("click", saveVehicle);
+  ui.vehDelete.addEventListener("click", deleteVehicle);
+  [ui.gasKmL, ui.etaKmL].forEach(function (input) {
+    input.addEventListener("input", function () {
+      updatePresets();
+      render();
+      saveState();
+    });
+  });
+  ui.vehName.addEventListener("input", saveState);
+
+  // ---------------------------------------------------------------- compartilhar
+  function fallbackCopy(text) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.setAttribute("readonly", "");
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.select();
+    var ok = false;
+    try { ok = document.execCommand("copy"); } catch (e) { ok = false; }
+    document.body.removeChild(ta);
+    return ok;
+  }
+
+  function share() {
+    if (!state.lastResult) return;
+    var text = AC.shareText(state.lastResult);
+    if (navigator.share) {
+      navigator.share({ title: "Abastece Certo", text: text }).catch(function () {});
+      return;
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () {
+        toast("Resultado copiado");
+      }).catch(function () {
+        toast(fallbackCopy(text) ? "Resultado copiado" : "Não foi possível copiar");
+      });
+      return;
+    }
+    toast(fallbackCopy(text) ? "Resultado copiado" : "Não foi possível copiar");
+  }
+
+  ui.resultOut.addEventListener("click", function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-action="share"]') : null;
+    if (btn) share();
+  });
+
+  // ---------------------------------------------------------------- rede
+  function updateNet() {
+    var off = (typeof navigator.onLine === "boolean") ? !navigator.onLine : false;
+    ui.netBadge.hidden = !off;
+  }
+  window.addEventListener("online", updateNet);
+  window.addEventListener("offline", updateNet);
+
+  // ---------------------------------------------------------------- PWA
+  var refreshing = false;
+  function showUpdate(reg) {
+    ui.updateBar.hidden = false;
+    ui.updateBtn.onclick = function () {
+      if (reg && reg.waiting) {
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      } else {
+        window.location.reload();
+      }
+    };
+  }
+
+  if ("serviceWorker" in navigator && location.protocol !== "file:") {
+    window.addEventListener("load", function () {
+      navigator.serviceWorker.register("./sw.js").then(function (reg) {
+        if (reg.waiting && navigator.serviceWorker.controller) showUpdate(reg);
+        reg.addEventListener("updatefound", function () {
+          var installing = reg.installing;
+          if (!installing) return;
+          installing.addEventListener("statechange", function () {
+            if (installing.state === "installed" && navigator.serviceWorker.controller) {
+              showUpdate(reg);
+            }
+          });
+        });
+      }).catch(function () { /* offline/file:// sem SW */ });
+    });
+
+    navigator.serviceWorker.addEventListener("controllerchange", function () {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+  }
+
+  // ---------------------------------------------------------------- init
+  loadState();
+  refreshVehicleSelect();
+  var active = activeVehicle();
+  if (active) {
+    ui.gasKmL.value = AC.toInputValue(active.gasKmL);
+    ui.etaKmL.value = AC.toInputValue(active.etaKmL);
+    ui.vehName.value = active.name || "";
+  }
+  setMode(state.mode, false);
+  updateNet();
 })();
 </script>
 </body>

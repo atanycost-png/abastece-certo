@@ -1,0 +1,10 @@
+# Sistema / editor
+Thumbs.db
+Desktop.ini
+.DS_Store
+*.swp
+
+# Artefatos locais de teste
+.edge-profile*/
+*.log
+*.tmp

@@ -2,7 +2,7 @@
 
 **Revisor:** `revisor` (auditor independente)
 **Data:** 17/10/2026
-**Alvo:** working tree de `F:\WorkSpace DSH\abastece-certo` no momento da revisão (v2 ainda **não commitada**: `index.html`, `sw.js`, `README.md`, `REFERENCIA.md` aparecem como `M`; `tools/`, `icons/`, `manifest.webmanifest` como `??`). Se o Lead commitar depois, conferir o hash.
+**Alvo:** v2 no commit `0343b8d` **+** alterações não commitadas no working tree no momento da revisão (o Lead adicionou o bloco de `?modo=` e ajustou `REFERENCIA`/`tools` durante a revisão). Se o Lead commitar depois, conferir o hash.
 **Escopo:** revisão, não implementação — nada de produção foi alterado; escrita apenas em `research/`.
 **Harness reproduzível:** `node research/review-v2.mjs` (96 checagens; 21 falhas = os achados abaixo; roda DOM stub + SW em `node:vm`, sem dependências).
 

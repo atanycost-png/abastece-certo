@@ -17,15 +17,15 @@ e guarda um **histórico local** dos seus cálculos com gráfico e exportação 
 (A versão publicada atualiza os preços da ANP sozinha, toda semana, via GitHub Action.)
 
 <p>
-  <img src="screenshots/02-rapido-resultado.png" alt="Modo rápido: índice 67,7% e veredito de etanol" width="280">
-  <img src="screenshots/03-preciso-resultado.png" alt="Modo preciso: economia de R$ 1,44 a cada 100 km" width="280">
-  <img src="screenshots/09-tema-escuro.png" alt="Tema escuro do app" width="280">
+  <img src="screenshots/02-rapido-resultado.png" alt="Modo rápido no tema escuro: índice 67,7% e veredito de etanol" width="280">
+  <img src="screenshots/03-preciso-resultado.png" alt="Modo preciso no tema escuro: economia por 100 km" width="280">
+  <img src="screenshots/09-tema-claro.png" alt="Tema claro (opcional) do app" width="280">
 </p>
 
 ## Recursos
 
 - **Campo de preço inteligente** — só números: `6` vira R$ 6,00, `654` vira R$ 6,54, até 4 dígitos (R$ 99,99), com zero e vírgula automáticos.
-- **Tema claro e escuro** — segue o sistema por padrão e alterna em um toque (automático → claro → escuro); cada tema tem cores próprias, sem “inversão”.
+- **Tema escuro como padrão** — botão no cabeçalho alterna escuro → automático (segue o sistema) → claro; cada tema tem cores próprias (não é “inversão”) e a escolha fica salva.
 - **Preços de referência da ANP** — médias semanais oficiais (Brasil e por UF) carregadas de um `precos.json` gerado por script; um toque preenche os dois preços e a UF escolhida é lembrada.
 - **Histórico local** — salve cálculos, veja a evolução do índice num gráfico próprio (SVG) e exporte em CSV compatível com Excel.
 - **Instalável (PWA)** — manifest com screenshots, ícones PNG 192/512 + maskable e service worker próprio.

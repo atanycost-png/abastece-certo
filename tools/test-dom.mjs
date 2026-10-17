@@ -817,6 +817,17 @@ function boot(opts) {
     localStorage,
     fetch: fetchAvailable ? fetchStub : undefined,
     Response: ResponseStub,
+    Event: class Event {
+      constructor(type, opts) {
+        this.type = type;
+        this.bubbles = !!(opts && opts.bubbles);
+        this.defaultPrevented = false;
+        this.target = null;
+        this.isTrusted = false;
+      }
+      preventDefault() { this.defaultPrevented = true; }
+      stopPropagation() {}
+    },
     URL: URLCtor,
     URLSearchParams,
     Blob: typeof Blob !== "undefined" ? Blob : undefined,
@@ -1122,6 +1133,46 @@ test("máscara de preço: só dígitos, com zeros automáticos", () => {
   eq(gas.value, "", "letras são descartadas");
   env.input("gas", "0");
   eq(gas.value, "0,00", "0 → 0,00");
+});
+
+test("máscara de preço: digitação sequencial (beforeinput) mantém os dígitos", () => {
+  const env = boot();
+  const gas = env.$("gas");
+  function digitar(texto) {
+    env.fire(gas, "beforeinput", {
+      type: "beforeinput", inputType: "insertText", data: texto, target: gas,
+      preventDefault() {}
+    });
+  }
+  digitar("6");
+  eq(gas.value, "6,00", "1º dígito");
+  digitar("5");
+  eq(gas.value, "65,00", "2º dígito");
+  digitar("4");
+  eq(gas.value, "6,54", "3º dígito fecha 6,54");
+  env.fire(gas, "beforeinput", {
+    type: "beforeinput", inputType: "deleteContentBackward", target: gas, preventDefault() {}
+  });
+  eq(gas.value, "65,00", "backspace remove um dígito");
+  digitar("0");
+  eq(gas.value, "6,50", "novo dígito vira 6,50");
+});
+
+test("máscara de preço: digitar 456 e 1050", () => {
+  function digitar(env, input, texto) {
+    env.fire(input, "beforeinput", {
+      type: "beforeinput", inputType: "insertText", data: texto, target: input,
+      preventDefault() {}
+    });
+  }
+  const env = boot();
+  const gas = env.$("gas");
+  ["4", "5", "6"].forEach(function (d) { digitar(env, gas, d); });
+  eq(gas.value, "4,56");
+  const env2 = boot();
+  const gas2 = env2.$("gas");
+  ["1", "0", "5", "0"].forEach(function (d) { digitar(env2, gas2, d); });
+  eq(gas2.value, "10,50");
 });
 
 test("máscara de preço: valor formatado alimenta o cálculo", () => {
@@ -2155,28 +2206,30 @@ test("v3 preços: 'Usar médias' preenche os preços do Brasil por padrão", asy
   eq(env.saved().gas, "6,54", "preços persistidos");
 });
 
-test("v4 tema: padrão automático e ciclo auto → claro → escuro", () => {
+test("v4 tema: padrão escuro e ciclo escuro → automático → claro", () => {
   const env = boot();
   const html = env.document.documentElement;
-  eq(html.getAttribute("data-theme-mode"), "auto");
-  eq(html.getAttribute("data-theme"), "light");
+  eq(html.getAttribute("data-theme-mode"), "dark");
+  eq(html.getAttribute("data-theme"), "dark");
   const btn = env.$("themeBtn");
   ok(btn, "botão de tema existe");
   env.fire(btn, "click");
-  eq(html.getAttribute("data-theme-mode"), "light");
-  eq(env.storage.get("ac.theme"), "light");
+  eq(html.getAttribute("data-theme-mode"), "auto");
+  eq(html.getAttribute("data-theme"), "light", "automático com sistema claro");
+  eq(env.storage.get("ac.theme"), "auto");
   env.fire(btn, "click");
+  eq(html.getAttribute("data-theme-mode"), "light");
+  eq(html.getAttribute("data-theme"), "light");
+  env.fire(btn, "click");
+  eq(html.getAttribute("data-theme-mode"), "dark");
   eq(html.getAttribute("data-theme"), "dark");
   eq(env.storage.get("ac.theme"), "dark");
-  env.fire(btn, "click");
-  eq(html.getAttribute("data-theme-mode"), "auto");
-  eq(env.storage.get("ac.theme"), "auto");
 });
 
 test("v4 tema: preferência salva é respeitada ao reabrir", () => {
-  const env = boot({ storage: { "ac.theme": "dark" } });
-  eq(env.document.documentElement.getAttribute("data-theme"), "dark");
-  eq(env.document.documentElement.getAttribute("data-theme-mode"), "dark");
+  const env = boot({ storage: { "ac.theme": "light" } });
+  eq(env.document.documentElement.getAttribute("data-theme"), "light");
+  eq(env.document.documentElement.getAttribute("data-theme-mode"), "light");
 });
 
 test("v4 preços: UF escolhida é lembrada na próxima abertura", async () => {

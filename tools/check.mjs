@@ -257,9 +257,9 @@ check("tema: tokens de claro e escuro definidos", () => {
   assert(/--card: #141926/.test(html), "sem token de cartão escuro");
   assert(/--ink: #e8edf5/.test(html), "sem token de texto escuro");
 });
-check("manifesto usa as cores do tema claro padrão", () => {
-  assert(String(manifest.theme_color).toLowerCase() === "#f6f7f9", "theme_color deveria ser #f6f7f9");
-  assert(String(manifest.background_color).toLowerCase() === "#f6f7f9", "background_color deveria ser #f6f7f9");
+check("manifesto usa as cores do tema escuro padrão", () => {
+  assert(String(manifest.theme_color).toLowerCase() === "#0b0e14", "theme_color deveria ser #0b0e14");
+  assert(String(manifest.background_color).toLowerCase() === "#0b0e14", "background_color deveria ser #0b0e14");
 });
 check("meta de instalação mobile presentes", () => {
   assert(/name="mobile-web-app-capable"/.test(markup), "sem mobile-web-app-capable");

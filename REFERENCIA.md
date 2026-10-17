@@ -212,11 +212,11 @@ três mockups novos (A, B, C) e o **A — "app nativo limpo"** foi o escolhido, 
 ### Decisões
 - **Visual A (base Energy Plus):** fundo `#f6f7f9`, cartões brancos de 16 px com sombra suave, **um** acento
   verde, segmentado estilo iOS, CTA escuro e números sans grandes (sem serifada, sem papel, sem placa).
-- **Modo escuro com três estados:** automático (segue o sistema), claro e escuro. Padrão automático,
-  persistido em `localStorage["ac.theme"]`, aplicado **antes do primeiro paint** por um script no `<head>`
-  (`data-theme` no `<html>`) para não haver flash; botão 44×44 no cabeçalho alterna os três estados;
-  `meta[name=theme-color]` acompanha o tema; tokens escuros próprios (`#0b0e14` / `#141926` / `#e8edf5`),
-  não inversão de cores.
+- **Modo escuro com três estados:** escuro (**padrão**), automático (segue o sistema) e claro. Persistido
+  em `localStorage["ac.theme"]`, aplicado **antes do primeiro paint** por um script no `<head>`
+  (`data-theme` no `<html>`) para não haver flash; botão 44×44 no cabeçalho alterna os estados;
+  `meta[name=theme-color]` acompanha o tema (`#0b0e14` / `#f1f4f9`); tokens próprios para cada tema
+  (`#0b0e14` / `#141926` / `#e8edf5` no escuro), não inversão de cores.
 - **Melhorias de produto no mesmo pacote:** UF escolhida é **lembrada** (`localStorage["ac.uf"]`); a
   referência ANP mostra a **faixa min–máx** nacional de gasolina/etanol; o slider do limite tem
   preenchimento verde proporcional; versão **4.0.0** (app, SW e `package.json`).
@@ -224,15 +224,20 @@ três mockups novos (A, B, C) e o **A — "app nativo limpo"** foi o escolhido, 
 
 ### Verificação (17/10/2026)
 - `tools/test.mjs` → **159/159** (inclui faixa min–máx).
-- `tools/test-dom.mjs` → **112/112** (inclui tema auto/claro/escuro, persistência e UF lembrada).
+- `tools/test-dom.mjs` → **114/114** (inclui tema escuro/claro/automático, persistência, UF lembrada e a
+  regressão da máscara digitando tecla por tecla).
 - `tools/test-sw.mjs` → **33/33** · `tools/test-prices.mjs` → **99/99** · `tools/check.mjs` → **55/55**
   (novas checagens de tema: bootstrap, tokens, botão e cores do manifest).
-- `tools/visual-check.mjs` → **15 etapas**, 0 erros de console: capturas em claro, **screenshot do tema
-  escuro**, alternância manual, automático seguindo o sistema (`prefers-color-scheme`) e **máscara digitada
-  de verdade** (CDP `Input.insertText` → `456` virou `4,56`).
+- `tools/visual-check.mjs` → **15 etapas**, 0 erros de console: capturas no tema escuro (padrão),
+  screenshot do tema claro, alternância manual, automático seguindo o sistema (`prefers-color-scheme`) e
+  **máscara digitada de verdade** (CDP `Input.insertText` → `456` → `4,56`; tecla por tecla `6,5,4` → `6,54`).
 - Publicado em <https://atanycost-png.github.io/abastece-certo/> (v4).
 
 ### Pitfalls (novos)
+- **Máscara + evento sintético:** ao formatar, o app dispara um `input` sintético para re-renderizar. O
+  listener de fallback relia o valor formatado (`"6,00"` → dígitos `"600"`), então digitar `6 → 5 → 4`
+  resultava em `"4,00"`. Corrigido com a flag `maskNotifying` (ignora o evento que o próprio app disparou) e
+  coberto por teste DOM + digitação real no Edge.
 - **Flash de tema**: aplicar `data-theme` antes do CSS pintar; qualquer atraso aparece como “piscada”.
 - **Transições enganam teste**: medir cor logo após clicar no tema pega o meio da transição (0,15 s). Esperar
   ~300–450 ms antes de medir/capturar.

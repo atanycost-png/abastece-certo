@@ -29,12 +29,13 @@ Princípios:
 
 ## 3. Modo escuro
 
-- **Três estados**: automático (segue o sistema), claro e escuro. Padrão: automático.
+- **Três estados**: escuro (padrão), automático (segue o sistema) e claro. A ordem do botão é
+  escuro → automático → claro.
 - Persistido em `localStorage["ac.theme"]`; aplicado antes do primeiro paint por um script no `<head>`
   (`data-theme` no `<html>`) para não haver flash.
-- Botão no cabeçalho (44×44 px) alterna automático → claro → escuro, com ícone e `aria-label` do estado.
-- `meta[name=theme-color]` acompanha o tema (`#f6f7f9` / `#0b0e14`).
-- Tokens escuros: fundo `#0b0e14`, cartão `#141926`, texto `#e8edf5`, verde `#3ddc84`.
+- Botão no cabeçalho (44×44 px) alterna os estados, com ícone e `aria-label` do estado atual.
+- `meta[name=theme-color]` acompanha o tema (`#0b0e14` / `#f1f4f9`).
+- Fundo/cartão escuros: `#0b0e14` / `#141926`; texto `#e8edf5`; verde `#3ddc84`.
 
 ## 4. Anti-metas (o que NÃO fazer)
 
@@ -64,9 +65,9 @@ A v1–v3 passaram por "cara de IA" e por direções que não agradaram (papel/r
 
 ```css
 :root {
-  --bg: #f6f7f9;  --bg-soft: #eceff4;  --card: #ffffff;  --card-2: #f9fafb;
-  --ink: #111827; --muted: #6b7280;    --faint: #98a2b3;
-  --line: #e5e7eb; --line-ctrl: #d0d5dd;
+  --bg: #f1f4f9;  --bg-soft: #e6eaf1;  --card: #ffffff;  --card-2: #f9fafb;
+  --ink: #111827; --muted: #5b6472;    --faint: #8b93a3;
+  --line: #dde2ea; --line-ctrl: #cbd2dd;
   --green: #0b8f52; --blue: #1d4ed8;   --amber: #b45309; --danger: #b42318;
   --btn-bg: #111827; --btn-ink: #ffffff;
 }

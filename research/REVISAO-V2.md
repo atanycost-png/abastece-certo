@@ -11,7 +11,7 @@
 | Comando | Resultado |
 |---|---|
 | `node tools/test.mjs` | **OK — 122/122 testes** (exit 0) |
-| `node tools/check.mjs` | **OK — 43/43 verificações** (exit 0), **1 aviso** não bloqueante (manifest sem screenshots). `REFERENCIA.md` ainda diz "41 checagens" e "2 avisos" — doc desatualizado (P2) |
+| `node tools/check.mjs` | **OK — 43/43 verificações** (exit 0), **1 aviso** não bloqueante (manifest sem screenshots). `REFERENCIA.md:98` já foi atualizado para 43 no working tree; a seção "Verificação realizada" (`REFERENCIA.md:105`) ainda diz "41/41 (2 avisos)" — doc parcialmente desatualizado (P2) |
 
 Não rodei `tools/visual-check.mjs` (instrução do Lead; exige Edge fora do sandbox). Portanto **não validei** screenshots, overflow visual real, instalação PWA real, offline em modo avião nem leitores de tela. SW foi validado por simulação de runtime (Cache/fetch/activate/update) no harness, não em navegador.
 
@@ -64,7 +64,7 @@ Não rodei `tools/visual-check.mjs` (instrução do Lead; exige Edge fora do san
 | P2-12 | Fronteira exata ±0,5 p.p. ainda decidida por float: ex. `6,0000 / 3,2700 / 55%` → diff `-0.499999999999993` → **empate**, mas a regra documentada (`< 0,5`) diz ETANOL; 12 de 122 fronteiras exatas divergem com strings pt-BR | `index.html:583,612`; harness G |
 | P2-13 | Texto do aviso de consumo diz "o carro costuma rodar **65–80%**", mas a condição é `cr < 0.55 || cr > 0.85` — consumo de 58% não gera aviso embora esteja fora do texto | `index.html:683-686`; harness G |
 | P2-14 | `100vh` (barras móveis), sem `forced-colors` (alto contraste do SO), `orientation: portrait` no manifest — polimento/robustez | `index.html:46`; `manifest.webmanifest`; harness I |
-| P2-15 | `REFERENCIA.md` desatualizado: "41 checagens/2 avisos" vs 43/1 reais; "`index.html` ~49 KB" vs 53,7 KB; diz "fronteiras de empate" testadas, mas o teste só cobre ±0,4/±0,6 p.p. | `REFERENCIA.md:98,105-107,97`; harness I |
+| P2-15 | `REFERENCIA.md` parcialmente desatualizado: seção "Verificação realizada" (`:105`) diz "41/41 (2 avisos)" vs 43/1 atuais (a lista `:98` já foi corrigida); "`index.html` ~49 KB" vs 53,7 KB; diz "fronteiras de empate" testadas, mas o teste só cobre ±0,4/±0,6 p.p. | `REFERENCIA.md:105-107,97`; harness I |
 | P2-16 | `staleWhileRevalidate` faz `cache.put(...)` sem `await/catch`; um `QuotaExceededError` vira rejeição não tratada (console), embora o asset ainda seja servido | `sw.js:78-89` |
 | P2-17 | `navigator.share` existindo e rejeitando não cai para clipboard (catch vazio) — usuário toca "Compartilhar" e não acontece nada | `index.html:1179-1195` |
 | P2-18 | `toast` e `update-bar` usam a mesma posição `fixed` no rodapé; quando ambos aparecem, se sobrepõem | `index.html:263-280,463-468` |

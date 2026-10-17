@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mockup A — App nativo limpo</title>
+<style>
+  :root{
+    --page:#e9ecf1; --bg:#f6f7f9; --card:#ffffff; --ink:#111827; --muted:#6b7280;
+    --line:#e5e7eb; --green:#0b8f52; --green-2:#0f9d58; --tint:#e9f9f0; --dark:#111827;
+    --sans:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--page);font-family:var(--sans);color:var(--ink);
+    min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:28px 16px 40px}
+  .label{width:430px;max-width:100%;display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .label .sw{width:14px;height:14px;border-radius:4px;background:var(--green)}
+  .label strong{font-size:14px;letter-spacing:.01em}
+  .label span{font-size:12px;color:#7b8494;margin-left:auto}
+  .phone{width:410px;max-width:100%;background:#0f172a;border-radius:46px;padding:9px;
+    box-shadow:0 28px 60px -20px rgba(15,23,42,.45), 0 8px 20px rgba(15,23,42,.12)}
+  .screen{background:var(--bg);border-radius:38px;overflow:hidden}
+  /* barra de status */
+  .status{display:flex;align-items:center;justify-content:space-between;padding:12px 22px 2px;
+    font-size:12px;font-weight:600;color:var(--ink)}
+  .status .icons{display:flex;align-items:center;gap:5px}
+  .status .nub{width:18px;height:9px;border:1.5px solid var(--ink);border-radius:3px;position:relative}
+  .status .nub::after{content:"";position:absolute;inset:1.5px;right:5px;background:var(--ink);border-radius:1px}
+  /* cabeçalho do app */
+  .app-head{display:flex;align-items:center;gap:11px;padding:14px 20px 6px}
+  .mark{width:34px;height:34px;border-radius:11px;background:var(--green);display:grid;place-items:center;flex:none}
+  .mark svg{width:19px;height:19px}
+  .app-head h1{font-size:19px;font-weight:700;letter-spacing:-.02em}
+  .app-head p{font-size:12px;color:var(--muted);margin-top:1px}
+  .body{padding:10px 16px 0}
+  .card{background:var(--card);border-radius:16px;padding:16px;margin-bottom:12px;
+    box-shadow:0 1px 2px rgba(17,24,39,.05), 0 6px 16px -8px rgba(17,24,39,.08)}
+  .card-title{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--muted);
+    text-transform:uppercase;margin-bottom:12px}
+  .price-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0}
+  .price-row + .price-row{border-top:1px solid var(--line)}
+  .price-name{display:flex;align-items:center;gap:9px;font-size:14px;font-weight:500}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  .dot.gas{background:#1d4ed8} .dot.eta{background:var(--green)}
+  .field{display:flex;align-items:baseline;gap:4px}
+  .field .rs{font-size:12px;color:var(--muted);font-weight:500}
+  .field input{width:100px;border:0;background:transparent;text-align:right;outline:none;
+    font-family:var(--sans);font-size:30px;font-weight:700;letter-spacing:-.03em;color:var(--ink);
+    font-variant-numeric:tabular-nums}
+  .field input::placeholder{color:#c3c9d4;font-weight:600}
+  .hint{font-size:11.5px;color:#8b93a3;margin-top:10px;line-height:1.5}
+  .hint b{color:var(--ink);font-weight:600}
+  /* referência ANP */
+  .ref-top{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:10px}
+  .ref-top strong{font-size:13px;font-weight:600}
+  .ref-top span{font-size:11.5px;color:var(--muted)}
+  .ref-controls{display:flex;gap:8px}
+  select{flex:1;border:1px solid var(--line);background:#f9fafb;border-radius:11px;padding:11px 12px;
+    font:inherit;font-size:13px;font-weight:500;color:var(--ink);-webkit-appearance:none;appearance:none}
+  .btn{border:0;font:inherit;font-size:13px;font-weight:600;border-radius:11px;padding:11px 14px;cursor:pointer}
+  .btn.solid{background:var(--dark);color:#fff}
+  .btn.soft{background:var(--tint);color:var(--green)}
+  .btn.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}
+  .ref-values{display:flex;gap:16px;margin-top:11px;font-size:12.5px;color:var(--muted)}
+  .ref-values b{color:var(--ink);font-weight:700;font-variant-numeric:tabular-nums}
+  /* segmentado */
+  .seg{display:flex;background:#eceff4;border-radius:12px;padding:3px;margin-bottom:12px}
+  .seg button{flex:1;border:0;background:transparent;font:inherit;font-size:13px;font-weight:600;
+    color:var(--muted);padding:9px;border-radius:9px;cursor:pointer}
+  .seg button.on{background:#fff;color:var(--ink);box-shadow:0 1px 3px rgba(17,24,39,.12)}
+  /* limite */
+  .limit-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+  .limit-head .lbl{font-size:13px;color:var(--muted)}
+  .limit-head .val{font-size:30px;font-weight:700;letter-spacing:-.03em;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--green);height:26px}
+  .chips{display:flex;gap:7px;margin-top:10px}
+  .chip{border:1px solid var(--line);background:#fff;border-radius:999px;padding:7px 12px;
+    font-size:12px;font-weight:600;color:var(--muted);cursor:pointer}
+  .chip.on{border-color:var(--green);color:var(--green);background:var(--tint)}
+  .scale{display:flex;justify-content:space-between;font-size:10.5px;color:#9aa2b1;margin-top:4px}
+  /* resultado */
+  .result{background:var(--card);border-radius:16px;padding:18px 16px;margin-bottom:12px;
+    box-shadow:0 1px 2px rgba(17,24,39,.05), 0 6px 16px -8px rgba(17,24,39,.08)}
+  .result .top{display:flex;align-items:center;gap:12px}
+  .seal{width:46px;height:46px;border-radius:50%;background:var(--tint);display:grid;place-items:center;flex:none}
+  .seal svg{width:23px;height:23px}
+  .verdict-txt{font-size:19px;font-weight:700;letter-spacing:-.01em}
+  .verdict-sub{font-size:12px;color:var(--muted);margin-top:1px}
+  .result-num{display:flex;align-items:baseline;gap:8px;margin-top:14px}
+  .result-num .n{font-size:42px;font-weight:700;letter-spacing:-.04em;font-variant-numeric:tabular-nums}
+  .result-num .cap{font-size:12px;color:var(--muted);line-height:1.4}
+  .track{position:relative;height:8px;border-radius:5px;background:#e8ebf0;margin-top:16px}
+  .track .fill{position:absolute;left:0;top:0;bottom:0;width:28%;border-radius:5px;background:var(--green)}
+  .track .limit{position:absolute;top:-6px;bottom:-6px;width:2px;background:var(--ink);left:56.7%}
+  .result .actions{display:flex;gap:8px;margin-top:18px}
+  .result .actions .btn{flex:1}
+  /* histórico */
+  .hist-row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0;
+    font-size:12.5px;border-top:1px solid var(--line)}
+  .hist-row:first-of-type{border-top:0}
+  .hist-row .when{color:var(--muted);font-variant-numeric:tabular-nums}
+  .hist-row .vals{color:var(--ink);font-variant-numeric:tabular-nums}
+  .tag{font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px;background:var(--tint);color:var(--green)}
+  .spark{margin:2px 0 6px}
+  .foot{padding:4px 20px 22px;text-align:center;font-size:10.5px;color:#9aa2b1}
+</style>
+</head>
+<body>
+  <div class="label"><span class="sw"></span><strong>A · App nativo limpo</strong><span>base: Energy Plus</span></div>
+  <div class="phone"><div class="screen">
+    <div class="status"><span>9:41</span><span class="icons">
+      <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><rect x="0" y="7" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="6" rx="1"/><rect x="9" y="2.5" width="3" height="8.5" rx="1"/><rect x="13" y="0" width="3" height="11" rx="1"/></svg>
+      <svg width="14" height="11" viewBox="0 0 14 11" fill="currentColor"><path d="M7 9.5a1.4 1.4 0 1 0 0-2.8 1.4 1.4 0 0 0 0 2.8zM2.6 5.9a6.2 6.2 0 0 1 8.8 0l-1.4 1.4a4.2 4.2 0 0 0-6 0L2.6 5.9zM0 3.3a9.9 9.9 0 0 1 14 0l-1.4 1.4a7.9 7.9 0 0 0-11.2 0L0 3.3z"/></svg>
+      <span class="nub"></span></span></div>
+
+    <div class="app-head">
+      <span class="mark"><svg viewBox="0 0 24 24" fill="none"><path d="M12 2.5C8.6 6.8 6 9.9 6 12.9a6 6 0 0 0 12 0c0-3-2.6-6.1-6-10.4z" fill="#fff"/></svg></span>
+      <div><h1>Abastece Certo</h1><p>Etanol ou gasolina? Decida na hora.</p></div>
+    </div>
+
+    <div class="body">
+      <div class="card">
+        <div class="card-title">Preços na bomba</div>
+        <div class="price-row"><span class="price-name"><i class="dot gas"></i>Gasolina</span>
+          <span class="field"><span class="rs">R$</span><input id="gas" inputmode="numeric" aria-label="Preço da gasolina"></span></div>
+        <div class="price-row"><span class="price-name"><i class="dot eta"></i>Etanol</span>
+          <span class="field"><span class="rs">R$</span><input id="eta" inputmode="numeric" aria-label="Preço do etanol"></span></div>
+        <p class="hint">Só números: <b>6 → 6,00</b> · <b>654 → 6,54</b> · até 4 dígitos.</p>
+      </div>
+
+      <div class="card">
+        <div class="ref-top"><strong>Referência ANP</strong><span>04–10/10/2026</span></div>
+        <div class="ref-controls">
+          <select id="uf" aria-label="Estado">
+            <option value="">Brasil (média nacional)</option>
+            <option value="SP">São Paulo</option>
+            <option value="RJ">Rio de Janeiro</option>
+            <option value="MG">Minas Gerais</option>
+          </select>
+          <button class="btn solid" id="fill">Preencher</button>
+        </div>
+        <div class="ref-values"><span>Gasolina <b id="refGas">R$ 6,54</b></span><span>Etanol <b id="refEta">R$ 4,14</b></span></div>
+      </div>
+
+      <div class="seg"><button class="on">Rápido</button><button>Preciso</button></div>
+
+      <div class="card">
+        <div class="limit-head"><span class="lbl">Etanol compensa até</span><span class="val">72%</span></div>
+        <div class="chips">
+          <button class="chip on">72% · E32</button>
+          <button class="chip">71% · E30</button>
+          <button class="chip">70% · E25</button>
+        </div>
+        <input type="range" min="55" max="85" value="72" aria-label="Limite" style="margin-top:10px">
+        <div class="scale"><span>55%</span><span>70%</span><span>85%</span></div>
+      </div>
+
+      <div class="result">
+        <div class="top">
+          <span class="seal"><svg viewBox="0 0 24 24" fill="none" stroke="#0b8f52" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12.5l5 5L20 6.5"/></svg></span>
+          <div><div class="verdict-txt">Abasteça com etanol</div><div class="verdict-sub">8,7 p.p. abaixo do limite de 72%</div></div>
+        </div>
+        <div class="result-num"><span class="n">63,3%</span><span class="cap">etanol ÷ gasolina<br>R$ 4,14 contra R$ 6,54</span></div>
+        <div class="track"><span class="fill"></span><span class="limit"></span></div>
+        <div class="actions">
+          <button class="btn ghost">Compartilhar</button>
+          <button class="btn solid">Salvar no histórico</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ref-top"><strong>Histórico</strong><span>2 cálculos</span></div>
+        <svg class="spark" width="100%" height="40" viewBox="0 0 330 40" role="img" aria-label="Evolução do índice">
+          <line x1="4" y1="12" x2="326" y2="12" stroke="#e5e7eb" stroke-dasharray="3 4"/>
+          <polyline points="8,30 322,10" fill="none" stroke="#0b8f52" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="8" cy="30" r="3" fill="#0b8f52"/><circle cx="322" cy="10" r="3" fill="#0b8f52"/>
+        </svg>
+        <div class="hist-row"><span class="when">17/10 · 11:35</span><span class="vals">6,50 · 4,10</span><span class="vals">63,1%</span><span class="tag">etanol</span></div>
+        <div class="hist-row"><span class="when">17/10 · 11:32</span><span class="vals">5,89 · 3,99</span><span class="vals">67,7%</span><span class="tag">etanol</span></div>
+      </div>
+    </div>
+    <div class="foot">Funciona offline · sem cadastro · dados da ANP</div>
+  </div></div>
+
+<script>
+  (function () {
+    "use strict";
+    var MAX = 4;
+    function fmt(d) { if (!d) return ""; return d.length <= 2 ? d + ",00" : d.slice(0, d.length - 2) + "," + d.slice(-2); }
+    var store = new WeakMap();
+    function setPrice(input, digits) {
+      digits = String(digits).replace(/\D/g, "").replace(/^0+(?=\d)/, "").slice(-MAX);
+      store.set(input, digits); input.value = fmt(digits);
+    }
+    function bind(input) {
+      setPrice(input, input.value);
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "," || e.key === ".") e.preventDefault();
+        if (e.key === "Backspace") { e.preventDefault(); setPrice(input, (store.get(input) || "").slice(0, -1)); }
+      });
+      input.addEventListener("beforeinput", function (e) {
+        if (e.data && /\d/.test(e.data)) {
+          e.preventDefault();
+          var d = store.get(input) + (e.data.match(/\d/g) || []).join("");
+          setPrice(input, d.slice(Math.max(0, d.length - MAX)));
+        }
+      });
+      input.addEventListener("input", function () { setPrice(input, input.value); });
+      input.addEventListener("focus", function () { input.select(); });
+    }
+    var gas = document.getElementById("gas"), eta = document.getElementById("eta");
+    setPrice(gas, "654"); setPrice(eta, "414"); bind(gas); bind(eta);
+    var medias = { "": { g: "654", e: "414" }, SP: { g: "636", e: "386" }, RJ: { g: "660", e: "503" }, MG: { g: "641", e: "429" } };
+    document.getElementById("fill").addEventListener("click", function () {
+      var m = medias[document.getElementById("uf").value] || medias[""];
+      setPrice(gas, m.g); setPrice(eta, m.e);
+      document.getElementById("refGas").textContent = "R$ " + fmt(m.g);
+      document.getElementById("refEta").textContent = "R$ " + fmt(m.e);
+    });
+  })();
+</script>
+</body>
+</html>

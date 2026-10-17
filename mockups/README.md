@@ -1,17 +1,21 @@
 # Mockups — direções visuais para a v4
 
-Três direções completas para a mesma tela (preços, referência ANP por estado, limite, resultado e
-histórico). Todos são **arquivos HTML autocontidos** — abra com duplo clique, sem servidor.
+## Rodada 2 — baseada em referências reais (atual)
 
-| Arquivo | Direção | Ideia |
+| Arquivo | Direção | Referência |
 |---|---|---|
-| `mockup-1-balcao.html` | **Balcão de posto** | papel/recibo, serifada no veredito, fios finos, verde/azul-petróleo, amarelo de placa |
-| `mockup-2-editorial.html` | **Editorial quente** | revista: creme + terracota, títulos serifados grandes, muito respiro |
-| `mockup-3-sinalizacao.html` | **Sinalização** | placa de rodovia: preto/amarelo/verde, caixa alta, blocos grossos, zero ornamento |
+| `mockup-a-nativo.html` | **A · App nativo limpo** | Energy Plus (GS Caltex): branco/cinza, verde, cartões 16 px, CTA escuro |
+| `mockup-b-formulario.html` | **B · Formulário brasileiro** | Drivvo: faixa laranja, campos sublinhados com ícone, preços em 2 colunas |
+| `mockup-c-comparador.html` | **C · Comparador de decisão** | GasBuddy: veredito primeiro, chips, tabela e barras escaneáveis |
 
-O contrato de design que qualquer uma delas deve respeitar está em [`../DESIGN.md`](../DESIGN.md).
+## Rodada 1 — descartada
 
-## Campo de preço (igual nos três)
+`mockup-1-balcao.html` (papel/recibo), `mockup-2-editorial.html` (revista) e
+`mockup-3-sinalizacao.html` (placa). Ficaram como histórico; o feedback foi que não agradaram.
+
+O contrato de design que qualquer direção deve respeitar está em [`../DESIGN.md`](../DESIGN.md).
+
+## Campo de preço (igual em todos)
 
 Só dígitos, formatado enquanto digita:
 
@@ -26,3 +30,4 @@ Só dígitos, formatado enquanto digita:
 
 Regra: até 2 dígitos = reais inteiros; 3–4 dígitos = reais + centavos (últimos dois dígitos).
 Vírgula e ponto são ignorados na digitação; backspace apaga um dígito. Colar texto reaplica a máscara.
+

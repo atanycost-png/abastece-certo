@@ -160,7 +160,7 @@ Ver §3 para a lista completa com correção; resumo do que falha hoje:
 | `README.md:34` vs `README.md:27` | Fórmula usa `<`; veredito usa `≤` | Código usa `≤` para etanol (após faixa) / `<` para empate | Duas semânticas no mesmo README |
 | `README.md:26` | "aceita vírgula ou ponto" | Não aceita `R$ 5,89`, erra `1,234.56`, aceita `1e3`/`0x10` | Overpromise; ver BUG-05/06 |
 | `README.md:16` | Instalar via HTTPS + "Adicionar à tela inicial" | Ícones SVG-only + manifest em `data:`; critérios Chromium de 192/512 não atendidos | Instalação/promoção falha no Chrome; ícone genérico no iOS |
-| `REFERENCIA.md:27` | Empate se `|índice − limite| < 0,5 p.p.` | Texto usa 0,05 p.p.; cor do ponto não é âmbar | Contradição interna (BUG-03) |
+| `REFERENCIA.md:27` | Empate se o módulo de (índice − limite) < 0,5 p.p. | Texto usa 0,05 p.p.; cor do ponto não é âmbar | Contradição interna (BUG-03) |
 | `REFERENCIA.md:31` | "Lógica testada no Node: 5 casos … corretos" | 5 casos felizes; 38 entradas de parse e fronteiras não cobertas | Falsa sensação de cobertura |
 | `REFERENCIA.md:24` | "gauge visual 60–80%" | Valores fora de 60–80 são clampados em 0/100 **sem aviso**; eixo fixo 60/70/80 | Leitura errada de "quase no limite" |
 | `REFERENCIA.md:35-39` | Lista pitfalls (browser_exec, SW em file://, data: URI) | **Não** documenta o maior risco: cache-first sem versionamento (BUG-01) nem isolamento de cache | Risco crítico invisível no doc |
@@ -493,7 +493,7 @@ Fórmulas: `custo/km = preço ÷ consumo`; `custo/100 km = custo/km × 100`; `í
 | I-02 | `fastResult` nunca retorna `verdict` fora de `{etanol, gasolina, empate}`; `pct`/`diffPp` finitos ou `null`. |
 | I-03 | Aumentar `P_etanol` (demais fixos) nunca muda veredito de ETANOL para outro que não GASOLINA/EMPATE na direção esperada (monotonicidade). |
 | I-04 | `preciseResult` com `C_e/C_g = limite/100` reproduz exatamente `fastResult` (status, índice, veredito) nos mesmos preços. |
-| I-05 | `savingsPer100 = |per100Gas − per100Eta|` e `breakEvenEta`/`breakEvenGas` satisfazem as fórmulas com tolerância 1e-6. |
+| I-05 | `savingsPer100` é o módulo de (`per100Gas` − `per100Eta`) e `breakEvenEta`/`breakEvenGas` satisfazem as fórmulas com tolerância 1e-6. |
 | I-06 | `gaugePos` é monotônica não decrescente e ∈ [0,100]; `gaugeOutside` verdadeiro exatamente fora de [55,85]. |
 | I-07 | Nenhuma string renderizada contém `"NaN"`, `"undefined"`, `"Infinity"`, `"null"` (varredura de todos os textos). |
 | I-08 | `parseNumber` nunca lança exceção para nenhuma string de 0–64 chars (fuzz 10k seeds). |

@@ -8,6 +8,10 @@ Desktop.ini
 .edge-profile*/
 *.log
 *.tmp
+.tmp-*
+
+# XLSX baixado à mão para conferir o pipeline
+resumo_semanal_lpc_*.xlsx
 
 # Capturas de terceiros usadas só como referência de design (não redistribuir)
 references/

@@ -547,3 +547,51 @@ com 0 e o Action entendia "sem mudança" — falha silenciosa.
   formato mais recente; sempre preferir a página como fonte de verdade.
 - **SW com dados precached**: mudança de dados exige bump de `VERSION`, senão o app instalado continua
   servindo o JSON antigo do cache.
+
+---
+
+## 27/11/2026 — v4.8 (postos perto de mim: Photon como fonte principal)
+
+### Contexto
+O usuário reportou que "postos perto de mim" não funcionava no teste dele e perguntou por que não usar o
+Google Maps. Auditoria confirmou: as três instâncias do Overpass usadas pelo app estavam fora/timeout e o
+fluxo era sequencial (8 s cada), podendo ficar até 24 s em "Buscando…".
+
+### Causa
+- Instâncias Overpass testadas no mesmo horário: `overpass-api.de` connect timeout/406;
+  `private.coffee` 504 (~39 s); `kumi` timeout; `openstreetmap.fr` 403; `mail.ru` alternando 200/504;
+  `osm.ch` sem dados do Brasil. Nenhuma combinação garantia resposta.
+- No navegador headless, após 12 s o app ainda mostrava "Buscando postos num raio de 2,5 km…" — e o texto
+  do raio nem batia com a consulta (2 km).
+
+### Solução
+- **Photon (Komoot)** como fonte principal: `?q=posto&osm_tag=amenity:fuel&lat&lon&limit=40`, ~2 s,
+  30/30 resultados `amenity=fuel`, CORS `*` quando há `Origin` (navegador). Nova função CORE
+  `parsePhotonStations` filtra tipo, raio de 2 km, deduplica por `osm_type+osm_id`, ordena por distância e
+  limita a 12 — com testes próprios.
+- **Overpass em paralelo como reserva** (race das 4 instâncias, prazo de 10 s); Photon tem preferência.
+- **Google Maps** continua como último recurso (link gratuito, sem API).
+- Texto do raio corrigido para 2 km; mensagem de "sem posto" também abre o Maps.
+- `visual-check` passou a validar lista OU fallback; no teste real o app listou 3 postos (Maserati,
+  Petrobras, Shell Pascoal) com distância.
+
+### Por que não usar a API do Google Maps
+- Link do Google Maps é gratuito e já é fallback.
+- **Places/Nearby API** exige chave + faturamento, cobra por chamada, expõe a chave no app estático e os
+  termos do Google restringem cache/armazenamento e exibição fora dos mapas Google. Não combina com PWA
+  zero-backend. Alternativas: o usuário informar a própria chave (com custo) ou usar Mapbox (token grátis).
+
+### Verificação
+- `test.mjs` → **167** (parsePhotonStations: tipo, raio, dedupe, ordem, nome por rua) · `test-dom.mjs`
+  **128** · `test-sw.mjs` **33** · `test-prices.mjs` **106** · `check.mjs` **55** · `visual-check.mjs`
+  **18 etapas** (postos reais via Photon; screenshot `13-postos-proximos.png` atualizado).
+- Versão **4.8.0** (app/SW/`package.json`).
+
+### Pitfalls
+- **CORS do Photon só aparece com `Origin`**: testar no Node sem esse header dá falso "sem CORS"; o
+  navegador sempre manda.
+- **Geocodificador não é banco de POIs**: busca por nome ("posto") pode perder postos com outras
+  denominações; por isso mantemos Overpass como reserva e o Maps como saída.
+- **Não empilhar timeouts**: com fontes incertas, corrida paralela + prazo único é melhor que tentativa
+  sequencial (a UX antiga esperava até 24 s).
+- **Conferir o texto com a consulta**: "2,5 km" vs `around:2000` passou batido por várias versões.

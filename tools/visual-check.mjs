@@ -778,7 +778,9 @@ async function main() {
           href: document.getElementById('nearbyMaps').href
         })`);
         console.log(`   fallback mapa: ${JSON.stringify(mapa)}`);
-        if (!mapa.visivel) errors.push("sem lista do Overpass e sem fallback do Google Maps");
+        if (!mapa.visivel && !/Nenhum posto/.test(nearby.hint)) {
+          errors.push("sem lista do Overpass e sem fallback do Google Maps");
+        }
       }
       await page.shot("13-postos-proximos");
     } catch (e) {

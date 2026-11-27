@@ -125,9 +125,11 @@ A v1–v3 passaram por "cara de IA" e por direções que não agradaram (papel/r
 - **Status de instalação:** linha no "Sobre e dados" com modo (instalado/navegador) e service worker
   (ativo/inativo) — serve para o teste de instalação no celular.
 - **Postos perto de mim:** botão dentro de "Meus postos" (só aparece com geolocalização); pede a posição
-  **apenas no toque**, consulta o OpenStreetMap/Overpass e lista nome, distância e marca com atalhos
-  "Mapa" (Google Maps) e "Usar nome". Em falha de rede/serviço, mostra o link do Google Maps como
-  fallback. Atribuição © OpenStreetMap (ODbL) visível e localização nunca persistida.
+  **apenas no toque**, consulta o OpenStreetMap pelo **Photon** (Komoot) e, em paralelo, pelas instâncias
+  públicas do **Overpass**; usa a primeira lista que chegar (Photon tem preferência) e limita a 12 postos
+  num raio de 2 km. Cada item mostra nome, distância e marca com atalhos "Mapa" (Google Maps) e "Usar
+  nome". Em falha de rede/serviço, mostra o link do Google Maps como fallback. Atribuição
+  © OpenStreetMap (ODbL) visível e localização nunca persistida.
 - **Veredito:** faixa com tint da cor semântica, ícone e frase completa ("Abasteça com etanol").
 - **Gauge:** trilha fina com marca de limite e ponto do índice; sem gradiente arco-íris.
 - **Histórico:** gráfico de linha fino, lista com data e valores tabulares; nunca mais de 50 itens.

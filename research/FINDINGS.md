@@ -473,5 +473,27 @@ real / mapa / sincronização*, só com backend ou dados comunitários.
 - Lição geral: qualquer automação que dependa de nome/URL de terceiro precisa de **verificação de
   frescor** (semana/digest), não só de "rodou sem erro".
 
+### 2.8 Atualização 27/11/2026: Overpass instável → Photon como fonte principal
+
+- **Instâncias Overpass testadas** (postos de combustível em São Paulo, raio 1,5–2 km):
+  `overpass-api.de` → connect timeout/406; `overpass.private.coffee` → 504 após ~39 s;
+  `overpass.kumi.systems` → timeout; `overpass.openstreetmap.fr` → 403; `maps.mail.ru` → alterna 200/504;
+  `overpass.osm.ch` responde mas só cobre a Suíça (0 postos no Brasil). O app antigo tentava três em
+  sequência, 8 s cada — podia ficar até 24 s em "Buscando…" e cair no fallback. Confirmado no navegador
+  headless: após 12 s ainda mostrava "Buscando postos…".
+- **Photon (Komoot)** resolveu: `GET https://photon.komoot.io/api/?q=posto&osm_tag=amenity:fuel&lat=..&lon=..&limit=40`
+  devolveu **30/30 features `amenity=fuel`** em ~1,8–3 s e respondeu com `Access-Control-Allow-Origin: *`
+  **quando a requisição tem `Origin`** (o navegador manda; testar no Node sem `Origin` dá falso negativo).
+  Limitações: é geocodificador (busca por nome "posto"), pode não achar postos com outros nomes; o filtro
+  por `osm_key=amenity`/`osm_value=fuel` e o raio de 2 km são feitos no cliente; uso razoável (1 req/toque).
+- **App v4.8:** Photon principal + Overpass em paralelo como reserva; prazo total de 10 s; Google Maps como
+  último recurso; texto do raio corrigido (2 km, antes 2,5 km). Teste no navegador listou 3 postos reais
+  (Posto Maserati, Posto Petrobras, Posto Shell Pascoal) com distância.
+- **Google Maps:** o *link* (`https://www.google.com/maps/search/?api=1&query=…`) é gratuito e já é o
+  fallback. A **API** (Places/Nearby Search) exige chave + conta de faturamento, cobra por chamada, a chave
+  ficaria exposta no app estático e os termos do Google restringem cache/armazenamento e exibição fora dos
+  mapas Google — incompatível com um PWA zero-backend. Alternativas pagas: chave própria do usuário
+  (Google Places) ou Mapbox (token com camada grátis).
+
 
 

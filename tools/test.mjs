@@ -504,6 +504,32 @@ test("parseOverpassStations ordena por distância e descarta inválidos", () => 
   eq(AC.parseOverpassStations({ elements: [] }, 0, 0).length, 0);
   eq(AC.parseOverpassStations({ elements: [{ lat: 1 }] }, 1, 1).length, 0);
 });
+test("parsePhotonStations filtra tipo, raio e repetidos", () => {
+  const perto = {
+    properties: { osm_key: "amenity", osm_value: "fuel", osm_type: "N", osm_id: 1, name: "Posto A" },
+    geometry: { coordinates: [-46.6333, -23.5505] }
+  };
+  const longe = {
+    properties: { osm_key: "amenity", osm_value: "fuel", osm_type: "N", osm_id: 2, name: "Posto Longe" },
+    geometry: { coordinates: [-46.6, -23.5] }
+  };
+  const bar = {
+    properties: { osm_key: "amenity", osm_value: "bar", osm_type: "N", osm_id: 3, name: "Bar" },
+    geometry: { coordinates: [-46.633, -23.551] }
+  };
+  const semNome = {
+    properties: { osm_key: "amenity", osm_value: "fuel", osm_type: "W", osm_id: 4, street: "Rua X" },
+    geometry: { coordinates: [-46.632, -23.551] }
+  };
+  const json = { type: "FeatureCollection", features: [longe, bar, perto, semNome, perto] };
+  const lista = AC.parsePhotonStations(json, -23.5505, -46.6333, 12, 2.5);
+  eq(lista.length, 2, "fora do raio, bar e repetido saem");
+  eq(lista[0].name, "Posto A", "mais perto primeiro");
+  eq(lista[1].name, "Rua X", "rua vira nome quando falta name");
+  ok(lista[0].distanceKm < lista[1].distanceKm, "ordenado por distância");
+  eq(AC.parsePhotonStations(null, 0, 0).length, 0);
+  eq(AC.parsePhotonStations({ features: [] }, 0, 0).length, 0);
+});
 test("weightedKmL usa média harmônica cidade/estrada", () => {
   close(AC.weightedKmL(10, 14, 100), 10, 1e-9, "100% cidade = cidade");
   close(AC.weightedKmL(10, 14, 0), 14, 1e-9, "0% cidade = estrada");

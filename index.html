@@ -788,6 +788,7 @@
           <li><a href="https://www.engineeringtoolbox.com/fuels-higher-calorific-values-d_169.html" target="_blank" rel="noopener noreferrer">Engineering ToolBox</a> — poder calorífico: gasolina 32,0 MJ/L, etanol anidro 21,1 MJ/L.</li>
         </ul>
         <p><strong>Preços de referência:</strong> <a href="https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/levantamento-de-precos-de-combustiveis-ultimas-semanas-pesquisadas" target="_blank" rel="noopener noreferrer">Levantamento de Preços da ANP</a>, semana 15–21/11/2026: gasolina comum R$ 6,47/L e etanol R$ 4,29/L. O app não busca preços ao vivo: a ANP não libera CORS e os arquivos são XLSX/CSV pesados. O preço usado é sempre o do posto onde você vai abastecer.</p>
+        <p><strong>Postos próximos:</strong> dados do <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> (ODbL), obtidos pelo <a href="https://photon.komoot.io/" target="_blank" rel="noopener noreferrer">Photon</a> (Komoot) e, como reserva, pelo <a href="https://overpass-api.de/" target="_blank" rel="noopener noreferrer">Overpass API</a>; se nenhum responder, o app abre o Google Maps. O mapa não traz preços.</p>
         <p><strong>Limitações:</strong> a mistura E32 é temporária (180 dias, prorrogável uma vez) e pode mudar — se mudar, ajuste o limite no controle acima. A regra rápida é heurística de mercado; não existe limiar oficial. O modo preciso depende da qualidade dos consumos informados.</p>
       </div>
     </details>
@@ -810,7 +811,7 @@
     <p class="sheet-line">Versão <strong>v4</strong> · <span id="aboutWeek">preços de referência ANP</span></p>
     <p class="sheet-line">Preços médios: <strong>ANP — Levantamento de Preços de Combustíveis</strong> (média por estado/município, não é o preço do seu posto). O app não coleta nem envia dados: tudo fica neste aparelho.</p>
     <p class="sheet-line">Feito para decidir em 5 segundos: modo rápido (regra E32/E25) e modo preciso (custo por km).</p>
-    <p class="sheet-line">“Postos perto de mim” consulta o <strong>OpenStreetMap</strong> (Overpass) só quando você toca no botão; a localização não é guardada e os preços não vêm do mapa.</p>
+    <p class="sheet-line">“Postos perto de mim” consulta o <strong>OpenStreetMap</strong> via Photon (Komoot) e, se precisar, o Overpass só quando você toca no botão; a localização não é guardada e os preços não vêm do mapa. Se nenhum serviço responder, abrimos o Google Maps.</p>
     <p class="sheet-line" id="aboutStatus">Modo: aberto no navegador · Service worker: verificando…</p>
     <div class="sheet-actions">
       <button type="button" class="btn ghost" id="aboutRefresh">Atualizar preços</button>
@@ -1232,6 +1233,49 @@
       return saida.slice(0, max);
     }
 
+    /**
+     * Postos a partir da resposta do Photon (Komoot), geocodificador do OSM.
+     * A URL já filtra `osm_tag=amenity:fuel`; aqui garantimos o tipo, o raio
+     * (o Photon só "puxa" para perto, não limita) e removemos repetidos.
+     */
+    function parsePhotonStations(json, lat, lon, limite, raioKm) {
+      if (!json || !Array.isArray(json.features)) return [];
+      if (!isFinite(lat) || !isFinite(lon)) return [];
+      var max = isFinite(limite) ? Math.max(1, Math.floor(limite)) : 12;
+      var raio = isFinite(raioKm) && raioKm > 0 ? raioKm : 2.5;
+      var vistos = {};
+      var saida = [];
+      for (var i = 0; i < json.features.length; i++) {
+        var f = json.features[i];
+        if (!f || !f.properties || !f.geometry) continue;
+        var props = f.properties;
+        if (props.osm_key !== "amenity" || props.osm_value !== "fuel") continue;
+        var coords = f.geometry.coordinates;
+        if (!Array.isArray(coords) || typeof coords[0] !== "number" || typeof coords[1] !== "number") continue;
+        var plon = coords[0];
+        var plat = coords[1];
+        if (plat < -90 || plat > 90 || plon < -180 || plon > 180) continue;
+        var chave = String(props.osm_type || "") + String(props.osm_id || "");
+        if (!chave) chave = Math.round(plat * 1e5) + "," + Math.round(plon * 1e5);
+        if (vistos[chave]) continue;
+        var distancia = haversineKm(lat, lon, plat, plon);
+        if (distancia > raio) continue;
+        vistos[chave] = true;
+        var nome = String(props.name || props.street || "").replace(/\s+/g, " ").trim();
+        if (nome.length > 60) nome = nome.slice(0, 60);
+        saida.push({
+          name: nome || "Posto sem nome",
+          brand: typeof props.brand === "string" ? props.brand.slice(0, 40) : "",
+          lat: plat,
+          lon: plon,
+          distanceKm: distancia
+        });
+        if (saida.length >= max * 4) break;
+      }
+      saida.sort(function (a, b) { return a.distanceKm - b.distanceKm; });
+      return saida.slice(0, max);
+    }
+
     function gaugeOutside(pct) {
       return !(typeof pct === "number" && isFinite(pct)) || pct < GAUGE_MIN || pct > GAUGE_MAX;
     }
@@ -1483,6 +1527,7 @@
       gaugeOutside: gaugeOutside,
       haversineKm: haversineKm,
       parseOverpassStations: parseOverpassStations,
+      parsePhotonStations: parsePhotonStations,
       verdictLabel: verdictLabel,
       verdictShort: verdictShort,
       gapText: gapText,
@@ -2690,34 +2735,113 @@
   var nearbyBusy = false;
 
   // Instâncias públicas do Overpass — tenta na ordem até uma responder.
+  // Instâncias globais do Overpass (OpenStreetMap). Nenhuma é 100% confiável:
+  // em testes reais (out/2026 e 27/11/2026) umas caem, outras dão 504/406.
+  // Por isso consultamos todas em paralelo e usamos a primeira que responder.
   var OVERPASS_URLS = [
-    "https://overpass.private.coffee/api/interpreter",
     "https://overpass-api.de/api/interpreter",
-    "https://overpass.kumi.systems/api/interpreter"
+    "https://overpass.private.coffee/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+    "https://maps.mail.ru/osm/tools/overpass/api/interpreter"
   ];
+  var OVERPASS_PRAZO_MS = 10000;
 
   function fetchOverpass(consulta) {
-    function tentar(indice) {
-      if (indice >= OVERPASS_URLS.length) {
-        return Promise.reject(new Error("nenhuma instância do Overpass respondeu"));
+    return new Promise(function (resolve, reject) {
+      if (OVERPASS_URLS.length === 0) {
+        reject(new Error("sem instância configurada"));
+        return;
       }
       var ctrl = typeof AbortController === "function" ? new AbortController() : null;
-      var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 8000) : null;
-      return fetch(OVERPASS_URLS[indice] + "?data=" + encodeURIComponent(consulta), {
-        cache: "no-store",
-        signal: ctrl ? ctrl.signal : undefined
-      })
-        .then(function (r) {
-          if (timer) clearTimeout(timer);
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          return r.json();
+      var encerrado = false;
+      var restantes = OVERPASS_URLS.length;
+      var timer = setTimeout(function () {
+        if (encerrado) return;
+        encerrado = true;
+        if (ctrl) ctrl.abort();
+        reject(new Error("tempo esgotado"));
+      }, OVERPASS_PRAZO_MS);
+
+      OVERPASS_URLS.forEach(function (base) {
+        fetch(base + "?data=" + encodeURIComponent(consulta), {
+          cache: "no-store",
+          signal: ctrl ? ctrl.signal : undefined
         })
-        .catch(function () {
-          if (timer) clearTimeout(timer);
-          return tentar(indice + 1);
-        });
-    }
-    return tentar(0);
+          .then(function (r) {
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            return r.json();
+          })
+          .then(function (json) {
+            if (encerrado) return;
+            if (!json || !Array.isArray(json.elements)) throw new Error("resposta inválida");
+            encerrado = true;
+            clearTimeout(timer);
+            if (ctrl) ctrl.abort();
+            resolve(json);
+          })
+          .catch(function () {
+            if (encerrado) return;
+            restantes--;
+            if (restantes <= 0) {
+              encerrado = true;
+              clearTimeout(timer);
+              reject(new Error("nenhuma instância respondeu"));
+            }
+          });
+      });
+    });
+  }
+
+  // Photon: geocodificador do OpenStreetMap mantido pela Komoot. Sem chave,
+  // com CORS liberado e bem mais estável que as instâncias públicas do Overpass.
+  // O filtro osm_tag garante que só venham postos de combustível.
+  var PHOTON_URL = "https://photon.komoot.io/api/";
+  var PHOTON_PRAZO_MS = 6000;
+
+  function fetchPhoton(lat, lon) {
+    var url = PHOTON_URL
+      + "?q=posto"
+      + "&osm_tag=" + encodeURIComponent("amenity:fuel")
+      + "&lat=" + lat.toFixed(5)
+      + "&lon=" + lon.toFixed(5)
+      + "&limit=40";
+    var ctrl = typeof AbortController === "function" ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, PHOTON_PRAZO_MS) : null;
+    return fetch(url, {
+      cache: "no-store",
+      signal: ctrl ? ctrl.signal : undefined
+    }).then(function (r) {
+      if (timer) clearTimeout(timer);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).catch(function (e) {
+      if (timer) clearTimeout(timer);
+      throw e;
+    });
+  }
+
+  function consultaOverpass(lat, lon) {
+    return '[out:json][timeout:8];node["amenity"="fuel"](around:2000,'
+      + lat.toFixed(5) + "," + lon.toFixed(5) + ");out body 60;";
+  }
+
+  // Photon e Overpass consultados em paralelo; Photon tem preferência porque é
+  // mais rápido. Se Photon falhar ou vier vazio, aproveita o Overpass.
+  function buscarPostos(lat, lon) {
+    var photon = fetchPhoton(lat, lon)
+      .then(function (json) { return AC.parsePhotonStations(json, lat, lon, 12, 2.5); })
+      .catch(function () { return null; });
+    var overpass = fetchOverpass(consultaOverpass(lat, lon))
+      .then(function (json) { return AC.parseOverpassStations(json, lat, lon, 12); })
+      .catch(function () { return null; });
+    return photon.then(function (listaPhoton) {
+      if (listaPhoton && listaPhoton.length) return listaPhoton;
+      return overpass.then(function (listaOverpass) {
+        if (listaOverpass && listaOverpass.length) return listaOverpass;
+        if (listaPhoton === null && listaOverpass === null) throw new Error("nenhuma fonte respondeu");
+        return [];
+      });
+    });
   }
 
   function renderNearby(lista) {
@@ -2774,14 +2898,12 @@
     navigator.geolocation.getCurrentPosition(function (pos) {
       var lat = pos.coords.latitude;
       var lon = pos.coords.longitude;
-      ui.nearbyHint.textContent = "Buscando postos num raio de 2,5 km…";
-      var consulta = '[out:json][timeout:8];node["amenity"="fuel"](around:2000,'
-        + lat.toFixed(5) + "," + lon.toFixed(5) + ");out body 60;";
-      fetchOverpass(consulta)
-        .then(function (json) {
-          var lista = AC.parseOverpassStations(json, lat, lon, 12);
+      ui.nearbyHint.textContent = "Buscando postos num raio de 2 km (até 10 s)…";
+      buscarPostos(lat, lon)
+        .then(function (lista) {
           if (!lista.length) {
-            ui.nearbyHint.textContent = "Nenhum posto mapeado num raio de 2,5 km.";
+            abrirMapa(lat, lon);
+            ui.nearbyHint.textContent = "Nenhum posto mapeado num raio de 2 km. Abra o Google Maps para ver os postos próximos.";
             return;
           }
           if (ui.nearbyMaps) ui.nearbyMaps.hidden = true;

@@ -12,16 +12,16 @@ Dois modos, do mais rápido ao mais preciso:
 | **Preciso** | preços **+ consumo real** do seu carro (km/L com cada combustível) | custo por km, economia por 100 km, **seu limite pessoal** e o preço de equilíbrio de cada combustível |
 
 Nada de cadastro, servidor ou conta: tudo roda no aparelho e continua funcionando sem internet.
-O app traz **médias semanais oficiais da ANP** (Brasil e por estado) para preencher os preços com um toque,
+O app traz **médias semanais oficiais da ANP** (Brasil, estado, cidade e **preço por posto**) para preencher os preços com um toque,
 e guarda um **histórico local** dos seus cálculos com gráfico e exportação em CSV.
 
 **Ao vivo:** <https://atanycost-png.github.io/abastece-certo/> · **Código:** <https://github.com/atanycost-png/abastece-certo>
-(A versão publicada atualiza os preços da ANP sozinha, toda semana, via GitHub Action.)
+(A versão publicada atualiza os preços e os postos da ANP sozinha, toda semana, via GitHub Action.)
 
 <p>
   <img src="screenshots/02-rapido-resultado.png" alt="Modo rápido no tema escuro: índice 67,7% e veredito de etanol" width="270">
   <img src="screenshots/03-preciso-resultado.png" alt="Modo preciso no tema escuro: economia por 100 km" width="270">
-  <img src="screenshots/11-custo-mensal.png" alt="Custo mensal estimado a partir dos km rodados por mês" width="270">
+  <img src="screenshots/15-precos-por-posto.png" alt="Preços oficiais da ANP por posto na cidade, com botão de usar preço" width="270">
   <img src="screenshots/14-consumo-real.png" alt="Consumo cidade/estrada, diário de abastecimentos e consumo real aplicado" width="270">
   <img src="screenshots/13-postos-proximos.png" alt="Postos próximos via OpenStreetMap com distância e atalho para o mapa" width="270">
   <img src="screenshots/09-tema-claro.png" alt="Tema claro (opcional) do app" width="270">
@@ -31,13 +31,16 @@ e guarda um **histórico local** dos seus cálculos com gráfico e exportação 
 
 - **Campo de preço inteligente** — digite só números: `654` vira R$ 6,54, `456` vira R$ 4,56; ao sair do campo, `6` completa para R$ 6,00; teto de 4 dígitos (R$ 99,99). Digitação, cola e desfazer são normalizados sozinhos.
 - **Tema escuro como padrão** — botão no cabeçalho alterna escuro → automático (segue o sistema) → claro; cada tema tem cores próprias (não é “inversão”) e a escolha fica salva.
-- **Preços de referência da ANP** — médias semanais oficiais por **Brasil, estado e cidade** (a amostra semanal traz ~394 municípios) em um `precos.json` gerado por script; a UF e a cidade escolhidas são lembradas.
+- **Preços de referência da ANP** — médias semanais oficiais por **Brasil, estado e cidade** (a amostra semanal traz ~406 municípios) em um `precos.json` gerado por script; a UF e a cidade escolhidas são lembradas. Quando há histórico, mostra a **tendência** (“gasolina ▼ −R$ 0,07 · etanol ▲ +R$ 0,15 vs semana de …”).
+- **Preços oficiais por posto** — a ANP publica o preço de cada posto pesquisado; o app baixa o arquivo compacto da sua UF e lista os postos da cidade escolhida (os 20 mais baratos), com **Usar preço** para preencher gasolina/etanol e o nome do posto.
 - **Meus postos** — salve o preço que você viu no posto (nome + gasolina + etanol) e toque em “Usar” para preencher os dois campos com um toque; tudo fica no aparelho (até 15 postos).
-- **Postos perto de mim** — com um toque, usa a sua localização (só na hora, nada é guardado) e lista os postos num raio de 2 km via **OpenStreetMap** (Photon/Komoot, com Overpass de reserva); dá para abrir no Google Maps ou copiar o nome para salvar o preço. Se os serviços do OSM não responderem, o app abre o Google Maps.
+- **Postos perto de mim** — com um toque, usa a sua localização (só na hora, nada é guardado) e lista os postos num raio de 2 km via **OpenStreetMap** (Photon/Komoot, com Overpass de reserva); dá para abrir no Google Maps ou copiar o nome para salvar o preço. Se os serviços do OSM não responderem, o app abre o Google Maps. A última lista fica salva: offline, ele mostra **“últimos postos vistos em …”**.
 - **Custo mensal estimado** — informe quantos km você roda por mês no modo preciso e veja o gasto mensal com o combustível vencedor.
 - **Consumo cidade/estrada** — informe o km/L na cidade e na estrada para cada combustível e ajuste quanto você roda na cidade (padrão 70%); a média é harmônica e o limite pessoal sai do consumo ponderado.
-- **Diário de abastecimentos** — registre litros e o **hodômetro total**; o primeiro registro guarda a leitura e os próximos calculam os km rodados sozinhos (com recálculo ao excluir). Veja o km/L de cada registro e o consumo real por combustível; com um toque o app joga a média no modo preciso.
-- **Relatório mensal** — custo por mês (litros × preço salvo no registro), km/L médio e economia acumulada comparando com o outro combustível; atualiza sozinho conforme o diário.
+- **Diário de abastecimentos** — registre litros, o **hodômetro total** e (opcional) o **posto**; o primeiro registro guarda a leitura e os próximos calculam os km rodados sozinhos (com recálculo ao excluir). Veja o km/L de cada registro, o preço pago por litro e o consumo real por combustível; com um toque o app joga a média no modo preciso.
+- **Relatório mensal** — custo por mês (litros × preço salvo no registro), km/L médio, economia acumulada comparando com o outro combustível e **economia por posto**; atualiza sozinho conforme o diário.
+- **Aviso de dados antigos** — se a semana da ANP tiver mais de 14 dias, um selo no topo mostra a data e abre o “Sobre” para atualizar.
+- **Backup e restauração** — exporta um JSON com histórico, veículos, diário, postos, tema e preços; importar restaura no aparelho novo (com confirmação e validação).
 - **Histórico local** — salve cálculos (com o veículo usado), veja a evolução do índice num gráfico próprio (SVG) e exporte em CSV compatível com Excel.
 - **Compartilhar resultado ou imagem** — texto pela folha de compartilhamento (ou cópia) e cartão PNG gerado no próprio aparelho para mandar no WhatsApp.
 - **Instalação assistida** — quando o navegador permite, aparece o botão **Instalar app**; no iPhone ele ensina o caminho (*Compartilhar → Adicionar à Tela de Início*).
@@ -69,19 +72,22 @@ recente disponível em `precos.json`, com seletor de estado e o botão **Usar m�
 ## Preços semanais (ANP)
 
 `precos.json` guarda as médias nacionais, por UF e por cidade (a amostra municipal da ANP) da semana mais
-recente do Levantamento de Preços da ANP. Ele é gerado **sem dependências** por
-[`tools/update-prices.mjs`](tools/update-prices.mjs), que baixa o `resumo_semanal_lpc_*.xlsx` oficial e
-descompacta/lê o XLSX com `node:zlib` + regex (sem bibliotecas). O parser aceita os dois formatos de nome
-que a ANP já usou (`2026-10-04_2026-10-10` e `2026_11_15_2026-11-21`).
+recente. A pasta `postos/` guarda um JSON compacto por UF com o **preço de cada posto pesquisado** (nome,
+bandeira, endereço, gasolina e etanol), baixado sob demanda pelo app. Os dois são gerados **sem
+dependências** por [`tools/update-prices.mjs`](tools/update-prices.mjs), que baixa o
+`resumo_semanal_lpc_*.xlsx` e o `revendas_lpc_*.xlsx` oficiais e descompacta/lê o XLSX com `node:zlib` +
+regex (sem bibliotecas). O parser aceita os formatos de nome que a ANP já usou (`2026-10-04_2026-10-10` e
+`2026_11_15_2026-11-21`).
 
 ```sh
-node tools/update-prices.mjs                 # baixa a semana mais recente e grava precos.json
+node tools/update-prices.mjs                 # baixa a semana mais recente: precos.json + postos/
 node tools/update-prices.mjs --dry-run       # mostra o que seria gravado
-node tools/update-prices.mjs --file x.xlsx   # usa um arquivo já baixado
+node tools/update-prices.mjs --sem-postos    # só as médias (não baixa revendas)
+node tools/update-prices.mjs --file x.xlsx   # usa um resumo já baixado
 ```
 
 O GitHub Action [`.github/workflows/atualizar-precos.yml`](.github/workflows/atualizar-precos.yml) roda
-toda semana, atualiza `precos.json` e commita se houve mudança — assim um site publicado no GitHub Pages
+toda semana, atualiza `precos.json`/`postos` e commita se houve mudança — assim um site publicado no GitHub Pages
 ganha preços novos sem backend e sem CORS. O job roda em `macos-latest` porque os runners ubuntu/windows do
 GitHub são bloqueados pelo `gov.br` (detalhes em [`docs/DADOS-ANP.md`](docs/DADOS-ANP.md)). O workflow
 **falha de propósito** se a semana de referência ficar com mais de 21 dias, para avisar quando a ANP parar
@@ -125,7 +131,8 @@ limite pessoal 71,7% · gasolina R$ 54,50/100 km · etanol R$ 48,14/100 km · **
 | `sw.js` | Service worker (offline + atualização). |
 | `manifest.webmanifest` | Manifesto de instalação PWA (com ícones e screenshots). |
 | `DESIGN.md` | Contrato de design (cores, tipografia, anti-metas e contratos do DOM) — guia qualquer redesign. |
-| `precos.json` | Médias semanais da ANP (Brasil + UF), geradas por script. |
+| `precos.json` | Médias semanais da ANP (Brasil + UF + cidade) e histórico de 8 semanas, gerados por script. |
+| `postos/` | Preço oficial por posto, um JSON compacto por UF (`postos/SP.json` etc.), baixado sob demanda. |
 | `icons/` | Ícones PNG 192, 512, maskable e apple-touch-icon + `favicon.svg`. |
 | `screenshots/` | Capturas usadas no README e no manifest (`install-*` têm tamanho fixo). |
 | `mockups/` | Três direções visuais para a v4 (HTML autocontido, abertos no navegador). |

@@ -25,7 +25,7 @@
  * `executadoDiretamente`).
  */
 
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join, posix, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { inflateRawSync } from 'node:zlib';
@@ -51,6 +51,9 @@ export const RAIZ = dirname(dirname(fileURLToPath(import.meta.url)));
 /** Caminho padrão do JSON gerado. */
 export const CAMINHO_PADRAO = join(RAIZ, 'precos.json');
 
+/** Diretório dos preços por posto (um JSON compacto por UF). */
+export const DIRETORIO_POSTOS = join(RAIZ, 'postos');
+
 /** Chaves dos produtos usados no app, na ordem em que saem no JSON. */
 export const PRODUTOS = ['gasolinaComum', 'gasolinaAditivada', 'etanol'];
 
@@ -75,6 +78,7 @@ Opções:
   --out, -o <arquivo.json>    grava em outro caminho (padrão: precos.json)
   --semana <AAAA-MM-DD_AAAA-MM-DD>  força uma semana específica
   --dry-run                   imprime o JSON no stdout e não grava nada
+  --sem-postos                não gera os arquivos postos/UF.json (só médias)
   --help, -h                  mostra esta ajuda
 
 Exemplos:
@@ -1044,7 +1048,40 @@ export function extrairPrecosDoArquivo(buffer) {
  * Monta o objeto final de `precos.json` (ordem fixa de chaves, números
  * arredondados, estados ordenados por UF). Não valida; use `validarPrecos`.
  */
-export function montarPrecos({ url, semana, brasil, estados, municipios, atualizadoEm } = {}) {
+/**
+ * Mantém o histórico das últimas semanas (Brasil + UFs) para o app mostrar a
+ * tendência ("gasolina subiu R$ 0,07"). Não é histórico municipal: é compacto.
+ */
+export function atualizarHistorico(anterior = [], semana, brasil = {}, estados = {}, maximo = 8) {
+  const semanaNormalizada = typeof semana === 'string' ? normalizarSemana(semana) : semana;
+  if (!semanaNormalizada?.inicio || !semanaNormalizada?.fim) {
+    throw new Error('atualizarHistorico: semana ausente ou inválida');
+  }
+  const chave = `${semanaNormalizada.inicio}_${semanaNormalizada.fim}`;
+  const base = Array.isArray(anterior)
+    ? anterior.filter((h) => h && typeof h === 'object' && /^\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}$/.test(String(h.semana)))
+    : [];
+  const entrada = {
+    semana: chave,
+    brasil: {
+      gasolina: arredondar2(brasil?.gasolinaComum?.media),
+      aditivada: arredondar2(brasil?.gasolinaAditivada?.media),
+      etanol: arredondar2(brasil?.etanol?.media),
+    },
+    estados: {},
+  };
+  for (const uf of Object.keys(estados ?? {}).sort()) {
+    const g = arredondar2(estados[uf]?.gasolinaComum);
+    const e = arredondar2(estados[uf]?.etanol);
+    if (g !== null && e !== null) entrada.estados[uf] = { gasolina: g, etanol: e };
+  }
+  const semDuplicata = base.filter((h) => h.semana !== chave);
+  return [...semDuplicata, entrada]
+    .sort((a, b) => a.semana.localeCompare(b.semana))
+    .slice(-Math.max(1, maximo));
+}
+
+export function montarPrecos({ url, semana, brasil, estados, municipios, atualizadoEm, historico } = {}) {
   const semanaNormalizada = typeof semana === 'string' ? normalizarSemana(semana) : semana;
   if (!semanaNormalizada?.inicio || !semanaNormalizada?.fim) {
     throw new Error('montarPrecos: semana ausente ou inválida');
@@ -1099,6 +1136,7 @@ export function montarPrecos({ url, semana, brasil, estados, municipios, atualiz
     estados: estadosSaida,
   };
   if (Object.keys(municipiosSaida).length) saida.municipios = municipiosSaida;
+  if (Array.isArray(historico) && historico.length) saida.historico = historico;
   return saida;
 }
 
@@ -1203,6 +1241,17 @@ export function validarPrecos(precos) {
     erros.push(...validarMunicipios(precos.municipios));
   }
 
+  if (precos.historico !== undefined) {
+    erros.push(...validarHistorico(precos.historico));
+    if (Array.isArray(precos.historico) && precos.historico.length && precos.semana) {
+      const esperado = `${precos.semana.inicio}_${precos.semana.fim}`;
+      const ultima = precos.historico[precos.historico.length - 1];
+      if (ultima?.semana !== esperado) {
+        erros.push(`historico: a última entrada deveria ser ${esperado}`);
+      }
+    }
+  }
+
   return { ok: erros.length === 0, erros };
 }
 
@@ -1256,6 +1305,65 @@ function validarMunicipios(municipios) {
   }
   if (total === 0) erros.push('campo "municipios" vazio');
   if (total > 6000) erros.push(`campo "municipios" com ${total} cidades (esperado <= 6000)`);
+  return erros;
+}
+
+/** Valida o bloco opcional `historico` (últimas 8 semanas: Brasil + UFs). */
+function validarHistorico(historico) {
+  const erros = [];
+  if (!Array.isArray(historico)) return ['campo "historico" deveria ser uma lista'];
+  if (historico.length === 0) return ['campo "historico" vazio'];
+  if (historico.length > 8) erros.push(`campo "historico" com ${historico.length} semanas (esperado <= 8)`);
+  const semanaValida = /^\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}$/;
+  for (const item of historico) {
+    if (!item || typeof item !== 'object') {
+      erros.push('historico: item não é objeto');
+      continue;
+    }
+    if (!semanaValida.test(String(item.semana))) {
+      erros.push(`historico: semana inválida "${item.semana}"`);
+      continue;
+    }
+    if (!item.brasil || typeof item.brasil !== 'object') {
+      erros.push(`historico.${item.semana}: brasil ausente`);
+      continue;
+    }
+    for (const [chave, faixa] of [
+      ['gasolina', FAIXAS.gasolinaComum],
+      ['aditivada', FAIXAS.gasolinaAditivada],
+      ['etanol', FAIXAS.etanol],
+    ]) {
+      if (item.brasil[chave] === null || item.brasil[chave] === undefined) continue;
+      if (!numeroPlausivel(item.brasil[chave], faixa)) {
+        erros.push(`historico.${item.semana}.brasil.${chave} fora da faixa: ${item.brasil[chave]}`);
+      }
+    }
+    if (item.estados === undefined) continue;
+    if (!item.estados || typeof item.estados !== 'object' || Array.isArray(item.estados)) {
+      erros.push(`historico.${item.semana}: estados deveria ser objeto`);
+      continue;
+    }
+    for (const uf of Object.keys(item.estados)) {
+      if (!/^[A-Z]{2}$/.test(uf) || !UFS_VALIDAS.has(uf)) {
+        erros.push(`historico.${item.semana}: UF inválida "${uf}"`);
+        continue;
+      }
+      const precos = item.estados[uf];
+      if (!precos || typeof precos !== 'object') {
+        erros.push(`historico.${item.semana}.${uf}: inválido`);
+        continue;
+      }
+      for (const [chave, faixa] of [
+        ['gasolina', FAIXAS.gasolinaComum],
+        ['etanol', FAIXAS.etanol],
+      ]) {
+        if (precos[chave] === undefined || precos[chave] === null) continue;
+        if (!numeroPlausivel(precos[chave], faixa)) {
+          erros.push(`historico.${item.semana}.${uf}.${chave} fora da faixa: ${precos[chave]}`);
+        }
+      }
+    }
+  }
   return erros;
 }
 
@@ -1363,6 +1471,231 @@ function imprimirResumo(precos) {
 }
 
 // ---------------------------------------------------------------------------
+// Preços por posto (revendas_lpc_*.xlsx) — base da v5
+// ---------------------------------------------------------------------------
+
+/** Extrai a semana do nome de qualquer planilha da LPC (resumo ou revendas). */
+export function extrairSemanaDoArquivo(nome) {
+  const casa = /(?:resumo_semanal_lpc|revendas_lpc)_(\d{4})[-_](\d{1,2})[-_](\d{1,2})[-_](\d{4})[-_](\d{1,2})[-_](\d{1,2})\.xlsx/i.exec(
+    String(nome ?? ''),
+  );
+  if (!casa) return null;
+  const pad = (valor) => String(Number(valor)).padStart(2, '0');
+  return {
+    inicio: `${casa[1]}-${pad(casa[2])}-${pad(casa[3])}`,
+    fim: `${casa[4]}-${pad(casa[5])}-${pad(casa[6])}`,
+  };
+}
+
+/** Lista os links de revendas_lpc_*.xlsx presentes no HTML da ANP. */
+export function listarLinksRevendas(html, baseUrl = PAGINA_LPC) {
+  if (typeof html !== 'string' || !html.trim()) {
+    throw new Error('HTML da página da ANP vazio ou inválido');
+  }
+  const porUrl = new Map();
+  const padrao = /(?:href\s*=\s*["']([^"']*revendas_lpc_[^"']+\.xlsx)["'])|((?:https?:)?\/\/[^\s"'<>]*revendas_lpc_[^\s"'<>]+\.xlsx)/gi;
+  for (const casa of html.matchAll(padrao)) {
+    const bruto = (casa[1] ?? casa[2] ?? '').replace(/&amp;/g, '&').trim();
+    if (!bruto) continue;
+    const arquivo = /revendas_lpc_[\d\-_]+\.xlsx/i.exec(bruto)?.[0];
+    const semana = extrairSemanaDoArquivo(arquivo ?? bruto);
+    if (!semana) continue;
+    let url;
+    try {
+      url = new URL(bruto, baseUrl).href;
+    } catch {
+      continue;
+    }
+    if (porUrl.has(url)) continue;
+    porUrl.set(url, { url, semana, arquivo: arquivo ?? basename(new URL(url).pathname) });
+  }
+  return [...porUrl.values()].sort(compararSemanas);
+}
+
+export function escolherLinkRevendasDaSemana(html, semana, baseUrl = PAGINA_LPC) {
+  const alvo = typeof semana === 'string' ? normalizarSemana(semana) : semana;
+  return (
+    listarLinksRevendas(html, baseUrl).find(
+      (link) => link.semana.inicio === alvo.inicio && link.semana.fim === alvo.fim,
+    ) ?? null
+  );
+}
+
+/** URLs canônicas do XLSX de revendas de uma semana (para quando a página falha). */
+export function urlsRevendasDaSemana(semana) {
+  const { inicio, fim } = normalizarSemana(typeof semana === 'string' ? semana : `${semana.inicio}_${semana.fim}`);
+  const a = inicio.replaceAll('-', '_');
+  const base = `${BASE_ARQUIVOS_LPC}/${inicio.slice(0, 4)}`;
+  return [
+    ...new Set([
+      `${base}/revendas_lpc_${a}-${fim}.xlsx`,
+      `${base}/revendas_lpc_${inicio}_${fim}.xlsx`,
+    ]),
+  ];
+}
+
+/**
+ * Extrai os postos de uma planilha de revendas já parseada em linhas.
+ * Cada posto vira `{ cnpj, name, brand, city, uf, address, gas, eta }`.
+ */
+export function extrairPostosDeLinhas(linhas) {
+  if (!Array.isArray(linhas) || !linhas.length) return { postos: [], avisos: ['planilha vazia'], produtos: [] };
+  const avisos = [];
+  let cabecalho = null;
+  let colunas = null;
+  for (let i = 0; i < Math.min(40, linhas.length); i++) {
+    const linha = linhas[i];
+    if (!linha || !linha.celulas) continue;
+    const mapa = {};
+    for (const [letra, celula] of linha.celulas) {
+      const titulo = normalizarTexto(celula?.valor).toLowerCase();
+      if (titulo) mapa[titulo] = letra;
+    }
+    if (mapa.cnpj && mapa.produto && mapa['preco de revenda']) {
+      cabecalho = i;
+      colunas = mapa;
+      break;
+    }
+  }
+  if (!colunas) return { postos: [], avisos: ['cabeçalho de revendas não encontrado'], produtos: [] };
+
+  const valor = (linha, nome) => {
+    const letra = colunas[nome];
+    return letra ? linha.celulas.get(letra)?.valor ?? null : null;
+  };
+  const produtos = new Set();
+  const porPosto = new Map();
+  for (let i = cabecalho + 1; i < linhas.length; i++) {
+    const linha = linhas[i];
+    if (!linha || !linha.celulas) continue;
+    const produtoBruto = String(valor(linha, 'produto') ?? '').trim();
+    if (!produtoBruto) continue;
+    const produto = normalizarTexto(produtoBruto).toLowerCase();
+    produtos.add(produtoBruto.toUpperCase());
+    const uf = estadoParaUF(String(valor(linha, 'estado') ?? ''));
+    const cidade = String(valor(linha, 'municipio') ?? '').replace(/\s+/g, ' ').trim();
+    const nome = String(valor(linha, 'fantasia') || valor(linha, 'razao') || '').replace(/\s+/g, ' ').trim();
+    const cnpj = String(valor(linha, 'cnpj') ?? '').replace(/\D/g, '');
+    if (!uf || !cidade || !nome) continue;
+    const preco = parseNumeroPtBr(String(valor(linha, 'preco de revenda') ?? ''));
+    if (!isFinite(preco) || preco <= 0) continue;
+    const chave = cnpj || `${uf}|${normalizarTexto(cidade)}|${normalizarTexto(nome)}`;
+    if (!porPosto.has(chave)) {
+      const endereco = [valor(linha, 'endereco'), valor(linha, 'numero'), valor(linha, 'bairro')]
+        .map((parte) => String(parte ?? '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+        .join(', ')
+        .slice(0, 70);
+      porPosto.set(chave, {
+        cnpj,
+        name: nome,
+        brand: String(valor(linha, 'bandeira') ?? '').replace(/\s+/g, ' ').trim().slice(0, 40),
+        city: cidade,
+        uf,
+        address: endereco,
+        gas: null,
+        eta: null,
+      });
+    }
+    const posto = porPosto.get(chave);
+    if (produto === 'gasolina comum' && preco >= 2 && preco <= 12) posto.gas = arredondar2(preco);
+    if (produto === 'etanol' && preco >= 1 && preco <= 9) posto.eta = arredondar2(preco);
+  }
+  const postos = [...porPosto.values()].filter((posto) => posto.gas !== null || posto.eta !== null);
+  if (!postos.length) avisos.push('nenhum posto com gasolina/etanol encontrado');
+  return { postos, avisos, produtos: [...produtos] };
+}
+
+/** Lê o XLSX de revendas e delega a extração das linhas. */
+export function extrairPostosDoArquivo(buffer) {
+  const zip = abrirZip(buffer);
+  const shared = parsearSharedStrings(lerTextoZip(zip, 'xl/sharedStrings.xml') || '');
+  const abas = resolverAbas(zip);
+  const caminhos = abas ? [...abas.values()] : zip.nomes.filter((nome) => /^xl\/worksheets\/sheet\d+\.xml$/.test(nome));
+  for (const caminho of caminhos) {
+    const resultado = extrairPostosDeLinhas(parsearLinhasPlanilha(zip.ler(caminho).toString('utf8'), shared));
+    if (resultado.postos.length) return resultado;
+  }
+  return { postos: [], avisos: ['nenhuma aba de revendas reconhecida'], produtos: [] };
+}
+
+/** Agrupa os postos por UF com nomes em caixa normal (para exibição). */
+export function agruparPostosPorUf(postos) {
+  const porUf = {};
+  for (const posto of postos ?? []) {
+    if (!posto || !posto.uf) continue;
+    if (!porUf[posto.uf]) porUf[posto.uf] = [];
+    porUf[posto.uf].push([
+      tituloCidade(posto.city),
+      tituloCidade(posto.name),
+      tituloCidade(posto.brand),
+      posto.address,
+      posto.gas,
+      posto.eta,
+    ]);
+  }
+  for (const uf of Object.keys(porUf)) {
+    porUf[uf].sort((a, b) => (a[0] === b[0] ? a[1].localeCompare(b[1], 'pt-BR') : a[0].localeCompare(b[0], 'pt-BR')));
+  }
+  return porUf;
+}
+
+/** Monta o JSON compacto por UF (formato consumido pelo app). */
+export function gerarPostosPorUf(postos, { url, semana, atualizadoEm } = {}) {
+  const porUf = agruparPostosPorUf(postos);
+  const semanaNormalizada = typeof semana === 'string' ? normalizarSemana(semana) : semana;
+  const saida = {};
+  for (const uf of Object.keys(porUf).sort()) {
+    saida[uf] = {
+      fonte: FONTE,
+      url,
+      semana: { inicio: semanaNormalizada.inicio, fim: semanaNormalizada.fim },
+      atualizadoEm: new Date(atualizadoEm ?? Date.now()).toISOString(),
+      uf,
+      postos: porUf[uf],
+    };
+  }
+  return saida;
+}
+
+/** Validação defensiva dos arquivos postos/UF.json. */
+export function validarPostos(porUf) {
+  const erros = [];
+  if (!porUf || typeof porUf !== 'object') return { ok: false, erros: ['postos por UF não é objeto'] };
+  const ufs = Object.keys(porUf);
+  if (!ufs.length) erros.push('nenhuma UF gerada');
+  for (const uf of ufs) {
+    if (!/^[A-Z]{2}$/.test(uf) || !UFS_VALIDAS.has(uf)) {
+      erros.push(`UF inválida: ${uf}`);
+      continue;
+    }
+    const dados = porUf[uf];
+    if (!dados || !Array.isArray(dados.postos) || !dados.postos.length) {
+      erros.push(`postos.${uf} vazio`);
+      continue;
+    }
+    if (dados.postos.length > 30000) erros.push(`postos.${uf} com itens demais`);
+    for (const item of dados.postos) {
+      if (!Array.isArray(item) || item.length !== 6) {
+        erros.push(`postos.${uf}: item deveria ter [cidade, nome, bandeira, endereco, gasolina, etanol]`);
+        break;
+      }
+      const gas = item[4];
+      const eta = item[5];
+      if (gas !== null && !numeroPlausivel(gas, FAIXAS.gasolinaComum)) {
+        erros.push(`postos.${uf}: gasolina inválida ${gas}`);
+        break;
+      }
+      if (eta !== null && !numeroPlausivel(eta, FAIXAS.etanol)) {
+        erros.push(`postos.${uf}: etanol inválido ${eta}`);
+        break;
+      }
+    }
+  }
+  return { ok: erros.length === 0, erros };
+}
+
+// ---------------------------------------------------------------------------
 // Rede e E/S
 // ---------------------------------------------------------------------------
 
@@ -1399,6 +1732,32 @@ export async function baixar(url, { tentativas = 3, timeoutMs = 60_000, userAgen
   throw new Error(`falha ao baixar ${url}\n  ${erros.join('\n  ')}`);
 }
 
+/** Grava um JSON compacto por UF em postos/ e remove UFs que não existem mais. */
+function gravarPostos(porUf, diretorio) {
+  const arquivos = {};
+  let bytes = 0;
+  for (const uf of Object.keys(porUf)) {
+    const json = JSON.stringify(porUf[uf]);
+    arquivos[`${uf}.json`] = json;
+    bytes += Buffer.byteLength(json);
+  }
+  if (!existsSync(diretorio)) mkdirSync(diretorio, { recursive: true });
+  for (const [nome, json] of Object.entries(arquivos)) {
+    gravarAtomico(join(diretorio, nome), `${json}\n`);
+  }
+  for (const nome of readdirSync(diretorio)) {
+    if (!nome.endsWith(".json")) continue;
+    if (!arquivos[nome]) {
+      try {
+        unlinkSync(join(diretorio, nome));
+      } catch {
+        // arquivo em uso: deixa para a próxima execução
+      }
+    }
+  }
+  return { arquivos: Object.keys(arquivos).length, bytes };
+}
+
 function gravarAtomico(caminho, conteudo) {
   const diretorio = dirname(caminho);
   if (!existsSync(diretorio)) mkdirSync(diretorio, { recursive: true });
@@ -1427,7 +1786,7 @@ function lerJsonSeExistir(caminho) {
 
 /** Interpreta os argumentos da linha de comando. */
 export function parsearArgumentos(argv = []) {
-  const opcoes = { arquivo: null, saida: null, semana: null, dryRun: false, ajuda: false };
+  const opcoes = { arquivo: null, saida: null, semana: null, dryRun: false, semPostos: false, ajuda: false };
   for (let i = 0; i < argv.length; i++) {
     const argumento = String(argv[i]);
     const nome = argumento.startsWith('--') && argumento.includes('=') ? argumento.slice(0, argumento.indexOf('=')) : argumento;
@@ -1456,6 +1815,9 @@ export function parsearArgumentos(argv = []) {
         break;
       case '--dry-run':
         opcoes.dryRun = true;
+        break;
+      case '--sem-postos':
+        opcoes.semPostos = true;
         break;
       case '--help':
       case '-h':
@@ -1501,6 +1863,7 @@ async function executar() {
   let url;
   let buffer;
   let nomeArquivo;
+  let paginaHtml = "";
 
   if (opcoes.arquivo) {
     const caminho = resolve(opcoes.arquivo);
@@ -1523,6 +1886,7 @@ async function executar() {
 
     if (pagina) {
       const html = pagina.buffer.toString('utf8');
+      paginaHtml = html;
 
       let link;
       if (opcoes.semana) {
@@ -1583,6 +1947,7 @@ async function executar() {
 
   const caminhoSaida = resolve(opcoes.saida ?? CAMINHO_PADRAO);
   const anterior = lerJsonSeExistir(caminhoSaida);
+  const historico = atualizarHistorico(anterior?.historico, semana, extraido.brasil, extraido.estados);
 
   let municipios = extraido.municipios ?? {};
   if (Object.keys(municipios).length) {
@@ -1598,11 +1963,63 @@ async function executar() {
     brasil: extraido.brasil,
     estados: extraido.estados,
     municipios,
+    historico,
   });
 
   const validacao = validarPrecos(precos);
   if (!validacao.ok) {
     throw new Error(`precos.json inválido, nada foi gravado:\n - ${validacao.erros.join('\n - ')}`);
+  }
+
+  // Preços por posto (v5): baixa a planilha "revendas" da mesma semana.
+  let postosPorUf = null;
+  if (!opcoes.semPostos) {
+    try {
+      let linkRevendas = null;
+      if (paginaHtml) {
+        try {
+          linkRevendas = escolherLinkRevendasDaSemana(paginaHtml, semana);
+        } catch {
+          linkRevendas = null;
+        }
+      }
+      let revendas = null;
+      let revendasUrl = "";
+      if (linkRevendas) {
+        log(`baixando o XLSX de postos: ${linkRevendas.url}`);
+        const baixado = await baixar(linkRevendas.url, { userAgent: AGENTE_NAVEGADOR });
+        revendas = baixado.buffer;
+        revendasUrl = baixado.url || linkRevendas.url;
+      } else {
+        for (const candidata of urlsRevendasDaSemana(semana)) {
+          try {
+            const baixado = await baixar(candidata, { tentativas: 1, timeoutMs: 45_000, userAgent: AGENTE_NAVEGADOR });
+            revendas = baixado.buffer;
+            revendasUrl = baixado.url || candidata;
+            break;
+          } catch {
+            // tenta a próxima URL canônica
+          }
+        }
+      }
+      if (!revendas) throw new Error("planilha de postos não encontrada");
+      log(`XLSX de postos baixado (${formatarTamanho(revendas.length)})`);
+      const extraidoPostos = extrairPostosDoArquivo(revendas);
+      for (const mensagem of extraidoPostos.avisos) aviso(mensagem);
+      postosPorUf = gerarPostosPorUf(extraidoPostos.postos, {
+        url: revendasUrl,
+        semana,
+        atualizadoEm: precos.atualizadoEm,
+      });
+      const validacaoPostos = validarPostos(postosPorUf);
+      if (!validacaoPostos.ok) {
+        throw new Error(validacaoPostos.erros.slice(0, 3).join("; "));
+      }
+      log(`postos: ${extraidoPostos.postos.length} postos em ${Object.keys(postosPorUf).length} UFs`);
+    } catch (erro) {
+      aviso(`preços por posto indisponíveis nesta execução: ${erro.message}`);
+      postosPorUf = null;
+    }
   }
 
   // Dados idênticos aos da versão anterior: mantém o "atualizadoEm" antigo para
@@ -1622,6 +2039,9 @@ async function executar() {
 
   const json = `${JSON.stringify(precos, null, 2)}\n`;
   if (opcoes.dryRun) {
+    if (postosPorUf) {
+      log(`--dry-run: ${Object.keys(postosPorUf).length} arquivos de postos por UF seriam gravados; nada foi gravado`);
+    }
     log(`--dry-run: ${formatarTamanho(Buffer.byteLength(json))} de JSON gerados; nada foi gravado`);
     process.stdout.write(json);
     return;
@@ -1629,6 +2049,11 @@ async function executar() {
 
   gravarAtomico(caminhoSaida, json);
   log(`gravado ${caminhoSaida} (${formatarTamanho(Buffer.byteLength(json))})`);
+
+  if (postosPorUf) {
+    const resultado = gravarPostos(postosPorUf, DIRETORIO_POSTOS);
+    log(`postos gravados em ${DIRETORIO_POSTOS}: ${resultado.arquivos} arquivos (${formatarTamanho(resultado.bytes)})`);
+  }
 }
 
 if (executadoDiretamente()) {

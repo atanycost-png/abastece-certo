@@ -35,7 +35,31 @@ tiver mais de 21 dias.
 Além disso, se a página da ANP não responder (já aconteceu no runner do GitHub), o script tenta baixar
 diretamente o XLSX das últimas 4 semanas pelas URLs canônicas — sem depender do HTML para descobrir o link.
 
-## Runner do GitHub: por que macOS
+## Preços por posto (`postos/`)
+
+A ANP publica também a planilha de **revendas** (`revendas_lpc_*.xlsx`, ~1,8 MB), com uma linha por
+posto/produto pesquisado. O pipeline extrai os postos com gasolina comum e/ou etanol e grava um JSON
+compacto por UF em `postos/` (27 arquivos, ~490 KB no total para ~4.600 postos na semana 15–21/11/2026):
+
+```json
+{
+  "fonte": "ANP — Levantamento de Preços de Combustíveis",
+  "semana": { "inicio": "2026-11-15", "fim": "2026-11-21" },
+  "uf": "SP",
+  "postos": [
+    ["Adamantina", "Auto Posto Carreiro", "Branca", "AVENIDA CAPITAO..., 160, CENTRO", 5.98, 3.59]
+  ]
+}
+```
+
+- Campos do item: `[cidade, nome, bandeira, endereço, gasolina, etanol]` (preço `null` quando não pesquisado).
+- **Não há coordenadas** nessa planilha: é uma lista por cidade, complementar ao "Postos perto de mim".
+- É a **amostra semanal** da ANP (não são todos os postos do país) e os preços são os pesquisados na semana.
+- O app baixa sob demanda apenas o arquivo da UF selecionada (ex.: `postos/SP.json`), com cache do service
+  worker. A lista mostra os 20 postos mais baratos da cidade escolhida na Referência ANP.
+- `--sem-postos` desliga essa geração; o workflow commita `precos.json` e `postos/` juntos.
+
+
 
 Em **27/11/2026** o `www.gov.br` passou a bloquear a saída de rede dos runners **ubuntu-latest** e
 **windows-latest** do GitHub: `curl` retornava `000`/timeout e o Node `ECONNRESET`/`UND_ERR_CONNECT_TIMEOUT`,

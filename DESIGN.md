@@ -129,7 +129,20 @@ A v1–v3 passaram por "cara de IA" e por direções que não agradaram (papel/r
   públicas do **Overpass**; usa a primeira lista que chegar (Photon tem preferência) e limita a 12 postos
   num raio de 2 km. Cada item mostra nome, distância e marca com atalhos "Mapa" (Google Maps) e "Usar
   nome". Em falha de rede/serviço, mostra o link do Google Maps como fallback. Atribuição
-  © OpenStreetMap (ODbL) visível e localização nunca persistida.
+  © OpenStreetMap (ODbL) visível e localização nunca persistida. A última lista bem-sucedida é guardada
+  com data e reaparece como "últimos postos vistos em …" quando offline ou se os serviços caírem.
+- **Preços oficiais por posto:** dentro de "Meus postos", botão "Preços oficiais por posto na cidade" que
+  baixa `postos/<UF>.json` (gerado da planilha de revendas da ANP), filtra a cidade escolhida na Referência
+  ANP, ordena pelos 20 mais baratos e oferece "Usar preço" (preenche gasolina/etanol + nome do posto).
+  Sem coordenadas: é lista por cidade, complementar ao "perto de mim".
+- **Selo de dados ANP:** banner no topo quando a semana de referência tem mais de 14 dias; mostra a data e
+  abre o "Sobre" (atualizar preços).
+- **Tendência:** na Referência ANP, dois pontos do histórico de 8 semanas viram "gasolina ▼ −R$ 0,07 ·
+  etanol ▲ +R$ 0,15 vs semana de …"; sem duas semanas, a linha não aparece.
+- **Backup:** no "Sobre", exportar um JSON com todas as chaves `ac.*` e importar com validação de formato,
+  confirmação e recarga; importar substitui os dados do aparelho.
+- **Diário com posto:** campo opcional "Posto" (com sugestões dos postos salvos); o relatório mensal ganha
+  a lista "Economia por posto" e cada abastecimento mostra o preço pago por litro.
 - **Veredito:** faixa com tint da cor semântica, ícone e frase completa ("Abasteça com etanol").
 - **Gauge:** trilha fina com marca de limite e ponto do índice; sem gradiente arco-íris.
 - **Histórico:** gráfico de linha fino, lista com data e valores tabulares; nunca mais de 50 itens.

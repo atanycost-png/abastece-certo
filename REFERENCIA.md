@@ -595,3 +595,57 @@ fluxo era sequencial (8 s cada), podendo ficar até 24 s em "Buscando…".
 - **Não empilhar timeouts**: com fontes incertas, corrida paralela + prazo único é melhor que tentativa
   sequencial (a UX antiga esperava até 24 s).
 - **Conferir o texto com a consulta**: "2,5 km" vs `around:2000` passou batido por várias versões.
+
+---
+
+## 27/11/2026 — v5.0 (confiabilidade, posto no diário, preços por posto, a11y)
+
+### Entregas solicitadas
+1. **Cache de "postos perto de mim"**: a última lista bem-sucedida vai para `ac.v4.nearby` (coordenadas +
+   itens + data). Offline ou se Photon/Overpass caírem, o app mostra a lista com **"últimos postos vistos
+   em …"** (só se estiver a até 30 km do ponto atual) e mantém o link do Google Maps.
+2. **Selo de dados ANP velhos**: banner no topo quando a semana de referência tem **mais de 14 dias**
+   (`AC.diasDesdeSemana`), com data e botão que abre o "Sobre" para atualizar.
+3. **Backup/restauração**: "Sobre" ganhou **Exportar dados** (JSON com todas as chaves `ac.*`, metadados e
+   versão) e **Importar dados** (validação `AC.validarBackup`, confirmação, substituição e recarga).
+4. **Tendência de preços**: `precos.json` agora tem `historico` (até 8 semanas, Brasil + UFs, ~2 KB por
+   semana). `AC.tendenciaPrecos` compara as duas últimas e a Referência ANP mostra
+   "vs semana de 04–10/10/2026: gasolina ▼ −R$ 0,07 · etanol ▲ +R$ 0,15".
+   - Bootstrap: semear histórico com a semana anterior conhecida (04–10/10) + atual; as próximas execuções
+     do pipeline appendam sozinhas.
+5. **Posto no abastecimento**: campo opcional "Posto" (datalist com os postos salvos), preço pago por litro
+   na lista do diário e nova seção **"Economia por posto"** no relatório mensal (litros, custo e economia
+   por posto, ordenado pela maior economia).
+6. **v5 — preços oficiais por posto**: o pipeline passou a baixar também a planilha
+   `revendas_lpc_*.xlsx` (~1,8 MB, ~4.620 postos/semana) e gera **`postos/<UF>.json`** (27 arquivos,
+   ~490 KB no total): `[cidade, nome, bandeira, endereço, gasolina, etanol]`. O app baixa só a UF
+   selecionada, filtra a cidade escolhida na Referência ANP, lista os 20 mais baratos e tem
+   **"Usar preço"** (preenche gasolina/etanol + nome do posto). Sem coordenadas: é lista por cidade,
+   complementar ao "perto de mim". `--sem-postos` desliga a geração.
+7. **Qualidade**: Lighthouse mobile na versão publicada local — **performance 97, acessibilidade 100,
+   boas práticas 100, SEO 100**. Correções: `<main>` (landmark), `robots.txt` válido, inputs a 16 px no
+   mobile (evita zoom do Safari/iOS), `100dvh` com fallback, safe-area já usada. Não foi possível testar em
+   iPhone físico neste ambiente; revisão estática feita (Safari/iOS) e fluxo Android já validado antes.
+
+### Detalhes de implementação
+- Pipeline: `extrairPostosDeLinhas`, `extrairPostosDoArquivo`, `agruparPostosPorUf`, `gerarPostosPorUf`,
+  `validarPostos`, `listarLinksRevendas`, `urlsRevendasDaSemana`; `gravarPostos` grava compacto e limpa UFs
+  antigas; workflow commita `precos.json` + `postos/`.
+- App: `normalizarNome` (comparar cidade sem acento), `fetchCityPostos` com cache em memória, lista de
+  preços por cidade, botão por item; SW cacheia os JSONs sob demanda.
+
+### Verificação
+- `tools/test.mjs` → **171** · `tools/test-dom.mjs` → **129** · `tools/test-sw.mjs` → **33** ·
+  `tools/test-prices.mjs` → **136** (revendas, histórico, postos) · `tools/check.mjs` → **55** ·
+  `tools/visual-check.mjs` → **19 etapas** (tendência na Referência, 8 postos oficiais em Adamantina,
+  screenshots `15-precos-por-posto.png` e demais).
+- `index.html` ≈ **164 KB** (~42 KB gzip); limite do check subiu para 180 KB.
+- Versão **5.0.0** (app/SW/`package.json`).
+
+### Pitfalls
+- **Chaves normalizadas são MAIÚSCULAS** (`normalizarTexto`): comparar com `cnpj` minúsculo fez a primeira
+  versão do parser de revendas não achar o cabeçalho.
+- **Revendas é amostra semanal**, não todos os postos; e não tem coordenadas (não dá para "perto de mim").
+- **Histórico inicial é semeado**; só há tendência a partir de duas semanas — o pipeline poda em 8.
+- **Backup** inclui as chaves `ac.*`; importar substitui (não mescla) e recarrega.
+- **iOS**: campo com fonte &lt; 16 px faz zoom; corrigido no mobile. Teste físico ainda pendente.

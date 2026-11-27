@@ -349,6 +349,7 @@ async function main() {
       errors.push(`"Usar médias" deveria preencher ${esperadoGas}/${esperadoEta}, obteve ${anp.gas}/${anp.eta}`);
     }
     if (anp.carregou && anp.opcoesUf < 2) errors.push("seletor de UF vazio");
+    if (anp.carregou && !/vs semana de/.test(anp.texto)) errors.push("tendência de preços não apareceu na referência ANP");
     await page.shot("07-referencia-anp");
 
     // ---- 4. preço de etanol caro -> gasolina
@@ -846,6 +847,39 @@ async function main() {
     if (consumo.count !== "2") errors.push(`diário deveria ter 2 registros: ${consumo.count}`);
     await new Promise((r) => setTimeout(r, 300));
     await page.shot("14-consumo-real");
+
+    // ---- 19. preços oficiais por posto na cidade (arquivos postos/UF.json)
+    console.log("19) preços oficiais por posto na cidade");
+    const precoCidade = await page.eval(`(async () => {
+      const setSel = (id, valor) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.value = valor;
+        el.dispatchEvent(new Event('change', { bubbles: true }));
+      };
+      setSel('refUf', 'SP');
+      await new Promise((r) => setTimeout(r, 150));
+      setSel('refCity', 'Adamantina');
+      await new Promise((r) => setTimeout(r, 150));
+      const details = document.getElementById('fillDetails');
+      if (details) details.open = true;
+      document.getElementById('cityPricesBtn').click();
+      for (let i = 0; i < 30; i++) {
+        await new Promise((r) => setTimeout(r, 250));
+        if (
+          document.querySelectorAll('#cityPricesList li').length ||
+          /Sem preços|Ainda não há/.test(document.getElementById('cityPricesHint').textContent)
+        ) break;
+      }
+      return {
+        itens: document.querySelectorAll('#cityPricesList li').length,
+        hint: document.getElementById('cityPricesHint').textContent,
+        preco: document.querySelector('#cityPricesList .station-prices')?.textContent || ""
+      };
+    })()`);
+    console.log(`   ${JSON.stringify(precoCidade)}`);
+    if (precoCidade.itens === 0) errors.push(`sem preços por posto: ${precoCidade.hint}`);
+    await page.shot("15-precos-por-posto");
 
     try { await cdp.send("Browser.close"); } catch { /* fecha junto com o WS */ }
     cdp.close();

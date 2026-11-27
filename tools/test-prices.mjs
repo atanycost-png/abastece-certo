@@ -11,7 +11,7 @@
  * detalhe em seguida. Exit code 0 se tudo passar, 1 se algo falhar.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { deflateRawSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -33,6 +33,16 @@ import {
   listarLinksResumoSemanal,
   mesmosDados,
   montarPrecos,
+  atualizarHistorico,
+  agruparPostosPorUf,
+  DIRETORIO_POSTOS,
+  escolherLinkRevendasDaSemana,
+  extrairPostosDeLinhas,
+  extrairSemanaDoArquivo,
+  gerarPostosPorUf,
+  listarLinksRevendas,
+  urlsRevendasDaSemana,
+  validarPostos,
   normalizarProduto,
   normalizarSemana,
   normalizarTexto,
@@ -565,6 +575,125 @@ lanca('XLSX: buffer não-ZIP é rejeitado', () => extrairPrecosDoArquivo(Buffer.
   }
 }
 
+// 24b: histórico de preços (tendência)
+{
+  const estados = { SP: { gasolinaComum: 6.36, etanol: 3.86 }, RN: { gasolinaComum: 6.6, etanol: 5.03 } };
+  const h1 = atualizarHistorico([], '2026-10-04_2026-10-10', BRASIL_ESPERADO, estados);
+  igual('atualizarHistorico: primeira semana', h1.length, 1);
+  igual('atualizarHistorico: chave da semana', h1[0].semana, '2026-10-04_2026-10-10');
+  igual('atualizarHistorico: média nacional', h1[0].brasil, { gasolina: 6.54, aditivada: 6.72, etanol: 4.14 });
+  igual('atualizarHistorico: estados compactos', h1[0].estados.SP, { gasolina: 6.36, etanol: 3.86 });
+
+  const semanas = [
+    ['2026-10-11_2026-10-17', 6.5],
+    ['2026-10-18_2026-10-24', 6.45],
+    ['2026-10-25_2026-10-31', 6.4],
+    ['2026-11-01_2026-11-07', 6.35],
+    ['2026-11-08_2026-11-14', 6.3],
+    ['2026-11-15_2026-11-21', 6.47],
+  ];
+  let h = h1;
+  for (const [semana, media] of semanas) {
+    h = atualizarHistorico(h, semana, {
+      ...BRASIL_ESPERADO,
+      gasolinaComum: { media, min: 5.3, max: 8.9, postos: 4500 },
+    }, estados);
+  }
+  igual('atualizarHistorico: acumula e ordena as semanas', h.length, 7);
+  igual('atualizarHistorico: última semana no fim', h[h.length - 1].semana, '2026-11-15_2026-11-21');
+  const recortado = atualizarHistorico(h, '2026-11-22_2026-11-28', BRASIL_ESPERADO, estados, 3);
+  igual('atualizarHistorico: respeita o máximo configurado', recortado.length, 3);
+  igual('atualizarHistorico: mantém as mais recentes', recortado[recortado.length - 1].semana, '2026-11-22_2026-11-28');
+  const repetido = atualizarHistorico(h, '2026-11-15_2026-11-21', BRASIL_ESPERADO, estados);
+  igual('atualizarHistorico: não duplica a mesma semana', repetido.filter((item) => item.semana === '2026-11-15_2026-11-21').length, 1);
+  igual('atualizarHistorico: dedupe substitui a entrada', repetido[repetido.length - 1].brasil.gasolina, 6.54);
+
+  const comHistorico = precosDemo({ historico: h1 });
+  const valido = validarPrecos(comHistorico);
+  ok('validarPrecos: aceita histórico válido', valido.ok, JSON.stringify(valido.erros));
+  const semanaErrada = validarPrecos(precosDemo({ historico: h1, semana: { inicio: '2026-10-11', fim: '2026-10-17' } }));
+  ok(
+    'validarPrecos: histórico precisa terminar na semana atual',
+    !semanaErrada.ok && semanaErrada.erros.some((erro) => erro.includes('última entrada')),
+    JSON.stringify(semanaErrada.erros),
+  );
+  const mediaRuim = validarPrecos(precosDemo({ historico: [{ semana: '2026-10-04_2026-10-10', brasil: { gasolina: 99 }, estados: {} }] }));
+  ok(
+    'validarPrecos: rejeita histórico com média implausível',
+    !mediaRuim.ok && mediaRuim.erros.some((erro) => erro.includes('fora da faixa')),
+    JSON.stringify(mediaRuim.erros),
+  );
+}
+
+// 24c: preços por posto (planilha de revendas)
+{
+  igual('extrairSemanaDoArquivo: nome de revendas', extrairSemanaDoArquivo('revendas_lpc_2026_11_15-2026_11_21.xlsx'), {
+    inicio: '2026-11-15',
+    fim: '2026-11-21',
+  });
+  const linksRevendas = listarLinksRevendas(HTML_PAGINA);
+  igual('listarLinksRevendas: acha o link de revendas', linksRevendas.length, 1);
+  igual('listarLinksRevendas: semana do link', linksRevendas[0].semana.inicio, '2026-10-04');
+  igual(
+    'escolherLinkRevendasDaSemana: escolhe a semana',
+    escolherLinkRevendasDaSemana(HTML_PAGINA, '2026-10-04_2026-10-10')?.semana.fim,
+    '2026-10-10',
+  );
+  ok('urlsRevendasDaSemana: cobre os formatos de nome', urlsRevendasDaSemana('2026-11-15_2026-11-21').length >= 2);
+
+  const cabecalho = {
+    A: 'CNPJ', B: 'RAZÃO', C: 'FANTASIA', D: 'ENDEREÇO', E: 'NÚMERO', F: 'COMPLEMENTO', G: 'BAIRRO',
+    H: 'CEP', I: 'MUNICÍPIO', J: 'ESTADO', K: 'BANDEIRA', L: 'PRODUTO', M: 'UNIDADE DE MEDIDA',
+    N: 'PREÇO DE REVENDA', O: 'DATA DA COLETA',
+  };
+  function linhaRevenda(valores) {
+    const celulas = new Map();
+    for (const [letra, valor] of Object.entries(valores)) celulas.set(letra, { tipo: 's', valor });
+    return { numero: 0, celulas };
+  }
+  const linhas = [
+    linhaRevenda(cabecalho),
+    linhaRevenda({ ...cabecalho, A: '111', B: 'POSTO X LTDA', C: 'POSTO X', D: 'RUA A', E: '10', G: 'CENTRO', I: 'SAO PAULO', J: 'SAO PAULO', K: 'SHELL', L: 'GASOLINA COMUM', N: '5.89', O: '46343' }),
+    linhaRevenda({ ...cabecalho, A: '111', B: 'POSTO X LTDA', C: 'POSTO X', D: 'RUA A', E: '10', G: 'CENTRO', I: 'SAO PAULO', J: 'SAO PAULO', K: 'SHELL', L: 'ETANOL', N: '3.99', O: '46343' }),
+    linhaRevenda({ ...cabecalho, A: '222', B: 'POSTO Y LTDA', C: 'POSTO Y', D: 'AV B', E: '20', G: 'JARDIM', I: 'CAMPINAS', J: 'SAO PAULO', K: 'IPIRANGA', L: 'ETANOL', N: '4.10', O: '46343' }),
+    linhaRevenda({ ...cabecalho, A: '111', B: 'POSTO X LTDA', C: 'POSTO X', D: 'RUA A', E: '10', G: 'CENTRO', I: 'SAO PAULO', J: 'SAO PAULO', K: 'SHELL', L: 'GASOLINA ADITIVADA', N: '6.10', O: '46343' }),
+    linhaRevenda({ ...cabecalho, A: '333', B: 'POSTO Z', C: 'POSTO Z', I: 'RIO', J: 'ESTADO INVALIDO', L: 'GASOLINA COMUM', N: '6.20' })
+  ];
+  const extraido = extrairPostosDeLinhas(linhas);
+  igual('extrairPostosDeLinhas: deduplica por CNPJ', extraido.postos.length, 2);
+  const x = extraido.postos.find((p) => p.cnpj === '111');
+  igual('extrairPostosDeLinhas: junta gasolina e etanol do mesmo posto', [x.gas, x.eta], [5.89, 3.99]);
+  const y = extraido.postos.find((p) => p.cnpj === '222');
+  igual('extrairPostosDeLinhas: posto só com etanol', y.gas, null);
+  igual('extrairPostosDeLinhas: preço de etanol', y.eta, 4.1);
+  ok('extrairPostosDeLinhas: guarda endereço e bandeira', x.address.includes('RUA A') && x.brand === 'SHELL');
+
+  const porUf = gerarPostosPorUf(extraido.postos, {
+    url: 'https://exemplo/revendas_lpc_2026-10-04_2026-10-10.xlsx',
+    semana: '2026-10-04_2026-10-10',
+    atualizadoEm: '2026-10-17T14:00:00.000Z',
+  });
+  igual('gerarPostosPorUf: agrupa por UF', Object.keys(porUf).sort().join(','), 'SP');
+  igual('gerarPostosPorUf: item compacto de 6 campos', porUf.SP.postos[0].length, 6);
+  const validacaoPostos = validarPostos(porUf);
+  ok('validarPostos: aceita os arquivos gerados', validacaoPostos.ok, JSON.stringify(validacaoPostos.erros));
+  const ruim = validarPostos({ SP: { postos: [['Cidade', 'Posto', 'B', 'A', 99, null]] } });
+  ok('validarPostos: rejeita preço implausível', !ruim.ok);
+
+  const arquivos = readdirSync(DIRETORIO_POSTOS).filter((nome) => nome.endsWith('.json'));
+  ok('postos/: arquivos por UF no repositório', arquivos.length >= 27, `${arquivos.length} arquivos`);
+  let totalPostos = 0;
+  let algumErro = null;
+  for (const arquivo of arquivos) {
+    const dados = JSON.parse(readFileSync(join(DIRETORIO_POSTOS, arquivo), 'utf8'));
+    const validacao = validarPostos({ [dados.uf]: dados });
+    if (!validacao.ok) algumErro = `${arquivo}: ${validacao.erros[0]}`;
+    totalPostos += dados.postos.length;
+  }
+  ok('postos/: todos os arquivos validam', algumErro === null, algumErro ?? '');
+  ok('postos/: volume de postos plausível', totalPostos > 3000, `${totalPostos} postos`);
+}
+
 // 25-27: diferença resumida e argumentos
 {
   const antes = precosDemo({ brasil: { ...clone(BRASIL_ESPERADO), gasolinaComum: { media: 6.52, min: 5.37, max: 8.99, postos: 4470 } } });
@@ -592,6 +721,7 @@ lanca('XLSX: buffer não-ZIP é rejeitado', () => extrairPrecosDoArquivo(Buffer.
     saida: 'b.json',
     semana: '2026-10-04_2026-10-10',
     dryRun: true,
+    semPostos: false,
     ajuda: false,
   });
   lanca('argumentos: flag desconhecida', () => parsearArgumentos(['--turbo']), 'desconhecido');

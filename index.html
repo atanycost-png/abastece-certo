@@ -31,7 +31,7 @@
 <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
 <style>
   /* ============================================================
-     Abastece Certo — v4 · "App nativo limpo"
+     Abastece Certo — v5 · "App nativo limpo"
      Tokens claros/escuros, cartões suaves, um acento verde.
      ============================================================ */
   :root {
@@ -433,6 +433,20 @@
   }
   .update-bar .btn { min-height: 40px; padding: 8px 12px; font-size: 12px; }
 
+  /* iOS: fonte < 16px em campo faz o Safari dar zoom ao focar. */
+  @media (max-width: 600px) {
+    .field input, .field select, .ref-actions select, #fillStation { font-size: 16px; }
+  }
+
+  .data-banner {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    margin: 0 0 12px; padding: 10px 12px; border-radius: 12px;
+    background: rgba(245, 158, 11, .14); border: 1px solid rgba(245, 158, 11, .38);
+    font-size: 12px; font-weight: 600; line-height: 1.35;
+  }
+  .data-banner[hidden] { display: none; }
+  .data-banner .btn { min-height: 34px; padding: 6px 10px; font-size: 12px; white-space: nowrap; }
+
   .sr-only {
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
@@ -522,6 +536,12 @@
     <span class="net-badge" id="netBadge" hidden>offline</span>
   </header>
 
+  <div class="data-banner" id="dataBanner" role="status" hidden>
+    <span id="dataBannerText">Preços da ANP podem estar desatualizados.</span>
+    <button type="button" class="btn ghost" id="dataBannerBtn">Ver dados</button>
+  </div>
+
+  <main id="appMain">
   <section class="card">
     <h2>Preços na bomba</h2>
     <div class="field price">
@@ -566,6 +586,11 @@
         </div>
         <p class="hint" id="nearbyHint"></p>
         <ul id="nearbyList" class="station-list"></ul>
+        <div class="veh-actions">
+          <button type="button" class="btn ghost" id="cityPricesBtn">Preços oficiais por posto na cidade</button>
+        </div>
+        <p class="fineprint" id="cityPricesHint" hidden></p>
+        <ul id="cityPricesList" class="station-list"></ul>
         <p class="hint" id="stationHint"></p>
       </div>
     </details>
@@ -692,6 +717,13 @@
           </div>
         </div>
         <div class="field no-prefix">
+          <label for="fillStation">Posto (opcional)</label>
+          <div class="box">
+            <input id="fillStation" type="text" maxlength="40" placeholder="Ex.: Posto da esquina" autocomplete="off" list="fillStationList">
+          </div>
+        </div>
+        <datalist id="fillStationList"></datalist>
+        <div class="field no-prefix">
           <label for="fillOdometer">Hodômetro (km total do carro)</label>
           <div class="box">
             <input id="fillOdometer" class="has-unit" type="text" inputmode="numeric" placeholder="45.320" autocomplete="off" aria-describedby="fillHint">
@@ -741,6 +773,7 @@
       <div class="body">
         <p class="fineprint" id="reportSummary">Registre abastecimentos no diário para ver custo, km/L e economia por mês.</p>
         <ul id="reportList" class="station-list"></ul>
+        <ul id="reportStations" class="station-list"></ul>
         <p class="fineprint">O custo usa o preço que estava no app quando você salvou o abastecimento; a economia compara com o outro combustível naquele momento. Registros sem preço entram nos litros/km, mas não no custo.</p>
       </div>
     </details>
@@ -794,8 +827,10 @@
     </details>
   </section>
 
+  </main>
+
   <footer>
-    <div class="foot-line">Funciona offline · sem cadastro · cálculo local no seu aparelho · v4 · preços de referência ANP</div>
+    <div class="foot-line">Funciona offline · sem cadastro · cálculo local no seu aparelho · v5 · preços de referência ANP</div>
     <div class="foot-actions">
       <button type="button" class="link" id="installBtn" hidden>Instalar app</button>
       <button type="button" class="link" id="aboutBtn">Sobre e dados</button>
@@ -808,11 +843,17 @@
 <div class="sheet" id="about" role="dialog" aria-modal="true" aria-labelledby="aboutTitle" hidden>
   <div class="sheet-card">
     <h2 id="aboutTitle">Sobre e dados</h2>
-    <p class="sheet-line">Versão <strong>v4</strong> · <span id="aboutWeek">preços de referência ANP</span></p>
+    <p class="sheet-line">Versão <strong>v5</strong> · <span id="aboutWeek">preços de referência ANP</span></p>
     <p class="sheet-line">Preços médios: <strong>ANP — Levantamento de Preços de Combustíveis</strong> (média por estado/município, não é o preço do seu posto). O app não coleta nem envia dados: tudo fica neste aparelho.</p>
     <p class="sheet-line">Feito para decidir em 5 segundos: modo rápido (regra E32/E25) e modo preciso (custo por km).</p>
     <p class="sheet-line">“Postos perto de mim” consulta o <strong>OpenStreetMap</strong> via Photon (Komoot) e, se precisar, o Overpass só quando você toca no botão; a localização não é guardada e os preços não vêm do mapa. Se nenhum serviço responder, abrimos o Google Maps.</p>
     <p class="sheet-line" id="aboutStatus">Modo: aberto no navegador · Service worker: verificando…</p>
+    <p class="sheet-line"><strong>Backup:</strong> exporte seus dados (histórico, veículos, diário, postos, tema) para trocar de aparelho. Importar substitui os dados deste aparelho.</p>
+    <div class="sheet-actions">
+      <button type="button" class="btn ghost" id="backupExport">Exportar dados</button>
+      <label class="btn ghost" for="backupFile" tabindex="0">Importar dados</label>
+      <input type="file" id="backupFile" accept="application/json,.json" hidden>
+    </div>
     <div class="sheet-actions">
       <button type="button" class="btn ghost" id="aboutRefresh">Atualizar preços</button>
       <button type="button" class="btn danger" id="aboutClear">Apagar dados deste aparelho</button>
@@ -947,6 +988,16 @@
       return Math.min(hi, Math.max(lo, v));
     }
 
+    /** Normaliza nomes para comparar cidade/posto (sem acento, maiúsculo). */
+    function normalizarNome(texto) {
+      return String(texto === null || texto === undefined ? "" : texto)
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toUpperCase();
+    }
+
     /**
      * Consumo médio ponderado cidade/estrada (km/L).
      * Média harmônica: litros por km = wCidade/consumoCidade + wEstrada/consumoEstrada.
@@ -1027,6 +1078,7 @@
     function monthlyReport(entries) {
       var lista = Array.isArray(entries) ? entries : [];
       var meses = {};
+      var porPosto = {};
       var total = { liters: 0, km: 0, cost: 0, savings: 0, entries: 0, months: 0, priced: 0 };
       for (var i = 0; i < lista.length; i++) {
         var f = lista[i];
@@ -1054,6 +1106,7 @@
           m.priced++;
           total.priced++;
         }
+        var economia = null;
         if (
           km > 0 &&
           isFinite(f.price) && f.price > 0 &&
@@ -1063,9 +1116,20 @@
         ) {
           var custoReal = f.liters * f.price;
           var custoAlternativo = (km / f.otherKmL) * f.otherPrice;
-          var economia = custoAlternativo - custoReal;
+          economia = custoAlternativo - custoReal;
           m.savings += economia;
           total.savings += economia;
+        }
+        var posto = String(f.station || "").replace(/\s+/g, " ").trim().slice(0, 40);
+        if (posto) {
+          if (!porPosto[posto]) {
+            porPosto[posto] = { station: posto, liters: 0, cost: 0, savings: 0, entries: 0 };
+          }
+          var pp = porPosto[posto];
+          pp.entries++;
+          pp.liters += f.liters;
+          if (isFinite(f.price) && f.price > 0) pp.cost += f.liters * f.price;
+          if (economia !== null) pp.savings += economia;
         }
       }
       var saida = Object.keys(meses).sort().map(function (chave) {
@@ -1085,7 +1149,12 @@
       var litrosComKm = 0;
       for (var j = 0; j < saida.length; j++) litrosComKm += meses[saida[j].month].litersKm;
       total.kmL = litrosComKm > 0 ? total.km / litrosComKm : null;
-      return { months: saida, totals: total };
+      var stations = Object.keys(porPosto).map(function (nome) { return porPosto[nome]; });
+      stations.sort(function (a, b) {
+        if (b.savings !== a.savings) return b.savings - a.savings;
+        return b.liters - a.liters;
+      });
+      return { months: saida, totals: total, stations: stations.slice(0, 20) };
     }
 
     function pctLabel(v) {
@@ -1353,6 +1422,37 @@
           if (Object.keys(saida).length) municipios[uf] = saida;
         });
       }
+      var historico = [];
+      if (Object.prototype.toString.call(data.historico) === "[object Array]") {
+        data.historico.slice(-8).forEach(function (h) {
+          if (!h || typeof h !== "object") return;
+          var wk = String(h.semana || "");
+          if (!/^\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}$/.test(wk)) return;
+          var hb = h.brasil || {};
+          var hg = Number(hb.gasolina !== undefined ? hb.gasolina : hb.gasolinaComum);
+          var ha = Number(hb.aditivada !== undefined ? hb.aditivada : hb.gasolinaAditivada);
+          var he = Number(hb.etanol);
+          var hs = {};
+          if (h.estados && typeof h.estados === "object") {
+            Object.keys(h.estados).forEach(function (uf) {
+              if (!/^[A-Z]{2}$/.test(uf)) return;
+              var s = h.estados[uf] || {};
+              var g = Number(s.gasolina !== undefined ? s.gasolina : s.gasolinaComum);
+              var e = Number(s.etanol);
+              if (isFinite(g) && g > 0 && isFinite(e) && e > 0) hs[uf] = { gasolina: g, etanol: e };
+            });
+          }
+          historico.push({
+            semana: wk,
+            brasil: {
+              gasolina: isFinite(hg) && hg > 0 ? hg : null,
+              aditivada: isFinite(ha) && ha > 0 ? ha : null,
+              etanol: isFinite(he) && he > 0 ? he : null
+            },
+            estados: hs
+          });
+        });
+      }
       return {
         fonte: typeof data.fonte === "string" ? data.fonte : "ANP",
         semana: semana,
@@ -1366,7 +1466,8 @@
           etanolMax: optNum(br.etanol && br.etanol.max)
         },
         estados: estados,
-        municipios: municipios
+        municipios: municipios,
+        historico: historico
       };
     }
 
@@ -1377,6 +1478,66 @@
       var b = String(w.fim).split("-");
       if (a[0] === b[0] && a[1] === b[1]) return a[2] + "\u2013" + b[2] + "/" + b[1] + "/" + b[0];
       return a[2] + "/" + a[1] + "/" + a[0] + "\u2013" + b[2] + "/" + b[1] + "/" + b[0];
+    }
+
+    /**
+     * Dias corridos desde o fim da semana de referência (data local).
+     * Usado para avisar quando os preços da ANP estão velhos.
+     */
+    function diasDesdeSemana(fimISO, agora) {
+      var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(fimISO || ""));
+      if (!m) return NaN;
+      var fim = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+      var hoje = agora ? new Date(agora) : new Date();
+      if (isNaN(hoje.getTime())) return NaN;
+      var base = Date.UTC(hoje.getFullYear(), hoje.getMonth(), hoje.getDate());
+      return Math.floor((base - fim) / 86400000);
+    }
+
+    /** Variação de preço entre as duas últimas semanas do histórico (Brasil ou UF). */
+    function tendenciaPrecos(prices, uf) {
+      var h = prices && Array.isArray(prices.historico) ? prices.historico : null;
+      if (!h || h.length < 2) return null;
+      var atual = h[h.length - 1];
+      var anterior = h[h.length - 2];
+      var a = uf ? (atual.estados && atual.estados[uf]) : atual.brasil;
+      var b = uf ? (anterior.estados && anterior.estados[uf]) : anterior.brasil;
+      if (!a || !b) return null;
+      function delta(x, y) {
+        var nx = Number(x);
+        var ny = Number(y);
+        return isFinite(nx) && isFinite(ny) ? nx - ny : null;
+      }
+      var gas = delta(a.gasolina, b.gasolina);
+      var eta = delta(a.etanol, b.etanol);
+      var adi = delta(a.aditivada, b.aditivada);
+      if (gas === null && eta === null && adi === null) return null;
+      return {
+        semanaAtual: atual.semana,
+        semanaAnterior: anterior.semana,
+        gasolina: gas,
+        aditivada: adi,
+        etanol: eta
+      };
+    }
+
+    /** Valida o JSON de backup antes de restaurar (nunca confia no arquivo). */
+    function validarBackup(obj) {
+      if (!obj || typeof obj !== "object") return { ok: false, erro: "Arquivo inválido." };
+      if (obj.app !== "abastece-certo") return { ok: false, erro: "Este arquivo não é um backup do Abastece Certo." };
+      var dados = obj.dados;
+      if (!dados || typeof dados !== "object") return { ok: false, erro: "Backup sem dados." };
+      var validos = {};
+      var total = 0;
+      Object.keys(dados).forEach(function (chave) {
+        if (!/^ac\.[A-Za-z0-9._-]{1,60}$/.test(chave)) return;
+        var valor = dados[chave];
+        if (typeof valor !== "string" || valor.length > 2000000) return;
+        validos[chave] = valor;
+        total++;
+      });
+      if (!total) return { ok: false, erro: "Backup não tem nenhum dado reconhecido." };
+      return { ok: true, dados: validos, total: total };
     }
 
     // ---------------- v3: histórico local ----------------
@@ -1508,10 +1669,14 @@
       parsePrice: parsePrice,
       parseKmL: parseKmL,
       isValidKmL: isValidKmL,
+      normalizarNome: normalizarNome,
       weightedKmL: weightedKmL,
       averageConsumption: averageConsumption,
       recomputeOdometerKm: recomputeOdometerKm,
       monthlyReport: monthlyReport,
+      diasDesdeSemana: diasDesdeSemana,
+      tendenciaPrecos: tendenciaPrecos,
+      validarBackup: validarBackup,
       MAX_PRICE: MAX_PRICE,
       MIN_KML: MIN_KML,
       MAX_KML: MAX_KML,
@@ -1561,9 +1726,10 @@
     gasRoadKmLHint: $("gasRoadKmLHint"), etaRoadKmLHint: $("etaRoadKmLHint"),
     cityPct: $("cityPct"), cityPctVal: $("cityPctVal"), kmLEffective: $("kmLEffective"),
     fillFuel: $("fillFuel"), fillLiters: $("fillLiters"), fillOdometer: $("fillOdometer"),
+    fillStation: $("fillStation"), fillStationList: $("fillStationList"),
     fillSave: $("fillSave"), fillList: $("fillList"), fillSummary: $("fillSummary"),
     fillUse: $("fillUse"), fillClear: $("fillClear"), fillHint: $("fillHint"), fillCount: $("fillCount"),
-    reportSummary: $("reportSummary"), reportList: $("reportList"),
+    reportSummary: $("reportSummary"), reportList: $("reportList"), reportStations: $("reportStations"),
     kmMonth: $("kmMonth"), kmMonthHint: $("kmMonthHint"),
     vehSave: $("vehSave"), vehDelete: $("vehDelete"),
     resultOut: $("resultOut"), live: $("live"), liveForm: $("liveForm"),
@@ -1575,10 +1741,13 @@
     installBtn: $("installBtn"), aboutBtn: $("aboutBtn"), about: $("about"),
     aboutWeek: $("aboutWeek"), aboutRefresh: $("aboutRefresh"),
     aboutClear: $("aboutClear"), aboutClose: $("aboutClose"), aboutStatus: $("aboutStatus"),
+    dataBanner: $("dataBanner"), dataBannerText: $("dataBannerText"), dataBannerBtn: $("dataBannerBtn"),
+    backupExport: $("backupExport"), backupFile: $("backupFile"),
     stationName: $("stationName"), stationSave: $("stationSave"),
     stationList: $("stationList"), stationCount: $("stationCount"), stationHint: $("stationHint"),
     nearbyBtn: $("nearbyBtn"), nearbyList: $("nearbyList"), nearbyHint: $("nearbyHint"),
-    nearbyMaps: $("nearbyMaps")
+    nearbyMaps: $("nearbyMaps"),
+    cityPricesBtn: $("cityPricesBtn"), cityPricesHint: $("cityPricesHint"), cityPricesList: $("cityPricesList"),
   };
 
   // ---------------------------------------------------------------- máscara de preço
@@ -2467,17 +2636,99 @@
       return;
     }
     clearTimeout(aboutTimer);
-    ["ac.theme", "ac.uf", "ac.v2", "ac.v3.prices", "ac.v3.history"].forEach(function (k) {
-      try { localStorage.removeItem(k); } catch (e) { /* storage indisponível */ }
-    });
+    apagarChavesLocais();
     toast("Dados apagados");
     setTimeout(function () {
       try { location.reload(); } catch (e) { /* sem reload */ }
     }, 500);
   });
 
+  function apagarChavesLocais() {
+    try {
+      var remover = [];
+      for (var i = 0; i < localStorage.length; i++) {
+        var chave = localStorage.key(i);
+        if (chave && chave.indexOf("ac.") === 0) remover.push(chave);
+      }
+      remover.forEach(function (k) { localStorage.removeItem(k); });
+    } catch (e) { /* storage indisponível */ }
+  }
+
+  function exportarBackup() {
+    try {
+      var dados = {};
+      for (var i = 0; i < localStorage.length; i++) {
+        var chave = localStorage.key(i);
+        if (!chave || chave.indexOf("ac.") !== 0) continue;
+        var valor = localStorage.getItem(chave);
+        if (typeof valor === "string" && valor.length <= 2000000) dados[chave] = valor;
+      }
+      var payload = { app: "abastece-certo", versao: 1, exportadoEm: new Date().toISOString(), dados: dados };
+      if (typeof Blob !== "function" || typeof URL === "undefined" || typeof URL.createObjectURL !== "function") {
+        toast("Exportação não suportada neste navegador");
+        return;
+      }
+      var blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement("a");
+      a.href = url;
+      a.download = "abastece-certo-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 3000);
+      toast("Backup exportado");
+    } catch (e) {
+      toast("Não foi possível exportar o backup");
+    }
+  }
+
+  function importarBackup(arquivo) {
+    if (!arquivo || typeof FileReader !== "function") {
+      toast("Importação não suportada neste navegador");
+      return;
+    }
+    var leitor = new FileReader();
+    leitor.onload = function () {
+      var obj = null;
+      try { obj = JSON.parse(String(leitor.result)); } catch (e) { obj = null; }
+      var validado = AC.validarBackup(obj);
+      if (!validado.ok) { toast(validado.erro); return; }
+      if (typeof window.confirm === "function" &&
+        !window.confirm("Substituir os dados deste aparelho pelos " + validado.total + " itens do backup?")) {
+        return;
+      }
+      try {
+        apagarChavesLocais();
+        Object.keys(validado.dados).forEach(function (k) {
+          try { localStorage.setItem(k, validado.dados[k]); } catch (e) { /* cota */ }
+        });
+        toast("Backup restaurado — recarregando…");
+        setTimeout(function () {
+          try { location.reload(); } catch (e) { /* sem reload */ }
+        }, 700);
+      } catch (e) {
+        toast("Não foi possível restaurar o backup");
+      }
+    };
+    leitor.onerror = function () { toast("Não foi possível ler o arquivo"); };
+    leitor.readAsText(arquivo);
+  }
+
+  if (ui.backupExport) ui.backupExport.addEventListener("click", exportarBackup);
+  if (ui.backupFile) {
+    ui.backupFile.addEventListener("change", function () {
+      var arquivo = this.files && this.files[0];
+      if (arquivo) importarBackup(arquivo);
+      this.value = "";
+    });
+  }
+  if (ui.dataBannerBtn) ui.dataBannerBtn.addEventListener("click", openAbout);
+
   // ---------------------------------------------------------------- preços ANP (v3)
   var PRICES_KEY = "ac.v3.prices";
+  var SEMANA_FALLBACK = { inicio: "2026-11-15", fim: "2026-11-21" };
+  var DIAS_DADOS_VELHOS = 14;
   var UF_KEY = "ac.uf";
   var CITY_KEY = "ac.cidade";
 
@@ -2546,6 +2797,27 @@
     var faixaGas = !uf ? faixa(values.gasolinaMin, values.gasolinaMax) : "";
     var faixaEta = !uf ? faixa(values.etanolMin, values.etanolMax) : "";
 
+    var trendHtml = "";
+    var tend = AC.tendenciaPrecos(p, uf);
+    if (tend) {
+      function trendTexto(v) {
+        if (v === null || !isFinite(v)) return "";
+        if (Math.abs(v) < 0.005) return "estável";
+        return (v > 0 ? "▲ +" : "▼ −") + AC.fmtBRL(Math.abs(v));
+      }
+      var partesTrend = [];
+      if (tend.gasolina !== null) partesTrend.push("gasolina " + trendTexto(tend.gasolina));
+      if (tend.etanol !== null) partesTrend.push("etanol " + trendTexto(tend.etanol));
+      if (partesTrend.length) {
+        var anterior = String(tend.semanaAnterior || "").split("_");
+        var rotuloAnterior = anterior.length === 2
+          ? AC.formatWeek({ inicio: anterior[0], fim: anterior[1] })
+          : "";
+        trendHtml = '<p class="ref-note ref-trend">vs semana de ' + rotuloAnterior + ": "
+          + partesTrend.join(" · ") + "</p>";
+      }
+    }
+
     var opts = '<option value="">Brasil (média nacional)</option>';
     for (var i = 0; i < ufs.length; i++) {
       opts += '<option value="' + ufs[i] + '"' + (ufs[i] === uf ? " selected" : "") + ">" + ufs[i] + "</option>";
@@ -2576,7 +2848,22 @@
       '<button type="button" class="btn ghost" id="refUse">Preencher preços</button>' +
       "</div>" +
       '<p class="ref-values">' + onde + ": Gasolina <strong>" + AC.fmtBRL(values.gasolina) + "/L</strong>" + faixaGas
-        + " · Etanol <strong>" + AC.fmtBRL(values.etanol) + "/L</strong>" + faixaEta + "</p>";
+        + " · Etanol <strong>" + AC.fmtBRL(values.etanol) + "/L</strong>" + faixaEta + "</p>" + trendHtml;
+    atualizarBannerDados();
+  }
+
+  /** Selo no topo quando a semana da ANP tem mais de duas semanas. */
+  function atualizarBannerDados() {
+    if (!ui.dataBanner) return;
+    var semana = (state.prices && state.prices.semana) || SEMANA_FALLBACK;
+    var dias = AC.diasDesdeSemana(semana.fim);
+    if (!isFinite(dias) || dias <= DIAS_DADOS_VELHOS) {
+      ui.dataBanner.hidden = true;
+      return;
+    }
+    ui.dataBannerText.textContent = "Preços da ANP de " + AC.formatWeek(semana) + " (" + dias + " dias). Podem estar desatualizados.";
+    if (ui.dataBannerBtn) ui.dataBannerBtn.textContent = "Ver dados";
+    ui.dataBanner.hidden = false;
   }
 
   function useRefPrices() {
@@ -2680,6 +2967,14 @@
         + "</span>"
         + '<span class="hist-when">' + AC.fmtDateTime(s.ts) + "</span>"
         + "</li>";
+    }).join("");
+    renderStationDatalist();
+  }
+
+  function renderStationDatalist() {
+    if (!ui.fillStationList) return;
+    ui.fillStationList.innerHTML = stations.map(function (s) {
+      return '<option value="' + escapeHtml(s.name) + '"></option>';
     }).join("");
   }
 
@@ -2797,6 +3092,31 @@
   // O filtro osm_tag garante que só venham postos de combustível.
   var PHOTON_URL = "https://photon.komoot.io/api/";
   var PHOTON_PRAZO_MS = 6000;
+  var NEARBY_KEY = "ac.v4.nearby";
+  var NEARBY_CACHE_KM = 30;
+
+  function lerNearbyCache() {
+    var bruto = safeGet(NEARBY_KEY);
+    if (!bruto) return null;
+    try {
+      var c = JSON.parse(bruto);
+      if (!c || !isFinite(c.ts) || !isFinite(c.lat) || !isFinite(c.lon) || !Array.isArray(c.itens)) return null;
+      var itens = c.itens.filter(function (s) {
+        return s && typeof s.name === "string" && isFinite(s.lat) && isFinite(s.lon) && isFinite(s.distanceKm);
+      }).slice(0, 12);
+      if (!itens.length) return null;
+      return { ts: Number(c.ts), lat: Number(c.lat), lon: Number(c.lon), itens: itens };
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function salvarNearbyCache(lat, lon, lista) {
+    if (!lista || !lista.length) return;
+    try {
+      safeSet(NEARBY_KEY, JSON.stringify({ ts: Date.now(), lat: lat, lon: lon, itens: lista.slice(0, 12) }));
+    } catch (e) { /* cota */ }
+  }
 
   function fetchPhoton(lat, lon) {
     var url = PHOTON_URL
@@ -2868,8 +3188,8 @@
       toast("Postos próximos precisam do app instalado ou aberto por http(s)");
       return;
     }
-    if (navigator.onLine === false) {
-      toast("Postos próximos precisam de internet");
+    if (navigator.onLine === false && !lerNearbyCache()) {
+      toast("Postos próximos precisam de internet na primeira busca");
       return;
     }
     nearbyBusy = true;
@@ -2895,22 +3215,45 @@
 
     if (ui.nearbyMaps) ui.nearbyMaps.hidden = true;
 
+    function mostrarCachePostos(lat, lon, motivo) {
+      var cache = lerNearbyCache();
+      if (!cache) return false;
+      var km = AC.haversineKm(lat, lon, cache.lat, cache.lon);
+      if (!(km <= NEARBY_CACHE_KM)) return false;
+      renderNearby(cache.itens);
+      abrirMapa(lat, lon);
+      ui.nearbyHint.textContent = motivo + " — últimos postos vistos em " + AC.fmtDateTime(cache.ts)
+        + ". Abra o Google Maps para conferir.";
+      return true;
+    }
+
     navigator.geolocation.getCurrentPosition(function (pos) {
       var lat = pos.coords.latitude;
       var lon = pos.coords.longitude;
+      if (navigator.onLine === false) {
+        if (!mostrarCachePostos(lat, lon, "Você está offline")) {
+          abrirMapa(lat, lon);
+          ui.nearbyHint.textContent = "Você está offline e ainda não há postos salvos. Abra o Google Maps para ver os postos próximos.";
+        }
+        encerrar();
+        return;
+      }
       ui.nearbyHint.textContent = "Buscando postos num raio de 2 km (até 10 s)…";
       buscarPostos(lat, lon)
         .then(function (lista) {
           if (!lista.length) {
+            if (mostrarCachePostos(lat, lon, "Nenhum posto novo encontrado")) return;
             abrirMapa(lat, lon);
             ui.nearbyHint.textContent = "Nenhum posto mapeado num raio de 2 km. Abra o Google Maps para ver os postos próximos.";
             return;
           }
           if (ui.nearbyMaps) ui.nearbyMaps.hidden = true;
+          salvarNearbyCache(lat, lon, lista);
           renderNearby(lista);
           ui.nearbyHint.textContent = "Postos do OpenStreetMap (sem preço) — toque em “Usar nome” e salve o preço que você viu. Dados © OpenStreetMap (ODbL).";
         })
         .catch(function () {
+          if (mostrarCachePostos(lat, lon, "O mapa do OpenStreetMap não respondeu")) return;
           abrirMapa(lat, lon);
           ui.nearbyHint.textContent = "O mapa do OpenStreetMap não respondeu agora. Abra o Google Maps para ver os postos próximos.";
         })
@@ -2942,6 +3285,87 @@
     });
   }
 
+  // ---------------------------------------------------------------- preços oficiais por posto (v5)
+  var cityPostosCache = {};
+  var cityPostosAtuais = [];
+
+  function fetchCityPostos(uf) {
+    if (cityPostosCache[uf]) return Promise.resolve(cityPostosCache[uf]);
+    return fetch("./postos/" + uf + ".json", { cache: "no-cache" }).then(function (r) {
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      return r.json();
+    }).then(function (dados) {
+      if (!dados || !Array.isArray(dados.postos)) throw new Error("dados inválidos");
+      cityPostosCache[uf] = dados;
+      return dados;
+    });
+  }
+
+  function usarPrecoPosto(indice) {
+    var p = cityPostosAtuais[indice];
+    if (!p) return;
+    if (isFinite(p[4])) setPriceDigits(ui.gas, AC.toInputValue(p[4]));
+    if (isFinite(p[5])) setPriceDigits(ui.eta, AC.toInputValue(p[5]));
+    if (ui.stationName) ui.stationName.value = p[1] || "";
+    render();
+    saveState();
+    toast("Preços de " + p[1] + " aplicados");
+  }
+
+  function mostrarPrecosCidade() {
+    if (!ui.cityPricesList) return;
+    var uf = selectedUf() || cidadeSalva().uf || safeGet(UF_KEY) || "";
+    var cidade = selectedCity() || cidadeSalva().nome || "";
+    ui.cityPricesHint.hidden = false;
+    if (!uf || !cidade) {
+      ui.cityPricesHint.textContent = "Escolha o estado e a cidade na Referência ANP para ver os preços oficiais por posto.";
+      toast("Escolha a cidade na Referência ANP");
+      return;
+    }
+    ui.cityPricesHint.textContent = "Carregando preços oficiais de " + cidade + " (" + uf + ")…";
+    fetchCityPostos(uf).then(function (dados) {
+      var alvo = AC.normalizarNome(cidade);
+      var lista = dados.postos.filter(function (p) { return AC.normalizarNome(p[0]) === alvo; });
+      if (!lista.length) {
+        ui.cityPricesList.innerHTML = "";
+        ui.cityPricesHint.textContent = "Sem preços por posto para " + cidade + " nesta semana.";
+        return;
+      }
+      lista.sort(function (a, b) {
+        var ga = isFinite(a[4]) ? a[4] : 99;
+        var gb = isFinite(b[4]) ? b[4] : 99;
+        if (ga !== gb) return ga - gb;
+        return String(a[1]).localeCompare(String(b[1]), "pt-BR");
+      });
+      cityPostosAtuais = lista.slice(0, 20);
+      ui.cityPricesList.innerHTML = cityPostosAtuais.map(function (p, i) {
+        var g = isFinite(p[4]) ? AC.fmtBRL(p[4]) : "—";
+        var e = isFinite(p[5]) ? AC.fmtBRL(p[5]) : "—";
+        return '<li class="station-item">'
+          + '<span class="station-name">' + escapeHtml(p[1]) + "</span>"
+          + '<span class="station-prices">G ' + g + " · E " + e + (p[2] ? " · " + escapeHtml(p[2]) : "") + "</span>"
+          + (p[3] ? '<span class="hist-when">' + escapeHtml(p[3]) + "</span>" : "")
+          + '<span class="station-actions">'
+          + '<button type="button" class="btn ghost" data-city-price="' + i + '">Usar preço</button>'
+          + "</span>"
+          + "</li>";
+      }).join("");
+      ui.cityPricesHint.textContent = "Preços oficiais da ANP em " + cidade + " (" + uf + ") · " + lista.length
+        + " posto(s) · semana " + AC.formatWeek(dados.semana) + ". "
+        + (lista.length > 20 ? "Mostrando os 20 mais baratos. " : "") + "Fonte: ANP.";
+    }).catch(function () {
+      ui.cityPricesList.innerHTML = "";
+      ui.cityPricesHint.textContent = "Ainda não há preços por posto para " + uf + " (o arquivo é gerado na atualização semanal).";
+    });
+  }
+
+  if (ui.cityPricesBtn) ui.cityPricesBtn.addEventListener("click", mostrarPrecosCidade);
+  if (ui.cityPricesList) ui.cityPricesList.addEventListener("click", function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest("[data-city-price]") : null;
+    if (!btn) return;
+    usarPrecoPosto(Number(btn.getAttribute("data-city-price")));
+  });
+
   // ---------------------------------------------------------------- diário de abastecimentos (v4.5)
   var FILLS_KEY = "ac.v4.fills";
   var FILLS_MAX = 80;
@@ -2967,6 +3391,7 @@
         ts: Number(f.ts),
         odometer: optNum(f.odometer, 0, 2000000),
         km: optNum(f.km, 0, 3000) || 0,
+        station: typeof f.station === "string" ? f.station.replace(/\s+/g, " ").trim().slice(0, 40) : "",
         price: optNum(f.price, 0.5, 30),
         otherPrice: optNum(f.otherPrice, 0.5, 30),
         kmL: optNum(f.kmL, 0.5, 60),
@@ -3005,9 +3430,13 @@
       var kmL = f.km > 0 ? f.km / f.liters : 0;
       var leitura = isFinite(f.odometer) ? "Hodômetro " + AC.fmtNum(f.odometer, 0) : "Registro antigo";
       var kmTexto = f.km > 0 ? "+" + AC.fmtNum(f.km, 0) + " km" : "leitura inicial";
+      var extra = [];
+      if (f.station) extra.push(escapeHtml(f.station));
+      if (isFinite(f.price) && f.price > 0) extra.push(AC.fmtBRL(f.price) + "/L");
       return '<li class="station-item">'
         + '<span class="station-name">' + (f.fuel === "etanol" ? "Etanol" : "Gasolina") + "</span>"
-        + '<span class="station-prices">' + leitura + " · " + AC.fmtNum(f.liters, 1) + " L · " + kmTexto + "</span>"
+        + '<span class="station-prices">' + leitura + " · " + AC.fmtNum(f.liters, 1) + " L · " + kmTexto
+        + (extra.length ? " · " + extra.join(" · ") : "") + "</span>"
         + (kmL > 0 ? '<span class="station-idx">' + AC.fmtNum(kmL, 1) + " km/L</span>" : "")
         + '<span class="station-actions">'
         + '<button type="button" class="btn danger" data-fill="del" data-fid="' + escapeHtml(f.id) + '">Excluir</button>'
@@ -3025,6 +3454,7 @@
     if (!t.months) {
       ui.reportSummary.textContent = "Registre abastecimentos no diário para ver custo, km/L e economia por mês.";
       if (ui.reportList) ui.reportList.innerHTML = "";
+      if (ui.reportStations) ui.reportStations.innerHTML = "";
       return;
     }
     var partes = [];
@@ -3048,6 +3478,23 @@
           + (m.savings !== 0 ? '<span class="station-prices">' + (m.savings > 0 ? "economia " : "a mais ") + AC.fmtBRL(Math.abs(m.savings)) + "</span>" : "")
           + "</li>";
       }).join("");
+    }
+    if (ui.reportStations) {
+      if (!rel.stations || !rel.stations.length) {
+        ui.reportStations.innerHTML = "";
+      } else {
+        ui.reportStations.innerHTML = '<li class="station-item"><span class="station-name"><strong>Economia por posto</strong></span></li>'
+          + rel.stations.map(function (s) {
+            return '<li class="station-item">'
+              + '<span class="station-name">' + escapeHtml(s.station) + "</span>"
+              + '<span class="station-prices">' + AC.fmtNum(s.liters, 1) + " L"
+              + (s.cost > 0 ? " · " + AC.fmtBRL(s.cost) : "") + "</span>"
+              + (s.savings !== 0
+                ? '<span class="station-idx">' + (s.savings > 0 ? "economia " : "a mais ") + AC.fmtBRL(Math.abs(s.savings)) + "</span>"
+                : "")
+              + "</li>";
+          }).join("");
+      }
     }
   }
 
@@ -3104,6 +3551,7 @@
       liters: liters,
       odometer: odometro,
       km: km,
+      station: ui.fillStation ? String(ui.fillStation.value || "").replace(/\s+/g, " ").trim().slice(0, 40) : "",
       ts: Date.now(),
       price: isFinite(dados.price) ? dados.price : null,
       otherPrice: isFinite(dados.otherPrice) ? dados.otherPrice : null,
@@ -3116,6 +3564,7 @@
     renderFills();
     ui.fillLiters.value = "";
     ui.fillOdometer.value = "";
+    if (ui.fillStation) ui.fillStation.value = "";
     toast(km > 0
       ? "Abastecimento salvo (" + AC.fmtNum(km, 0) + " km)"
       : "Leitura inicial salva — o próximo já calcula os km");

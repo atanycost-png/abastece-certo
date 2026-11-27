@@ -485,6 +485,44 @@ test("haversineKm: São Paulo–Rio fica perto de 357 km", () => {
   close(AC.haversineKm(-23.5505, -46.6333, -22.9068, -43.1729), 357, 5);
   close(AC.haversineKm(-23.5505, -46.6333, -23.5505, -46.6333), 0, 1e-9);
 });
+test("diasDesdeSemana conta dias locais e lida com lixo", () => {
+  eq(AC.diasDesdeSemana("2026-11-21", new Date("2026-11-27T12:00:00")), 6);
+  eq(AC.diasDesdeSemana("2026-11-21", new Date("2026-11-21T23:00:00")), 0);
+  eq(AC.diasDesdeSemana("2026-11-28", new Date("2026-11-21T12:00:00")), -7);
+  ok(Number.isNaN(AC.diasDesdeSemana("21/11/2026", new Date("2026-11-27T12:00:00"))));
+  ok(Number.isNaN(AC.diasDesdeSemana("", new Date())));
+});
+test("tendenciaPrecos compara as duas últimas semanas", () => {
+  const prices = {
+    historico: [
+      { semana: "2026-11-08_2026-11-14", brasil: { gasolina: 6.54, aditivada: 6.72, etanol: 4.14 }, estados: { SP: { gasolina: 6.36, etanol: 3.86 } } },
+      { semana: "2026-11-15_2026-11-21", brasil: { gasolina: 6.47, aditivada: 6.64, etanol: 4.29 }, estados: { SP: { gasolina: 6.4, etanol: 4.11 } } }
+    ]
+  };
+  const br = AC.tendenciaPrecos(prices, "");
+  close(br.gasolina, -0.07, 1e-9);
+  close(br.etanol, 0.15, 1e-9);
+  close(br.aditivada, -0.08, 1e-9);
+  const sp = AC.tendenciaPrecos(prices, "SP");
+  close(sp.gasolina, 0.04, 1e-9);
+  close(sp.etanol, 0.25, 1e-9);
+  isNull(AC.tendenciaPrecos({ historico: [prices.historico[0]] }, ""));
+  isNull(AC.tendenciaPrecos({}, ""));
+  isNull(AC.tendenciaPrecos(prices, "XX"));
+});
+test("validarBackup aceita só o formato e as chaves esperadas", () => {
+  const ok = AC.validarBackup({    app: "abastece-certo",
+    versao: 1,
+    dados: { "ac.theme": "dark", "ac.v2": "{}", "outra.chave": "x", "ac.v4.fills": "[1]" }
+  });
+  eq(ok.ok, true);
+  eq(ok.total, 3);
+  eq(Object.keys(ok.dados).sort().join(","), "ac.theme,ac.v2,ac.v4.fills");
+  eq(AC.validarBackup({ app: "outro", dados: { "ac.theme": "dark" } }).ok, false);
+  eq(AC.validarBackup({ app: "abastece-certo", dados: {} }).ok, false);
+  eq(AC.validarBackup(null).ok, false);
+  eq(AC.validarBackup({ app: "abastece-certo", dados: { "ac.x": 123 } }).ok, false);
+});
 test("parseOverpassStations ordena por distância e descarta inválidos", () => {
   const json = {
     elements: [
@@ -591,6 +629,21 @@ test("monthlyReport agrupa por mês e calcula custo, km/L e economia", () => {
   const vazio = AC.monthlyReport([]);
   eq(vazio.months.length, 0);
   isNull(vazio.totals.kmL);
+});
+test("monthlyReport agrega economia por posto", () => {
+  const fills = [
+    { fuel: "gasolina", liters: 30, km: 300, ts: Date.UTC(2026, 9, 5, 12), price: 5, otherPrice: 4, kmL: 10, otherKmL: 7, station: "Posto A" },
+    { fuel: "gasolina", liters: 20, km: 200, ts: Date.UTC(2026, 9, 20, 12), price: 5.5, otherPrice: 4, kmL: 10, otherKmL: 7, station: "Posto B" },
+    { fuel: "etanol", liters: 10, km: 70, ts: Date.UTC(2026, 9, 21, 12), price: 4, otherPrice: 6, kmL: 7, otherKmL: 10, station: "Posto A" }
+  ];
+  const r = AC.monthlyReport(fills);
+  eq(r.stations.length, 2);
+  const a = r.stations.filter((s) => s.station === "Posto A")[0];
+  close(a.liters, 40, 1e-9);
+  close(a.cost, 30 * 5 + 10 * 4, 1e-9);
+  ok(a.savings > 0, "economia acumulada do posto A");
+  eq(r.stations[0].station, "Posto A", "Posto A tem a maior economia");
+  eq(AC.monthlyReport(fills.map((f) => ({ ...f, station: "" }))).stations.length, 0);
 });
 test("formatWeek formata mesma semana e virada de mês", () => {
   eq(AC.formatWeek({ inicio: "2026-10-04", fim: "2026-10-10" }), "04\u201310/10/2026");

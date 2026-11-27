@@ -72,18 +72,18 @@ jobs:
             }
           "
 
-      - name: Commitar somente se precos.json mudou
+      - name: Commitar somente se precos.json ou postos mudaram
         run: |
-          if git diff --quiet -- precos.json; then
-            echo "precos.json não mudou nesta execução; nada a commitar."
+          if git diff --quiet -- precos.json postos; then
+            echo "precos.json/postos não mudaram nesta execução; nada a commitar."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add precos.json
-          git commit -m "chore(dados): atualiza precos.json com a semana mais recente da ANP"
+          git add precos.json postos
+          git commit -m "chore(dados): atualiza precos.json e postos com a semana mais recente da ANP"
           if ! git push; then
             git pull --rebase --autostash
             git push
           fi
-          echo "precos.json atualizado e enviado ao repositório."
+          echo "precos.json/postos atualizados e enviados ao repositório."

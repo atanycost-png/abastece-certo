@@ -2724,16 +2724,21 @@ test("v4.5 diário: hodômetro calcula km, consumo real e relatório", () => {
   // leitura inicial do hodômetro
   env.input("fillLiters", "20");
   env.input("fillOdometer", "45000");
+  env.input("fillStation", "Posto A");
   env.fire(env.$("fillSave"), "click", {});
   eq(env.$("fillCount").textContent, "1");
   includes(env.text("fillSummary"), "próximo abastecimento");
   // segundo registro: 620 km rodados com 50 L -> 12,4 km/L
   env.input("fillLiters", "50");
   env.input("fillOdometer", "45620");
+  env.input("fillStation", "Posto A");
   env.fire(env.$("fillSave"), "click", {});
   eq(env.$("fillCount").textContent, "2");
   includes(env.text("fillSummary"), "12,4 km/L");
   includes(env.html("fillList"), "+620 km");
+  includes(env.html("fillList"), "Posto A");
+  includes(env.html("reportStations"), "Posto A");
+  includes(env.text("reportStations"), "economia");
   // hodômetro menor é recusado
   env.input("fillLiters", "10");
   env.input("fillOdometer", "45600");
@@ -2754,6 +2759,13 @@ test("v4.5 diário: hodômetro calcula km, consumo real e relatório", () => {
   eq(env.$("fillCount").textContent, "1");
   env.fire(env.$("fillClear"), "click", {});
   eq(env.$("fillCount").textContent, "0");
+});
+
+test("v5 preços por posto: botão pede cidade na referência ANP", () => {
+  const env = boot();
+  env.fire(env.$("cityPricesBtn"), "click", {});
+  includes(env.text("cityPricesHint"), "Escolha o estado e a cidade");
+  eq(env.$("cityPricesList").children.length, 0);
 });
 
 // ==========================================================================

@@ -2656,6 +2656,33 @@ test("v4 cidade: select de cidade aparece, preenche e é lembrado", () => {
   eq(cidade2.value, "São Paulo");
 });
 
+test("v5 preço com uma casa decimal não vira 65 (RJ 6,5)", () => {
+  const fixture = {
+    fonte: "ANP",
+    semana: { inicio: "2026-11-15", fim: "2026-11-21" },
+    atualizadoEm: new Date().toISOString(),
+    brasil: {
+      gasolinaComum: { media: 6.47, min: 5.29, max: 8.99, postos: 4584 },
+      gasolinaAditivada: { media: 6.64, min: 5.49, max: 8.99, postos: 3511 },
+      etanol: { media: 4.29, min: 3.39, max: 6.6, postos: 3915 }
+    },
+    estados: { RJ: { gasolinaComum: 6.6, etanol: 4.86 } },
+    municipios: { RJ: { "Rio de Janeiro": [6.5, 4.82], "Niterói": [6.5, 4.76] } }
+  };
+  const env = boot({ storage: { "ac.v3.prices": JSON.stringify(fixture) } });
+  const ref = env.$("priceRef");
+  const uf = ref.querySelector("#refUf");
+  uf.value = "RJ";
+  env.fire(ref, "change", { target: uf });
+  const cidade = ref.querySelector("#refCity");
+  cidade.value = "Rio de Janeiro";
+  env.fire(ref, "change", { target: cidade });
+  includes(env.html("priceRef"), "R$ 6,50", "média da cidade formatada");
+  env.fire(ref, "click", { target: ref.querySelector("#refUse") });
+  eq(env.$("gas").value, "6,50", "6.5 preenche 6,50 (não 65,00)");
+  eq(env.$("eta").value, "4,82");
+});
+
 test("meus postos: salvar, usar e excluir", () => {
   const env = boot();
   env.input("gas", "654");

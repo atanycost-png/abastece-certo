@@ -1772,9 +1772,16 @@
     return String(raw == null ? "" : raw).replace(/\D/g, "");
   }
 
-  // Usado pelo código (médias da ANP, estado salvo): deixa o valor completo.
+  // Usado pelo código (médias da ANP, postos, estado salvo): aceita "6,5",
+  // "6,50" ou número e preenche sempre com centavos ("6,50"). Antes ele só
+  // pegava os dígitos e 6.5 virava 65,00.
   function setPriceDigits(input, value) {
-    var digits = priceDigitsOf(value).replace(/^0+(?=\d)/, "");
+    var n = AC.parsePrice(value);
+    if (!isFinite(n)) {
+      input.value = "";
+      return;
+    }
+    var digits = String(Math.round(n * 100)).padStart(3, "0");
     if (digits.length > PRICE_DIGITS_MAX) digits = digits.slice(digits.length - PRICE_DIGITS_MAX);
     input.value = fmtPriceFull(digits);
   }

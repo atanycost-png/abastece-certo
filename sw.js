@@ -9,7 +9,7 @@
 //
 // Ao publicar uma versão, mude VERSION: o activate apaga os caches antigos.
 
-const VERSION = "v5.0.0";
+const VERSION = "v5.0.1";
 const CACHE = "abastece-certo-" + VERSION;
 
 const PRECACHE = [

@@ -649,3 +649,24 @@ fluxo era sequencial (8 s cada), podendo ficar até 24 s em "Buscando…".
 - **Histórico inicial é semeado**; só há tendência a partir de duas semanas — o pipeline poda em 8.
 - **Backup** inclui as chaves `ac.*`; importar substitui (não mescla) e recarrega.
 - **iOS**: campo com fonte &lt; 16 px faz zoom; corrigido no mobile. Teste físico ainda pendente.
+
+---
+
+## 27/11/2026 — v5.0.1 (correção: preço com uma casa decimal)
+
+### Sintoma
+No RJ/Rio de Janeiro a gasolina aparecia como **65** (e não 6,50). O dado em `precos.json` está correto
+(`"Rio de Janeiro": [6.5, 4.82]`); o problema era a conversão para o campo de preço.
+
+### Causa
+`setPriceDigits` pegava só os dígitos do valor formatado: `"6,5"` → `"65"` → `"65,00"`. Valores com duas
+casas (ex.: `6,47`) funcionavam; qualquer média/estado/posto com **uma casa decimal** (6.5, 4.8, 5.5…)
+quebrava — por isso afetava várias cidades e também "Usar preço" dos postos.
+
+### Correção
+`setPriceDigits` agora converte o valor para centavos (`Math.round(n * 100)`) antes de formatar:
+`6.5 → 6,50`, `4.8 → 4,80`, e segue igual para `6,47`. Vale para médias ANP (Brasil/UF/cidade), postos
+salvos e preços oficiais por posto. Teste novo: `v5 preço com uma casa decimal não vira 65 (RJ 6,5)`
+(DOM: `#gas = 6,50`, `#eta = 4,82`).
+
+- Versão **5.0.1** (app/SW/pacote). Suítes: 171 lógica · **130 DOM** · 33 SW · 136 ANP · 55 checks.

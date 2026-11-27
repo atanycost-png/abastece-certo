@@ -32,6 +32,9 @@ regex exigia hífens na primeira data e simplesmente ignorava os links novos —
 semanas. Por isso o workflow agora verifica a idade de `precos.json` e **falha** se a semana de referência
 tiver mais de 21 dias.
 
+Além disso, se a página da ANP não responder (já aconteceu no runner do GitHub), o script tenta baixar
+diretamente o XLSX das últimas 4 semanas pelas URLs canônicas — sem depender do HTML para descobrir o link.
+
 \* mín/máx das **médias municipais**, não dos preços praticados em cada posto (explicado abaixo).
 
 ## Como rodar

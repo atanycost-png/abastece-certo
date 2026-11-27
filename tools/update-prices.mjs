@@ -515,6 +515,67 @@ export function urlCanonicaDaSemana(semana) {
   return `${BASE_ARQUIVOS_LPC}/${inicio.slice(0, 4)}/resumo_semanal_lpc_${inicio}_${fim}.xlsx`;
 }
 
+/** Últimas semanas completas (domingo–sábado), da mais recente para a mais antiga. */
+export function semanasRecentes(agora = new Date(), quantidade = 4) {
+  const base = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth(), agora.getUTCDate()));
+  const diaSemana = base.getUTCDay(); // 0 = domingo … 6 = sábado
+  const diasAteSabado = (diaSemana - 6 + 7) % 7;
+  const sabado = new Date(base.getTime() - diasAteSabado * 86_400_000);
+  const semanas = [];
+  for (let i = 0; i < quantidade; i++) {
+    const fim = new Date(sabado.getTime() - i * 7 * 86_400_000);
+    const inicio = new Date(fim.getTime() - 6 * 86_400_000);
+    semanas.push(`${inicio.toISOString().slice(0, 10)}_${fim.toISOString().slice(0, 10)}`);
+  }
+  return semanas;
+}
+
+/**
+ * URLs candidatas para o XLSX de uma semana, em ordem de tentativa.
+ * A ANP já publicou com "-", com "_" e com os dois misturados; como o padrão
+ * muda sem aviso, tentamos as combinações conhecidas.
+ */
+export function urlsCandidatasDaSemana(semana) {
+  const { inicio, fim } = normalizarSemana(typeof semana === 'string' ? semana : `${semana.inicio}_${semana.fim}`);
+  const a = inicio.replaceAll('-', '_');
+  const b = fim.replaceAll('-', '_');
+  const base = `${BASE_ARQUIVOS_LPC}/${inicio.slice(0, 4)}`;
+  return [
+    ...new Set([
+      `${base}/resumo_semanal_lpc_${a}_${fim}.xlsx`, // 2026_11_15_2026-11-21 (misto, visto em nov/2026)
+      `${base}/resumo_semanal_lpc_${a}-${fim}.xlsx`, // 2026_11_08-2026_11_14
+      `${base}/resumo_semanal_lpc_${a}_${b}.xlsx`, // 2026_11_15_2026_11_21
+      `${base}/resumo_semanal_lpc_${inicio}_${fim}.xlsx`, // formato antigo: 2026-10-04_2026-10-10
+    ]),
+  ];
+}
+
+/**
+ * Fallback quando a página da ANP não responde: tenta baixar diretamente o
+ * XLSX da semana mais recente pelas URLs canônicas conhecidas.
+ */
+export async function baixarSemanaRecente({
+  agora = new Date(),
+  quantidade = 4,
+  baixarFn = baixar,
+  userAgent = AGENTE_NAVEGADOR,
+} = {}) {
+  const erros = [];
+  for (const semana of semanasRecentes(agora, quantidade)) {
+    for (const url of urlsCandidatasDaSemana(semana)) {
+      try {
+        const resposta = await baixarFn(url, { tentativas: 1, timeoutMs: 45_000, userAgent });
+        const arquivo = basename(new URL(url).pathname);
+        if (!extrairSemanaDoNome(arquivo)) continue;
+        return { url: resposta.url || url, buffer: resposta.buffer, arquivo, semana };
+      } catch (erro) {
+        erros.push(`${semana}: ${erro.message.split('\n')[0]}`);
+      }
+    }
+  }
+  throw new Error(`nenhuma semana recente pôde ser baixada (${erros.slice(-4).join(' | ')})`);
+}
+
 // ---------------------------------------------------------------------------
 // Página da ANP: escolha do link mais recente
 // ---------------------------------------------------------------------------
@@ -1316,7 +1377,11 @@ export async function baixar(url, { tentativas = 3, timeoutMs = 60_000, userAgen
   for (let tentativa = 1; tentativa <= tentativas; tentativa++) {
     try {
       const resposta = await fetch(url, {
-        headers: { 'user-agent': userAgent, accept: '*/*' },
+        headers: {
+          'user-agent': userAgent,
+          accept: '*/*',
+          'accept-language': 'pt-BR,pt;q=0.9,en;q=0.8',
+        },
         redirect: 'follow',
         signal: AbortSignal.timeout(timeoutMs),
       });
@@ -1445,31 +1510,47 @@ async function executar() {
     url = urlDoArquivoLocal(caminho);
     log(`usando arquivo local: ${caminho} (${formatarTamanho(buffer.length)})`);
   } else {
-    log('baixando a página da ANP...');
-    const pagina = await baixar(PAGINA_LPC);
-    log(`página baixada (${formatarTamanho(pagina.buffer.length)}); procurando o resumo semanal...`);
-    const html = pagina.buffer.toString('utf8');
-
-    let link;
-    if (opcoes.semana) {
-      const alvo = normalizarSemana(opcoes.semana);
-      link = escolherLinkDaSemana(html, alvo);
-      if (!link) {
-        const canonica = urlCanonicaDaSemana(alvo);
-        aviso(`a semana ${alvo.chave} não está listada na página; tentando a URL canônica ${canonica}`);
-        link = { url: canonica, semana: alvo, arquivo: basename(canonica) };
-      }
-    } else {
-      link = escolherLinkMaisRecente(html);
-      log(`semana mais recente listada: ${link.semana.inicio} a ${link.semana.fim}`);
+    let pagina = null;
+    try {
+      log('baixando a página da ANP...');
+      pagina = await baixar(PAGINA_LPC, { userAgent: AGENTE_NAVEGADOR });
+      log(`página baixada (${formatarTamanho(pagina.buffer.length)}); procurando o resumo semanal...`);
+    } catch (erro) {
+      aviso(
+        `página da ANP indisponível (${erro.message.split('\n')[0]}); tentando as URLs canônicas das últimas semanas`,
+      );
     }
 
-    log(`baixando o XLSX: ${link.url}`);
-    const xlsx = await baixar(link.url);
-    buffer = xlsx.buffer;
-    url = xlsx.url || link.url;
-    nomeArquivo = link.arquivo ?? basename(new URL(url).pathname);
-    log(`XLSX baixado (${formatarTamanho(buffer.length)})`);
+    if (pagina) {
+      const html = pagina.buffer.toString('utf8');
+
+      let link;
+      if (opcoes.semana) {
+        const alvo = normalizarSemana(opcoes.semana);
+        link = escolherLinkDaSemana(html, alvo);
+        if (!link) {
+          const canonica = urlCanonicaDaSemana(alvo);
+          aviso(`a semana ${alvo.chave} não está listada na página; tentando a URL canônica ${canonica}`);
+          link = { url: canonica, semana: alvo, arquivo: basename(canonica) };
+        }
+      } else {
+        link = escolherLinkMaisRecente(html);
+        log(`semana mais recente listada: ${link.semana.inicio} a ${link.semana.fim}`);
+      }
+
+      log(`baixando o XLSX: ${link.url}`);
+      const xlsx = await baixar(link.url, { userAgent: AGENTE_NAVEGADOR });
+      buffer = xlsx.buffer;
+      url = xlsx.url || link.url;
+      nomeArquivo = link.arquivo ?? basename(new URL(url).pathname);
+      log(`XLSX baixado (${formatarTamanho(buffer.length)})`);
+    } else {
+      const alternativa = await baixarSemanaRecente();
+      buffer = alternativa.buffer;
+      url = alternativa.url;
+      nomeArquivo = alternativa.arquivo;
+      log(`XLSX obtido pela URL canônica: ${url} (${formatarTamanho(buffer.length)})`);
+    }
   }
 
   log('descompactando o XLSX e lendo o XML...');

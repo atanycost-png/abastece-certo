@@ -44,7 +44,10 @@ import {
   resolverAbas,
   resumirDiferenca,
   serialExcelParaISOData,
+  semanasRecentes,
   urlCanonicaDaSemana,
+  urlsCandidatasDaSemana,
+  baixarSemanaRecente,
   validarPrecos,
 } from './update-prices.mjs';
 
@@ -448,6 +451,34 @@ igual('extrairSemanaDoNome: formato misto (publicado em nov/2026)', extrairSeman
 });
 igual('normalizarSemana: 7 dias', normalizarSemana('2026-10-04_2026-10-10').chave, '2026-10-04_2026-10-10');
 igual('urlCanonicaDaSemana', urlCanonicaDaSemana('2026-10-04_2026-10-10'), 'https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/arquivos-lpc/2026/resumo_semanal_lpc_2026-10-04_2026-10-10.xlsx');
+igual('semanasRecentes: sexta 27/11/2026 usa 15–21/11', semanasRecentes(new Date('2026-11-27T12:00:00Z'), 2), [
+  '2026-11-15_2026-11-21',
+  '2026-11-08_2026-11-14',
+]);
+igual('semanasRecentes: domingo usa a semana que acabou no sábado', semanasRecentes(new Date('2026-11-22T12:00:00Z'), 1), [
+  '2026-11-15_2026-11-21',
+]);
+{
+  const urls = urlsCandidatasDaSemana('2026-11-15_2026-11-21');
+  ok(
+    'urlsCandidatasDaSemana: cobre misto, novo e antigo',
+    urls.some((u) => u.endsWith('resumo_semanal_lpc_2026_11_15_2026-11-21.xlsx')) &&
+      urls.some((u) => u.endsWith('resumo_semanal_lpc_2026_11_15_2026_11_21.xlsx')) &&
+      urls.some((u) => u.endsWith('resumo_semanal_lpc_2026-11-15_2026-11-21.xlsx')),
+    JSON.stringify(urls),
+  );
+}
+{
+  const chamadas = [];
+  const baixarFake = async (url) => {
+    chamadas.push(url);
+    if (!url.endsWith('resumo_semanal_lpc_2026_11_15_2026_11_21.xlsx')) throw new Error('HTTP 404');
+    return { url, buffer: Buffer.from('xlsx'), tipo: 'application/vnd.ms-excel' };
+  };
+  const achado = await baixarSemanaRecente({ agora: new Date('2026-11-27T12:00:00Z'), baixarFn: baixarFake });
+  igual('baixarSemanaRecente: fallback sem a página da ANP', achado.semana, '2026-11-15_2026-11-21');
+  ok('baixarSemanaRecente: tenta URLs antes de achar a certa', chamadas.length >= 2, `${chamadas.length} tentativas`);
+}
 lanca('normalizarSemana: 6 dias é rejeitado', () => normalizarSemana('2026-10-04_2026-10-09'), '7 dias');
 lanca('normalizarSemana: data inexistente', () => normalizarSemana('2026-02-30_2026-03-07'), 'datas reais');
 lanca('normalizarSemana: formato errado', () => normalizarSemana('04/10/2026'), 'semana inválida');

@@ -520,10 +520,13 @@ com 0 e o Action entendia "sem mudança" — falha silenciosa.
   atualizados; visual-check agora lê os valores esperados do `precos.json` (não fixa mais 6,54/4,14).
 - Workflow ganhou a etapa **"Alerta se a semana de referência estiver velha (> 21 dias)"**: se a fonte
   parar ou mudar de formato de novo, o run falha em vez de passar silenciosamente.
+- **Resiliência extra:** em 27/11 o runner do GitHub não conseguiu abrir a página da ANP ("fetch failed").
+  O pipeline agora usa UA de navegador e, se a página falhar, tenta baixar diretamente o XLSX das últimas
+  4 semanas pelas URLs canônicas conhecidas (misto, novo e antigo), sem depender do HTML.
 - Versão **4.7.0** (app/SW/`package.json`) para forçar o SW a atualizar o `precos.json` em cache.
 
 ### Verificação
-- `tools/test-prices.mjs` → **101/101** (antes 99) · `test.mjs` **166** · `test-dom.mjs` **128** ·
+- `tools/test-prices.mjs` → **106/106** · `test.mjs` **166** · `test-dom.mjs` **128** ·
   `test-sw.mjs` **33** · `check.mjs` **55** · `visual-check.mjs` **18 etapas** com dados novos.
 
 ### Pitfalls

@@ -82,9 +82,10 @@ node tools/update-prices.mjs --file x.xlsx   # usa um arquivo já baixado
 
 O GitHub Action [`.github/workflows/atualizar-precos.yml`](.github/workflows/atualizar-precos.yml) roda
 toda semana, atualiza `precos.json` e commita se houve mudança — assim um site publicado no GitHub Pages
-ganha preços novos sem backend e sem CORS. O workflow **falha de propósito** se a semana de referência
-ficar com mais de 21 dias, para avisar quando a ANP parar de publicar ou mudar o formato dos arquivos.
-Detalhes em [`docs/DADOS-ANP.md`](docs/DADOS-ANP.md).
+ganha preços novos sem backend e sem CORS. O job roda em `macos-latest` porque os runners ubuntu/windows do
+GitHub são bloqueados pelo `gov.br` (detalhes em [`docs/DADOS-ANP.md`](docs/DADOS-ANP.md)). O workflow
+**falha de propósito** se a semana de referência ficar com mais de 21 dias, para avisar quando a ANP parar
+de publicar ou mudar o formato dos arquivos.
 
 ## Fórmulas
 

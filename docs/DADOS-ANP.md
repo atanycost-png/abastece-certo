@@ -35,6 +35,17 @@ tiver mais de 21 dias.
 Além disso, se a página da ANP não responder (já aconteceu no runner do GitHub), o script tenta baixar
 diretamente o XLSX das últimas 4 semanas pelas URLs canônicas — sem depender do HTML para descobrir o link.
 
+## Runner do GitHub: por que macOS
+
+Em **27/11/2026** o `www.gov.br` passou a bloquear a saída de rede dos runners **ubuntu-latest** e
+**windows-latest** do GitHub: `curl` retornava `000`/timeout e o Node `ECONNRESET`/`UND_ERR_CONNECT_TIMEOUT`,
+enquanto Google, GitHub e `dados.gov.br` respondiam normalmente. O diagnóstico no **macos-latest** baixou a
+página da ANP (HTTP 200, ~476 KB) e o XLSX da semana (HTTP 200, ~299 KB) em poucos segundos. Por isso o
+workflow usa `runs-on: macos-latest` — em repositório público os minutos de runner são gratuitos.
+
+Se um dia o macOS também for bloqueado, o plano B é rodar `node tools/update-prices.mjs` localmente
+(máquina/VPS) e commitar, ou usar um runner self-hosted. O gate de 21 dias avisa quando os dados pararem.
+
 \* mín/máx das **médias municipais**, não dos preços praticados em cada posto (explicado abaixo).
 
 ## Como rodar

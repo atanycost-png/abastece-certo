@@ -525,6 +525,18 @@ com 0 e o Action entendia "sem mudança" — falha silenciosa.
   4 semanas pelas URLs canônicas conhecidas (misto, novo e antigo), sem depender do HTML.
 - Versão **4.7.0** (app/SW/`package.json`) para forçar o SW a atualizar o `precos.json` em cache.
 
+### Acesso do runner ao gov.br (27/11/2026)
+- Sintoma: a página da ANP e o XLSX falhavam no runner com "fetch failed", enquanto da máquina local
+  funcionava.
+- Diagnóstico (workflow temporário, matriz ubuntu/windows/macOS): DNS resolve `www.gov.br` →
+  `161.148.164.31`; Google/GitHub/httpbin respondem; **ubuntu e windows** dão `curl 000`/timeout e Node
+  `ECONNRESET`/`UND_ERR_CONNECT_TIMEOUT`; **macOS** baixa a página (200, ~476 KB) e o XLSX (200, ~299 KB).
+  Ou seja, o `gov.br` bloqueia o egress dos runners Linux/Windows do GitHub, não o serviço em si.
+- Correção: workflow passou para `runs-on: macos-latest` (repositório público = minutos grátis). Execução
+  manual validada de ponta a ponta: página baixada → XLSX 292,3 KB → semana 15–21/11/2026 → gate de idade
+  OK → no-op (dados já atualizados). Workflows de diagnóstico temporários removidos.
+- Plano B documentado em `docs/DADOS-ANP.md`: rodar o script localmente/VPS ou usar runner self-hosted.
+
 ### Verificação
 - `tools/test-prices.mjs` → **106/106** · `test.mjs` **166** · `test-dom.mjs` **128** ·
   `test-sw.mjs` **33** · `check.mjs` **55** · `visual-check.mjs` **18 etapas** com dados novos.

@@ -29,7 +29,11 @@ concurrency:
 jobs:
   atualizar-precos:
     name: Baixar ANP e commitar precos.json
-    runs-on: ubuntu-latest
+    # Por que macOS? Em 27/11/2026 o www.gov.br passou a bloquear a saída de rede
+    # dos runners ubuntu/windows do GitHub (curl 000/timeout, Node ECONNRESET),
+    # mas responde normalmente no runner macOS (página 200 em ~3 s e XLSX 200
+    # com ~299 KB, verificado no mesmo dia). Repositório público = minutos grátis.
+    runs-on: macos-latest
     timeout-minutes: 10
     steps:
       - name: Checkout do repositório

@@ -1650,7 +1650,6 @@ export function gerarPostosPorUf(postos, { url, semana, atualizadoEm } = {}) {
       fonte: FONTE,
       url,
       semana: { inicio: semanaNormalizada.inicio, fim: semanaNormalizada.fim },
-      atualizadoEm: new Date(atualizadoEm ?? Date.now()).toISOString(),
       uf,
       postos: porUf[uf],
     };

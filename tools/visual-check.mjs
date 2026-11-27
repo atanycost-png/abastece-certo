@@ -13,6 +13,12 @@
 import { spawn } from "node:child_process";
 import { createServer } from "node:http";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+
+// Valores esperados de "Usar médias" vêm do precos.json atual (muda toda semana).
+const precosLocal = JSON.parse(readFileSync(new URL("../precos.json", import.meta.url), "utf8"));
+const fmtPreco2 = new Intl.NumberFormat("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const esperadoGas = fmtPreco2.format(precosLocal.brasil.gasolinaComum.media);
+const esperadoEta = fmtPreco2.format(precosLocal.brasil.etanol.media);
 import { tmpdir } from "node:os";
 import { dirname, extname, join, normalize, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -339,8 +345,8 @@ async function main() {
     })()`);
     console.log(`   ${JSON.stringify(anp)}`);
     if (!anp.carregou) errors.push("precos.json não carregou (bloco de referência ANP ausente)");
-    if (anp.carregou && (anp.gas !== "6,54" || anp.eta !== "4,14")) {
-      errors.push(`"Usar médias" deveria preencher 6,54/4,14, obteve ${anp.gas}/${anp.eta}`);
+    if (anp.carregou && (anp.gas !== esperadoGas || anp.eta !== esperadoEta)) {
+      errors.push(`"Usar médias" deveria preencher ${esperadoGas}/${esperadoEta}, obteve ${anp.gas}/${anp.eta}`);
     }
     if (anp.carregou && anp.opcoesUf < 2) errors.push("seletor de UF vazio");
     await page.shot("07-referencia-anp");

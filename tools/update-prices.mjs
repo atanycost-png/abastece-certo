@@ -495,7 +495,10 @@ export function normalizarSemana(texto) {
 
 /** Extrai a semana do nome `resumo_semanal_lpc_AAAA-MM-DD_AAAA-MM-DD.xlsx`. */
 export function extrairSemanaDoNome(nome) {
-  const casa = /resumo_semanal_lpc_(\d{4})-(\d{1,2})-(\d{1,2})[_-](\d{4})-(\d{1,2})-(\d{1,2})\.xlsx/i.exec(
+  // A ANP já publicou em vários formatos: 2026-10-04_2026-10-10 (antigo),
+  // 2026-10-11-2026-10-17 e 2026_11_15_2026-11-21 (misto, a partir de out/2026).
+  // Aceitamos "-" ou "_" entre qualquer parte da data.
+  const casa = /resumo_semanal_lpc_(\d{4})[-_](\d{1,2})[-_](\d{1,2})[-_](\d{4})[-_](\d{1,2})[-_](\d{1,2})\.xlsx/i.exec(
     String(nome ?? ''),
   );
   if (!casa) return null;

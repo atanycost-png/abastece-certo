@@ -331,6 +331,8 @@ const HTML_PAGINA = `
   <a href="resumo_semanal_lpc_2026-08-30-2026-09-5.xlsx">30/08 (nome antigo, dia sem zero)</a>
   <a href="https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/arquivos-lpc/2026/revendas_lpc_2026-10-04_2026-10-10.xlsx">postos</a>
   <a href="https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/arquivos-lpc/2026/resumo_semanal_lpc_2026-10-04_2026-10-10.xlsx">duplicado</a>
+  <a href="https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/arquivos-lpc/2026/resumo_semanal_lpc_2026_11_08-2026_11_14.xlsx">08/11 (formato novo, com _)</a>
+  <a href="https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/arquivos-lpc/2026/resumo_semanal_lpc_2026_11_15_2026-11-21.xlsx">15/11 (formato misto)</a>
 </body></html>`;
 
 function precosDemo(sobrescrever = {}) {
@@ -436,6 +438,14 @@ igual('extrairSemanaDoNome: dia sem zero e separador "-"', extrairSemanaDoNome('
   fim: '2026-09-05',
 });
 igual('extrairSemanaDoNome: nome fora do padrão', extrairSemanaDoNome('revendas_lpc_2026-10-04_2026-10-10.xlsx'), null);
+igual('extrairSemanaDoNome: formato novo com "_"', extrairSemanaDoNome('resumo_semanal_lpc_2026_11_08-2026_11_14.xlsx'), {
+  inicio: '2026-11-08',
+  fim: '2026-11-14',
+});
+igual('extrairSemanaDoNome: formato misto (publicado em nov/2026)', extrairSemanaDoNome('resumo_semanal_lpc_2026_11_15_2026-11-21.xlsx'), {
+  inicio: '2026-11-15',
+  fim: '2026-11-21',
+});
 igual('normalizarSemana: 7 dias', normalizarSemana('2026-10-04_2026-10-10').chave, '2026-10-04_2026-10-10');
 igual('urlCanonicaDaSemana', urlCanonicaDaSemana('2026-10-04_2026-10-10'), 'https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/arquivos-lpc/2026/resumo_semanal_lpc_2026-10-04_2026-10-10.xlsx');
 lanca('normalizarSemana: 6 dias é rejeitado', () => normalizarSemana('2026-10-04_2026-10-09'), '7 dias');
@@ -446,9 +456,9 @@ lanca('normalizarSemana: formato errado', () => normalizarSemana('04/10/2026'), 
 {
   const links = listarLinksResumoSemanal(HTML_PAGINA);
   ok('página: só links de resumo semanal (ignora revendas)', links.every((l) => l.arquivo.includes('resumo_semanal_lpc')));
-  ok('página: link duplicado é deduplicado por URL', links.length === 4, `links: ${links.length}`);
+  ok('página: link duplicado é deduplicado por URL', links.length === 6, `links: ${links.length}`);
   const maisRecente = escolherLinkMaisRecente(HTML_PAGINA);
-  igual('página: escolhe a semana mais recente', maisRecente.semana, { inicio: '2026-10-04', fim: '2026-10-10' });
+  igual('página: escolhe a semana mais recente (formato novo)', maisRecente.semana, { inicio: '2026-11-15', fim: '2026-11-21' });
   ok('página: resolve href relativo/absoluto para URL', maisRecente.url.startsWith(PAGINA_LPC.replace(/[^/]+$/, '')) || maisRecente.url.startsWith('https://www.gov.br/'));
   igual(
     'página: filtra por semana pedida',
@@ -586,7 +596,7 @@ ok('importar o módulo não executa a CLI', executadoDiretamente() === false);
       );
       ok(
         'precos.json: url aponta para resumo_semanal_lpc_*.xlsx',
-        /^https:\/\/.+resumo_semanal_lpc_\d{4}-\d{2}-\d{2}_\d{4}-\d{2}-\d{2}\.xlsx$/.test(precos.url ?? ''),
+        /^https:\/\/.+resumo_semanal_lpc_[\d_-]+\.xlsx$/.test(precos.url ?? ''),
         String(precos.url),
       );
       for (const chave of PRODUTOS) {
@@ -602,9 +612,10 @@ ok('importar o módulo não executa a CLI', executadoDiretamente() === false);
         'precos.json: todas as UFs têm gasolina comum',
         Object.values(precos.estados ?? {}).every((item) => typeof item.gasolinaComum === 'number'),
       );
-      // Semana de referência do FINDINGS §2.4: valores verificados em 17/10/2026.
-      if (precos.semana?.inicio === '2026-10-04' && precos.semana?.fim === '2026-10-10') {
-        igual('precos.json: semana de referência tem os valores do FINDINGS', {
+      // Semana de referência do FINDINGS (atualizada em 27/11/2026 para a semana
+      // 15–21/11/2026, quando a ANP mudou o padrão dos nomes dos arquivos).
+      if (precos.semana?.inicio === '2026-11-15' && precos.semana?.fim === '2026-11-21') {
+        igual('precos.json: semana de referência tem os valores da ANP', {
           gasolinaComum: precos.brasil.gasolinaComum.media,
           gasolinaAditivada: precos.brasil.gasolinaAditivada.media,
           etanol: precos.brasil.etanol.media,
@@ -614,12 +625,12 @@ ok('importar o módulo não executa a CLI', executadoDiretamente() === false);
             etanol: precos.brasil.etanol.postos,
           },
         }, {
-          gasolinaComum: 6.54,
-          gasolinaAditivada: 6.72,
-          etanol: 4.14,
-          postos: { comum: 4474, aditivada: 3443, etanol: 3833 },
+          gasolinaComum: 6.47,
+          gasolinaAditivada: 6.64,
+          etanol: 4.29,
+          postos: { comum: 4584, aditivada: 3511, etanol: 3915 },
         });
-        igual('precos.json: SP 6,36 e etanol 3,86 (como no FINDINGS)', precos.estados.SP, { gasolinaComum: 6.36, etanol: 3.86 });
+        igual('precos.json: SP 6,36 e etanol 4,11', precos.estados.SP, { gasolinaComum: 6.36, etanol: 4.11 });
       }
     }
   }

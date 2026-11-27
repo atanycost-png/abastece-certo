@@ -53,6 +53,21 @@ jobs:
             node tools/update-prices.mjs
           fi
 
+      - name: Alerta se a semana de referência estiver velha (> 21 dias)
+        run: |
+          node -e "
+            const fs = require('fs');
+            const p = JSON.parse(fs.readFileSync('precos.json', 'utf8'));
+            const fim = new Date(p.semana.fim + 'T23:59:59Z');
+            const dias = Math.floor((Date.now() - fim) / 86400000);
+            console.log('Semana de referência:', p.semana.inicio, 'a', p.semana.fim, '(' + dias + ' dias atrás)');
+            if (dias > 21) {
+              console.error('ERRO: precos.json está com dados de mais de 21 dias.');
+              console.error('Confira a página da ANP: o padrão dos nomes dos arquivos pode ter mudado.');
+              process.exit(1);
+            }
+          "
+
       - name: Commitar somente se precos.json mudou
         run: |
           if git diff --quiet -- precos.json; then

@@ -491,3 +491,44 @@ e **relatório mensal** com custo, km/L e economia acumulada.
   o relatório mostra km/L mas “sem preço”.
 - **Meses usam data local** (`getFullYear/getMonth`), não UTC — registros perto da meia-noite caem no mês
   local correto.
+
+---
+
+## 27/11/2026 — v4.7 (diagnóstico pós-pausa + correção do pipeline ANP)
+
+### Estado encontrado (após ~6 semanas sem commits)
+- App **v4.6**, repositório limpo, `main` **igual** a `origin/main`, GitHub Pages no ar (`v4.6.0`),
+  CI **Qualidade** verde, 5 suítes locais verdes (166/128/33/99/55).
+- **Problema real:** `precos.json` **congelado na semana 04–10/10/2026**, mesmo com o Action semanal
+  "Atualizar preços da ANP" terminando em **success** (17/11, 23/11, 24/11). Nenhum commit `chore(dados)`.
+
+### Causa raiz
+A ANP mudou o padrão dos nomes dos XLSX a partir da semana 11–17/10/2026:
+`resumo_semanal_lpc_2026_10_11-2026_10_17.xlsx`, depois `..._2026_11_08-2026_11_14.xlsx` e o misto
+`..._2026_11_15_2026-11-21.xlsx`. O regex de `extrairSemanaDoNome` exigia hífens na primeira data, então
+**todos os links novos eram descartados** e `escolherLinkMaisRecente` pegava a última semana no formato
+antigo. O `--dry-run` reproduziu: "semana mais recente listada: 2026-10-04 a 2026-10-10". O pipeline saía
+com 0 e o Action entendia "sem mudança" — falha silenciosa.
+
+### Correção
+- `extrairSemanaDoNome` aceita `-` ou `_` entre qualquer parte da data (`2026_11_15_2026-11-21` incluído);
+  `listarLinksResumoSemanal` já aceitava o href, só faltava o parser.
+- Testes novos: os três formatos de nome + fixture da página com links novos (a "mais recente" agora é
+  15–21/11/2026).
+- `precos.json` regenerado: semana **15–21/11/2026** — gasolina **6,47**, aditivada **6,64**, etanol
+  **4,29**; 27 UFs, **406 municípios** (401 com os dois produtos). Fallback estático do app e docs
+  atualizados; visual-check agora lê os valores esperados do `precos.json` (não fixa mais 6,54/4,14).
+- Workflow ganhou a etapa **"Alerta se a semana de referência estiver velha (> 21 dias)"**: se a fonte
+  parar ou mudar de formato de novo, o run falha em vez de passar silenciosamente.
+- Versão **4.7.0** (app/SW/`package.json`) para forçar o SW a atualizar o `precos.json` em cache.
+
+### Verificação
+- `tools/test-prices.mjs` → **101/101** (antes 99) · `test.mjs` **166** · `test-dom.mjs` **128** ·
+  `test-sw.mjs` **33** · `check.mjs` **55** · `visual-check.mjs` **18 etapas** com dados novos.
+
+### Pitfalls
+- **Exit 0 não prova que os dados mudaram**: comparar a semana/`atualizadoEm` e ter um gate de idade.
+- **Regex de nome de arquivo é acoplamento frágil**: aceitar separadores variáveis e ter teste com o
+  formato mais recente; sempre preferir a página como fonte de verdade.
+- **SW com dados precached**: mudança de dados exige bump de `VERSION`, senão o app instalado continua
+  servindo o JSON antigo do cache.

@@ -68,9 +68,11 @@ recente disponível em `precos.json`, com seletor de estado e o botão **Usar m�
 
 ## Preços semanais (ANP)
 
-`precos.json` guarda as médias nacionais e por UF da semana mais recente do Levantamento de Preços da ANP.
-Ele é gerado **sem dependências** por [`tools/update-prices.mjs`](tools/update-prices.mjs), que baixa o
-`resumo_semanal_lpc_*.xlsx` oficial e descompacta/lê o XLSX com `node:zlib` + regex (sem bibliotecas):
+`precos.json` guarda as médias nacionais, por UF e por cidade (a amostra municipal da ANP) da semana mais
+recente do Levantamento de Preços da ANP. Ele é gerado **sem dependências** por
+[`tools/update-prices.mjs`](tools/update-prices.mjs), que baixa o `resumo_semanal_lpc_*.xlsx` oficial e
+descompacta/lê o XLSX com `node:zlib` + regex (sem bibliotecas). O parser aceita os dois formatos de nome
+que a ANP já usou (`2026-10-04_2026-10-10` e `2026_11_15_2026-11-21`).
 
 ```sh
 node tools/update-prices.mjs                 # baixa a semana mais recente e grava precos.json
@@ -80,7 +82,9 @@ node tools/update-prices.mjs --file x.xlsx   # usa um arquivo já baixado
 
 O GitHub Action [`.github/workflows/atualizar-precos.yml`](.github/workflows/atualizar-precos.yml) roda
 toda semana, atualiza `precos.json` e commita se houve mudança — assim um site publicado no GitHub Pages
-ganha preços novos sem backend e sem CORS. Detalhes em [`docs/DADOS-ANP.md`](docs/DADOS-ANP.md).
+ganha preços novos sem backend e sem CORS. O workflow **falha de propósito** se a semana de referência
+ficar com mais de 21 dias, para avisar quando a ANP parar de publicar ou mudar o formato dos arquivos.
+Detalhes em [`docs/DADOS-ANP.md`](docs/DADOS-ANP.md).
 
 ## Fórmulas
 
@@ -109,7 +113,7 @@ O app também calcula:
 - **preço de equilíbrio do etanol** = `P_gasolina × C_etanol/C_gasolina`;
 - **preço de equilíbrio da gasolina** = `P_etanol ÷ C_etanol/C_gasolina`.
 
-Exemplo (médias ANP de 04–10/10/2026): gasolina a R$ 6,54/L rendendo 12,0 km/L e etanol a R$ 4,14/L rendendo 8,6 km/L →
+Exemplo (médias ANP de 15–21/11/2026): gasolina a R$ 6,47/L rendendo 12,0 km/L e etanol a R$ 4,29/L rendendo 8,6 km/L →
 limite pessoal 71,7% · gasolina R$ 54,50/100 km · etanol R$ 48,14/100 km · **economia de R$ 6,36/100 km**.
 
 ## Estrutura

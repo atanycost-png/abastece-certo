@@ -459,5 +459,19 @@ real / mapa / sincronização*, só com backend ou dados comunitários.
 - **Limite:** postos próximos é a primeira parte do app que **depende de rede**; o núcleo (cálculo,
   histórico, veículos, preços ANP embutidos) continua 100% offline.
 
+### 2.7 Atualização 27/11/2026: ANP mudou os nomes dos arquivos
+
+- A partir da semana 11–17/10/2026 a ANP trocou o padrão de nome do resumo semanal:
+  `2026-10-04_2026-10-10` (antigo) → `2026_10_11-2026_10_17` → `2026_11_08-2026_11_14` →
+  `2026_11_15_2026-11-21` (misto, com `_` e `-`). Os links continuam na mesma página "últimas semanas
+  pesquisadas", mas o parser antigo ignorava os novos e o pipeline ficava preso na última semana do
+  formato antigo — **falha silenciosa** (exit 0, Action success, `precos.json` sem mudança).
+- Correção: regex de `extrairSemanaDoNome` aceita `-` ou `_` em qualquer posição; testes cobrem os três
+  formatos; workflow falha se a semana de referência tiver mais de 21 dias.
+- Dados regenerados em 27/11/2026 para a semana **15–21/11/2026**: gasolina comum **R$ 6,47**, aditivada
+  **R$ 6,64**, etanol **R$ 4,29** (27 UFs, 406 municípios, 401 completos).
+- Lição geral: qualquer automação que dependa de nome/URL de terceiro precisa de **verificação de
+  frescor** (semana/digest), não só de "rodou sem erro".
+
 
 

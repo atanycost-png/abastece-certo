@@ -2169,7 +2169,7 @@ test("v3 preços: precos.json carrega, mostra semana/valores e cacheia", async (
 test("v3 preços: offline mantém o texto de referência embutido", async () => {
   const env = boot();
   await env.flush();
-  includes(env.html("priceRef"), "Médias ANP da semana 04", "fallback embutido continua visível");
+  includes(env.html("priceRef"), "Médias ANP da semana 15", "fallback embutido continua visível");
   eq(env.$("priceRef").querySelector("#refUse"), null, "sem botão Usar médias offline");
   eq(env.storage.has(PRICES_KEY), false, "nada cacheado sem dados");
 });
@@ -2194,7 +2194,7 @@ test("v3 preços: precos.json inválido (JSON ou schema) mantém o fallback", as
   });
   await badJson.flush();
   await badJson.flush();
-  includes(badJson.html("priceRef"), "Médias ANP da semana 04", "JSON inválido → fallback");
+  includes(badJson.html("priceRef"), "Médias ANP da semana 15", "JSON inválido → fallback");
   eq(badJson.storage.has(PRICES_KEY), false, "não cacheia lixo");
 
   const badSchema = boot({
@@ -2202,7 +2202,7 @@ test("v3 preços: precos.json inválido (JSON ou schema) mantém o fallback", as
   });
   await badSchema.flush();
   await badSchema.flush();
-  includes(badSchema.html("priceRef"), "Médias ANP da semana 04", "schema inválido → fallback");
+  includes(badSchema.html("priceRef"), "Médias ANP da semana 15", "schema inválido → fallback");
   eq(badSchema.storage.has(PRICES_KEY), false, "schema inválido não é cacheado");
 });
 
@@ -2210,7 +2210,7 @@ test("v3 preços: HTTP 404 mantém o fallback", async () => {
   const env = boot({ fetchImpl: () => ({ body: "", status: 404 }) });
   await env.flush();
   await env.flush();
-  includes(env.html("priceRef"), "Médias ANP da semana 04", "404 → fallback");
+  includes(env.html("priceRef"), "Médias ANP da semana 15", "404 → fallback");
   eq(env.storage.has(PRICES_KEY), false, "não cacheia erro HTTP");
 });
 
@@ -2304,13 +2304,13 @@ test("v3 preços: UFs e médias inválidas são descartadas na normalização", 
 test("v3 preços: file:// não tenta buscar precos.json", () => {
   const env = boot({ protocol: "file:", getThrows: true });
   eq(env.fetchCalls.length, 0, "nenhum fetch em file://");
-  includes(env.html("priceRef"), "Médias ANP da semana 04", "fallback em file://");
+  includes(env.html("priceRef"), "Médias ANP da semana 15", "fallback em file://");
 });
 
 test("v3 preços: navegador sem fetch não quebra a inicialização", () => {
   const env = boot({ fetchAvailable: false });
   eq(env.fetchCalls.length, 0, "nenhum fetch");
-  includes(env.html("priceRef"), "Médias ANP da semana 04", "fallback");
+  includes(env.html("priceRef"), "Médias ANP da semana 15", "fallback");
   env.input("gas", "5,89");
   env.input("eta", "3,99");
   includes(env.rendered(), "67,7", "app continua calculando");
@@ -2388,7 +2388,7 @@ test("v3 preços hostis: média como string numérica é aceita; vírgula decima
   const envComma = boot({ fetchImpl: () => jsonResponse(commaString) });
   await envComma.flush();
   await envComma.flush();
-  includes(envComma.html("priceRef"), "Médias ANP da semana 04", "vírgula decimal não é adivinhada");
+  includes(envComma.html("priceRef"), "Médias ANP da semana 15", "vírgula decimal não é adivinhada");
   eq(envComma.storage.has(PRICES_KEY), false, "dado não numérico não é cacheado");
 });
 
@@ -2460,7 +2460,7 @@ test("v3 preços hostis: médias Infinity/negativas/zero caem no fallback", asyn
   const env = boot({ fetchImpl: () => ({ body: raw, status: 200 }) });
   await env.flush();
   await env.flush();
-  includes(env.html("priceRef"), "Médias ANP da semana 04", "valores não finitos → fallback embutido");
+  includes(env.html("priceRef"), "Médias ANP da semana 15", "valores não finitos → fallback embutido");
   eq(env.storage.has(PRICES_KEY), false, "dado inválido não é cacheado");
 });
 

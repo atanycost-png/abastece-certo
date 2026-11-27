@@ -6,13 +6,31 @@ revenda** do *Levantamento de Preços de Combustíveis* (LPC) da ANP. Ele é ger
 mantido atualizado por uma GitHub Action semanal. O app é estático e continua
 funcionando offline; o JSON só entra como referência de preço e data.
 
-Semana verificada na geração inicial: **04/10/2026 a 10/10/2026** (domingo a sábado):
+Semana de referência atual (**27/11/2026**): **15/11/2026 a 21/11/2026** (domingo a sábado):
 
 | Produto | Média nacional | Mín.* | Máx.* | Postos |
 |---|---|---|---|---|
-| Gasolina comum | **R$ 6,54/L** | 5,39 | 8,99 | 4.474 |
-| Gasolina aditivada | **R$ 6,72/L** | 5,59 | 8,99 | 3.443 |
-| Etanol hidratado | **R$ 4,14/L** | 3,09 | 6,59 | 3.833 |
+| Gasolina comum | **R$ 6,47/L** | 5,29 | 8,99 | 4.584 |
+| Gasolina aditivada | **R$ 6,64/L** | 5,49 | 8,99 | 3.511 |
+| Etanol hidratado | **R$ 4,29/L** | 3,39 | 6,60 | 3.915 |
+
+A geração inicial (17/10/2026) usou a semana 04–10/10/2026 (gasolina R$ 6,54, etanol R$ 4,14).
+
+## Mudança de nomenclatura na ANP (out/2026)
+
+Até a semana 04–10/10/2026 os arquivos vinham como
+`resumo_semanal_lpc_2026-10-04_2026-10-10.xlsx`. A partir da semana 11–17/10/2026 a ANP passou a publicar
+nomes com **underscores e formatos mistos**, por exemplo:
+
+- `resumo_semanal_lpc_2026_10_11-2026_10_17.xlsx`
+- `resumo_semanal_lpc_2026_11_08-2026_11_14.xlsx`
+- `resumo_semanal_lpc_2026_11_15_2026-11-21.xlsx` (misto)
+
+O parser aceita `-` ou `_` entre qualquer parte da data. **Pitfall que já aconteceu:** uma versão antiga do
+regex exigia hífens na primeira data e simplesmente ignorava os links novos — o pipeline continuava
+"funcionando" (exit 0), mas escolhia a última semana no formato antigo e os preços ficaram congelados por
+semanas. Por isso o workflow agora verifica a idade de `precos.json` e **falha** se a semana de referência
+tiver mais de 21 dias.
 
 \* mín/máx das **médias municipais**, não dos preços praticados em cada posto (explicado abaixo).
 

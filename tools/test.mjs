@@ -577,14 +577,16 @@ test("weightedKmL usa média harmônica cidade/estrada", () => {
   ok(Number.isNaN(AC.weightedKmL("", "", 70)));
   ok(Number.isNaN(AC.weightedKmL("abc", "xyz", 70)));
 });
-test("averageConsumption soma litros e km por combustível", () => {
+test("averageConsumption usa pares cheios do mesmo combustível sem atravessar lacunas", () => {
   const diario = [
-    { fuel: "gasolina", liters: 30, km: 360 },
-    { fuel: "gasolina", liters: 20, km: 260 },
-    { fuel: "etanol", liters: 10, km: 80 },
-    { fuel: "gasolina", liters: 0, km: 100 },
-    { fuel: "gasolina", liters: 10, km: 0 },
-    { fuel: "diesel", liters: 10, km: 100 }
+    { id: "a", fuel: "gasolina", liters: 20, odometer: 1000, fullTank: true },
+    { id: "b", previousId: "a", fuel: "gasolina", liters: 30, odometer: 1360, fullTank: true },
+    { id: "c", previousId: "b", fuel: "gasolina", liters: 20, odometer: 1620, fullTank: true },
+    { id: "d", previousId: "c", fuel: "etanol", liters: 10, odometer: 1700, fullTank: true },
+    { id: "e", previousId: "d", fuel: "etanol", liters: 10, odometer: 1780, fullTank: true },
+    { id: "f", previousId: "e", fuel: "etanol", liters: 5, odometer: 1850, fullTank: false },
+    { id: "g", previousId: "f", fuel: "etanol", liters: 30, odometer: 2100, fullTank: true },
+    { id: "h", fuel: "gasolina", liters: 10, km: 100 },
   ];
   const g = AC.averageConsumption(diario, "gasolina");
   close(g.kmL, 620 / 50, 1e-9);
@@ -593,26 +595,14 @@ test("averageConsumption soma litros e km por combustível", () => {
   close(AC.averageConsumption(diario, "etanol").kmL, 8, 1e-9);
   isNull(AC.averageConsumption([], "gasolina"));
   isNull(AC.averageConsumption(null, "gasolina"));
-  isNull(AC.averageConsumption([{ fuel: "gasolina", liters: 10, km: 1 }], "gasolina"), "consumo implausível é descartado");
-});
-test("recomputeOdometerKm encadeia distâncias e preserva registros antigos", () => {
-  const a = { id: "a", fuel: "gasolina", liters: 20, odometer: 45000, ts: 1 };
-  const b = { id: "b", fuel: "etanol", liters: 30, odometer: 45350, ts: 2 };
-  const c = { id: "c", fuel: "gasolina", liters: 10, odometer: 45400, ts: 3 };
-  const legado = { id: "d", fuel: "gasolina", liters: 10, km: 200, ts: 4 };
-  const out = AC.recomputeOdometerKm([c, a, legado, b]);
-  eq(out.length, 4);
-  eq(a.km, 0, "primeira leitura é a base");
-  eq(b.km, 350);
-  eq(c.km, 50);
-  eq(legado.km, 200, "registro antigo preservado");
-  eq(AC.recomputeOdometerKm(null).length, 0);
+  isNull(AC.averageConsumption(diario.filter(f => f.id !== "b"), "gasolina"));
+  isNull(AC.averageConsumption(diario.slice(3).filter(f => f.id !== "f" && f.id !== "e"), "etanol"));
 });
 test("monthlyReport agrupa por mês e calcula custo, km/L e economia", () => {
   const fills = [
-    { fuel: "gasolina", liters: 20, odometer: 45000, km: 0, ts: Date.UTC(2026, 9, 5, 12), price: 6, otherPrice: 4, kmL: 10, otherKmL: 7 },
-    { fuel: "gasolina", liters: 50, odometer: 45620, km: 620, ts: Date.UTC(2026, 9, 20, 12), price: 6, otherPrice: 4, kmL: 10, otherKmL: 7 },
-    { fuel: "etanol", liters: 30, odometer: 45980, km: 360, ts: Date.UTC(2026, 10, 2, 12), price: 4, otherPrice: 6, kmL: 7, otherKmL: 10 }
+    { id: "a", fullTank: true, fuel: "gasolina", liters: 20, odometer: 45000, ts: Date.UTC(2026, 9, 5, 12), price: 6 },
+    { id: "b", previousId: "a", fullTank: true, fuel: "gasolina", liters: 50, odometer: 45620, ts: Date.UTC(2026, 9, 20, 12), price: 6, otherPrice: 4, kmL: 10, otherKmL: 7 },
+    { id: "c", previousId: "b", fullTank: true, fuel: "etanol", liters: 30, odometer: 45980, ts: Date.UTC(2026, 10, 2, 12), price: 4, otherPrice: 6, kmL: 7, otherKmL: 10 }
   ];
   const r = AC.monthlyReport(fills);
   eq(r.months.length, 2);
@@ -624,16 +614,19 @@ test("monthlyReport agrupa por mês e calcula custo, km/L e economia", () => {
   close(out.km, 620, 1e-9);
   eq(r.totals.months, 2);
   close(r.totals.cost, 70 * 6 + 30 * 4, 1e-9);
-  close(r.totals.km, 980, 1e-9);
-  close(r.totals.kmL, 980 / 80, 1e-9);
+  close(r.totals.km, 620, 1e-9);
+  close(r.totals.kmL, 620 / 50, 1e-9);
+  eq(r.months[1].savings, 0);
+  isNull(r.months[1].kmL);
   const vazio = AC.monthlyReport([]);
   eq(vazio.months.length, 0);
   isNull(vazio.totals.kmL);
 });
 test("monthlyReport agrega economia por posto", () => {
   const fills = [
-    { fuel: "gasolina", liters: 30, km: 300, ts: Date.UTC(2026, 9, 5, 12), price: 5, otherPrice: 4, kmL: 10, otherKmL: 7, station: "Posto A" },
-    { fuel: "gasolina", liters: 20, km: 200, ts: Date.UTC(2026, 9, 20, 12), price: 5.5, otherPrice: 4, kmL: 10, otherKmL: 7, station: "Posto B" },
+    { id: "base", fullTank: true, fuel: "gasolina", liters: 20, odometer: 1000, ts: Date.UTC(2026, 9, 1, 12) },
+    { id: "a", previousId: "base", fullTank: true, fuel: "gasolina", liters: 30, odometer: 1300, ts: Date.UTC(2026, 9, 5, 12), price: 5, otherPrice: 4, kmL: 10, otherKmL: 7, station: "Posto A" },
+    { id: "b", previousId: "a", fullTank: true, fuel: "gasolina", liters: 20, odometer: 1500, ts: Date.UTC(2026, 9, 20, 12), price: 5.5, otherPrice: 4, kmL: 10, otherKmL: 7, station: "Posto B" },
     { fuel: "etanol", liters: 10, km: 70, ts: Date.UTC(2026, 9, 21, 12), price: 4, otherPrice: 6, kmL: 7, otherKmL: 10, station: "Posto A" }
   ];
   const r = AC.monthlyReport(fills);

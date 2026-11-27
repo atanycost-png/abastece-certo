@@ -818,9 +818,11 @@ async function main() {
       pct.dispatchEvent(new Event('input', { bubbles: true }));
       set('fillLiters', '20');
       set('fillOdometer', '45000');
+      document.getElementById('fillTank').value = 'full';
       document.getElementById('fillSave').click();
       set('fillLiters', '50');
       set('fillOdometer', '45620');
+      document.getElementById('fillTank').value = 'full';
       document.getElementById('fillSave').click();
       const summary = document.getElementById('fillSummary').textContent;
       const effective = document.getElementById('kmLEffective').textContent;

@@ -115,10 +115,11 @@ A v1–v3 passaram por "cara de IA" e por direções que não agradaram (papel/r
   a média é **harmônica** (`1 / (w/consumo_cidade + (1-w)/consumo_estrada)`), com fallback para o único
   valor informado (compatível com veículos salvos antes da v4.5). Abaixo do slider aparece o consumo
   efetivo considerado.
-- **Diário de abastecimentos:** seção recolhível com combustível, litros e **hodômetro total**; o primeiro
-  registro é a leitura inicial (km = 0) e os seguintes calculam a diferença. Lista com km/L de cada
-  registro, resumo por combustível e botão "Usar consumo real no modo preciso". Ao excluir, a cadeia de
-  distâncias é recalculada. Até 80 registros, só no aparelho.
+- **Diário de abastecimentos:** seção recolhível para **um veículo**, com combustível, litros, **hodômetro
+  total** e **nível do tanque** (parcial/cheio). O consumo real só é medido entre **dois tanques cheios
+  consecutivos do mesmo combustível** (`measuredFillKm`); abastecimentos parciais contam para custo/litros,
+  mas não para km/L. Excluir um registro invalida o segmento que começava nele. Lista com km/L de cada
+  medição, resumo por combustível e botão "Usar consumo real no modo preciso". Até 80 registros, no aparelho.
 - **Relatório mensal:** seção recolhível alimentada pelo diário; por mês mostra custo (litros × preço salvo),
   km/L médio, km, litros, nº de abastecimentos e economia estimada vs. o outro combustível; total no topo.
   Registros sem preço entram em km/litros, mas não no custo.

@@ -32,12 +32,12 @@ e guarda um **histórico local** dos seus cálculos com gráfico e exportação 
 - **Campo de preço inteligente** — digite só números: `654` vira R$ 6,54, `456` vira R$ 4,56; ao sair do campo, `6` completa para R$ 6,00; teto de 4 dígitos (R$ 99,99). Digitação, cola e desfazer são normalizados sozinhos.
 - **Tema escuro como padrão** — botão no cabeçalho alterna escuro → automático (segue o sistema) → claro; cada tema tem cores próprias (não é “inversão”) e a escolha fica salva.
 - **Preços de referência da ANP** — médias semanais oficiais por **Brasil, estado e cidade** (a amostra semanal traz ~406 municípios) em um `precos.json` gerado por script; a UF e a cidade escolhidas são lembradas. Quando há histórico, mostra a **tendência** (“gasolina ▼ −R$ 0,07 · etanol ▲ +R$ 0,15 vs semana de …”).
-- **Preços oficiais por posto** — a ANP publica o preço de cada posto pesquisado; o app baixa o arquivo compacto da sua UF e lista os postos da cidade escolhida (os 20 mais baratos), com **Usar preço** para preencher gasolina/etanol e o nome do posto.
+- **Preços oficiais por posto** — o app lista até 20 postos da cidade, em ordem de preço da gasolina. **Usar preço** preenche gasolina, etanol e nome do posto quando a pesquisa traz os dois preços.
 - **Meus postos** — salve o preço que você viu no posto (nome + gasolina + etanol) e toque em “Usar” para preencher os dois campos com um toque; tudo fica no aparelho (até 15 postos).
 - **Postos perto de mim** — com um toque, usa a sua localização (só na hora, nada é guardado) e lista os postos num raio de 2 km via **OpenStreetMap** (Photon/Komoot, com Overpass de reserva); dá para abrir no Google Maps ou copiar o nome para salvar o preço. Se os serviços do OSM não responderem, o app abre o Google Maps. A última lista fica salva: offline, ele mostra **“últimos postos vistos em …”**.
 - **Custo mensal estimado** — informe quantos km você roda por mês no modo preciso e veja o gasto mensal com o combustível vencedor.
 - **Consumo cidade/estrada** — informe o km/L na cidade e na estrada para cada combustível e ajuste quanto você roda na cidade (padrão 70%); a média é harmônica e o limite pessoal sai do consumo ponderado.
-- **Diário de abastecimentos** — registre litros, o **hodômetro total** e (opcional) o **posto**; o primeiro registro guarda a leitura e os próximos calculam os km rodados sozinhos (com recálculo ao excluir). Veja o km/L de cada registro, o preço pago por litro e o consumo real por combustível; com um toque o app joga a média no modo preciso.
+- **Diário de abastecimentos** — para um veículo, registre litros, hodômetro, nível do tanque após abastecer e, se quiser, o nome do posto. O consumo usa pares consecutivos de tanque cheio com o mesmo combustível. Excluir um registro invalida a medição que começava nele. Registros antigos continuam no diário e contribuem para o custo quando têm preço salvo.
 - **Relatório mensal** — custo por mês (litros × preço salvo no registro), km/L médio, economia acumulada comparando com o outro combustível e **economia por posto**; atualiza sozinho conforme o diário.
 - **Aviso de dados antigos** — se a semana da ANP tiver mais de 14 dias, um selo no topo mostra a data e abre o “Sobre” para atualizar.
 - **Backup e restauração** — exporta um JSON com histórico, veículos, diário, postos, tema e preços; importar restaura no aparelho novo (com confirmação e validação).
@@ -92,6 +92,7 @@ ganha preços novos sem backend e sem CORS. O job roda em `macos-latest` porque 
 GitHub são bloqueados pelo `gov.br` (detalhes em [`docs/DADOS-ANP.md`](docs/DADOS-ANP.md)). O workflow
 **falha de propósito** se a semana de referência ficar com mais de 21 dias, para avisar quando a ANP parar
 de publicar ou mudar o formato dos arquivos.
+Se a planilha de revendas falhar, a automação publica as médias válidas e sinaliza quais UFs ficaram sem preços por posto da semana correspondente.
 
 ## Fórmulas
 

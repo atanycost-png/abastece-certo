@@ -2751,13 +2751,15 @@ test("v4.5 diário: hodômetro calcula km, consumo real e relatório", () => {
   // leitura inicial do hodômetro
   env.input("fillLiters", "20");
   env.input("fillOdometer", "45000");
+  env.$("fillTank").value = "full";
   env.input("fillStation", "Posto A");
   env.fire(env.$("fillSave"), "click", {});
   eq(env.$("fillCount").textContent, "1");
-  includes(env.text("fillSummary"), "próximo abastecimento");
+  includes(env.text("fillSummary"), "dois tanques cheios");
   // segundo registro: 620 km rodados com 50 L -> 12,4 km/L
   env.input("fillLiters", "50");
   env.input("fillOdometer", "45620");
+  env.$("fillTank").value = "full";
   env.input("fillStation", "Posto A");
   env.fire(env.$("fillSave"), "click", {});
   eq(env.$("fillCount").textContent, "2");
@@ -2784,6 +2786,13 @@ test("v4.5 diário: hodômetro calcula km, consumo real e relatório", () => {
   const del = env.$("fillList").querySelector('[data-fill="del"]');
   env.fire(env.$("fillList"), "click", { target: del });
   eq(env.$("fillCount").textContent, "1");
+  const next = bootWith(env);
+  next.input("fillLiters", "60");
+  next.input("fillOdometer", "45800");
+  next.$("fillTank").value = "full";
+  next.fire(next.$("fillSave"), "click", {});
+  eq(next.$("fillCount").textContent, "2");
+  eq(next.$("fillUse").disabled, true, "excluir a última parada invalida o próximo intervalo mesmo após recarregar");
   env.fire(env.$("fillClear"), "click", {});
   eq(env.$("fillCount").textContent, "0");
 });
@@ -2793,6 +2802,37 @@ test("v5 preços por posto: botão pede cidade na referência ANP", () => {
   env.fire(env.$("cityPricesBtn"), "click", {});
   includes(env.text("cityPricesHint"), "Escolha o estado e a cidade");
   eq(env.$("cityPricesList").children.length, 0);
+});
+
+test("preços por posto: gasolina ausente fica no fim e só o par completo pode ser aplicado", async () => {
+  const medias = JSON.parse(readFileSync(join(ROOT, "precos.json"), "utf8"));
+  const postos = {
+    semana: { inicio: "2026-11-08", fim: "2026-11-14" },
+    postos: [
+      ["São Paulo", "Somente etanol", "", "", null, 4.2],
+      ["São Paulo", "Preço completo", "", "", 6.3, 4.1]
+    ]
+  };
+  const env = boot({ fetchImpl: (url) => jsonResponse(url.endsWith("/SP.json") ? postos : medias) });
+  await sleep(0);
+  const ref = env.$("priceRef");
+  const uf = ref.querySelector("#refUf");
+  uf.value = "SP";
+  env.fire(ref, "change", { target: uf });
+  const cidade = ref.querySelector("#refCity");
+  cidade.value = "São Paulo";
+  env.fire(ref, "change", { target: cidade });
+  env.fire(env.$("cityPricesBtn"), "click", {});
+  await sleep(0);
+  const lista = env.$("cityPricesList");
+  eq(lista.querySelectorAll("[data-city-price]").length, 1);
+  const html = env.html("cityPricesList");
+  ok(html.indexOf("Preço completo") < html.indexOf("Somente etanol"));
+  includes(html, "G —");
+  includes(env.text("cityPricesHint"), "outra semana");
+  env.fire(lista, "click", { target: lista.querySelector("[data-city-price]") });
+  eq(env.$("gas").value, "6,30");
+  eq(env.$("eta").value, "4,10");
 });
 
 // ==========================================================================

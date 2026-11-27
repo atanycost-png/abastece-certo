@@ -9,7 +9,8 @@
  *
  * Uso:
  *   node tools/live-check.mjs                          # URL padrão (GitHub Pages)
- *   node tools/live-check.mjs https://exemplo.com/app/ # outra URL
+ *   node tools/live-check.mjs https://exemplo.com/app/ --mobile # Android emulado
+ *   Use --screenshot para atualizar screenshots/live-pages.png.
  *
  * Sai com código != 0 se algo essencial falhar. Requer Microsoft Edge.
  */
@@ -21,7 +22,9 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SHOTS = join(ROOT, "screenshots");
-const TARGET = process.argv[2] || "https://atanycost-png.github.io/abastece-certo/";
+const TARGET = process.argv.slice(2).find((arg) => !arg.startsWith("--")) || "https://atanycost-png.github.io/abastece-certo/";
+const MOBILE = process.argv.includes("--mobile");
+const SCREENSHOT = process.argv.includes("--screenshot");
 const DEBUG_PORT = 9421;
 
 const EDGE_CANDIDATES = [
@@ -123,7 +126,7 @@ async function main() {
     console.log("Edge não encontrado — verificação do app publicado ignorada.");
     return;
   }
-  if (!existsSync(SHOTS)) mkdirSync(SHOTS, { recursive: true });
+  if (SCREENSHOT && !existsSync(SHOTS)) mkdirSync(SHOTS, { recursive: true });
 
   const profile = join(tmpdir(), `abastece-live-${Date.now()}`);
   let browser = null;
@@ -145,6 +148,16 @@ async function main() {
     const { sessionId } = await cdp.send("Target.attachToTarget", { targetId, flatten: true });
     for (const domain of ["Page", "Runtime", "Log", "Network"]) {
       await cdp.send(`${domain}.enable`, {}, sessionId);
+    }
+    if (MOBILE) {
+      await cdp.send("Emulation.setDeviceMetricsOverride", {
+        width: 390, height: 844, deviceScaleFactor: 2, mobile: true
+      }, sessionId);
+      await cdp.send("Emulation.setTouchEmulationEnabled", { enabled: true }, sessionId);
+      const version = info.Browser.match(/\d+(?:\.\d+)+/)?.[0] || "130.0.0.0";
+      await cdp.send("Emulation.setUserAgentOverride", {
+        userAgent: `Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${version} Mobile Safari/537.36`
+      }, sessionId);
     }
     const consoleErrors = [];
     cdp.listeners.push((msg) => {
@@ -181,7 +194,10 @@ async function main() {
       } catch (e) { out.precos = { error: String(e) }; }
       if ('serviceWorker' in navigator) {
         try {
-          const reg = await navigator.serviceWorker.ready;
+          const reg = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise((_, reject) => setTimeout(() => reject(new Error('service worker indisponível')), 6000))
+          ]);
           for (let i = 0; i < 50 && !navigator.serviceWorker.controller; i++) {
             await new Promise(r => setTimeout(r, 100));
           }
@@ -210,15 +226,24 @@ async function main() {
     check(/Referência ANP/.test(live.referencia || ""), "bloco de referência ANP renderizado");
     check(/semana/i.test(live.referencia || ""), "semana da ANP exibida");
 
-    // ---- recorte do app publicado para evidência
-    const metrics = await cdp.send("Page.getLayoutMetrics", {}, sessionId);
-    const size = metrics.cssContentSize || metrics.contentSize;
-    const shot = await cdp.send("Page.captureScreenshot", {
-      format: "png", captureBeyondViewport: true,
-      clip: { x: 0, y: 0, width: Math.ceil(size.width), height: Math.ceil(size.height), scale: 1 }
-    }, sessionId);
-    writeFileSync(join(SHOTS, "live-pages.png"), Buffer.from(shot.data, "base64"));
-    console.log("  screenshot live-pages.png");
+    if (MOBILE) {
+      const layout = await evaluate("({ width: innerWidth, scroll: document.documentElement.scrollWidth })");
+      check(layout.width === 390 && layout.scroll <= layout.width, "layout móvel de 390 px sem rolagem horizontal");
+      const { installabilityErrors } = await cdp.send("Page.getInstallabilityErrors", {}, sessionId);
+      check(installabilityErrors.length === 0, "Chromium sem erros de instalabilidade"
+        + (installabilityErrors.length ? " (" + installabilityErrors.map(e => e.errorId).join(", ") + ")" : ""));
+    }
+
+    if (SCREENSHOT) {
+      const metrics = await cdp.send("Page.getLayoutMetrics", {}, sessionId);
+      const size = metrics.cssContentSize || metrics.contentSize;
+      const shot = await cdp.send("Page.captureScreenshot", {
+        format: "png", captureBeyondViewport: true,
+        clip: { x: 0, y: 0, width: Math.ceil(size.width), height: Math.ceil(size.height), scale: 1 }
+      }, sessionId);
+      writeFileSync(join(SHOTS, "live-pages.png"), Buffer.from(shot.data, "base64"));
+      console.log("  screenshot live-pages.png");
+    }
 
     // ---- offline de verdade: desliga a rede e recarrega
     await cdp.send("Network.emulateNetworkConditions", {

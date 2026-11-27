@@ -74,7 +74,7 @@ jobs:
 
       - name: Commitar somente se precos.json ou postos mudaram
         run: |
-          if git diff --quiet -- precos.json postos; then
+          if [ -z "$(git status --porcelain -- precos.json postos)" ]; then
             echo "precos.json/postos não mudaram nesta execução; nada a commitar."
             exit 0
           fi
@@ -87,3 +87,20 @@ jobs:
             git push
           fi
           echo "precos.json/postos atualizados e enviados ao repositório."
+
+      - name: Verificar a semana dos preços por posto
+        run: |
+          node --input-type=module <<'JS'
+          import { existsSync, readFileSync } from 'node:fs';
+
+          const precos = JSON.parse(readFileSync('precos.json', 'utf8'));
+          for (const uf of Object.keys(precos.estados)) {
+            const arquivo = `postos/${uf}.json`;
+            const semana = existsSync(arquivo)
+              ? JSON.parse(readFileSync(arquivo, 'utf8')).semana : null;
+            if (semana?.inicio !== precos.semana.inicio || semana?.fim !== precos.semana.fim) {
+              console.error(`${arquivo}: esperado ${precos.semana.inicio} a ${precos.semana.fim}, encontrado ${semana ? semana.inicio + ' a ' + semana.fim : 'sem dados'}`);
+              process.exitCode = 1;
+            }
+          }
+          JS

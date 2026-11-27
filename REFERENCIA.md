@@ -670,3 +670,26 @@ salvos e preços oficiais por posto. Teste novo: `v5 preço com uma casa decimal
 (DOM: `#gas = 6,50`, `#eta = 4,82`).
 
 - Versão **5.0.1** (app/SW/pacote). Suítes: 171 lógica · **130 DOM** · 33 SW · 136 ANP · 55 checks.
+
+---
+
+## 27/11/2026 — v5.0.2 (medição por tanque cheio + ajustes)
+
+### Mudanças do usuário (revisadas e publicadas)
+- **Diário: nível do tanque** (`#fillTank`: parcial/cheio). O consumo real agora só é medido entre **dois
+  tanques cheios consecutivos do mesmo combustível** (`AC.measuredFillKm`), como em apps de consumo.
+  Abastecimentos parciais entram em custo/litros, mas não na média de km/L. A lista mostra o km/L de cada
+  medição; excluir o último registro marca `endsSegment` e invalida o segmento; registros antigos continuam
+  válidos para custo. `previousId` amarra o par e evita atravessar lacunas.
+- **Preços por posto:** "Usar preço" só preenche quando a pesquisa da ANP tem **gasolina e etanol**;
+  caso contrário avisa que falta um dos preços (README ajustado).
+- **Workflow ANP:** commit detectado por `git status --porcelain` (pega arquivos novos também) e nova
+  etapa que confere se cada `postos/UF.json` está na **mesma semana** do `precos.json`.
+- **`tools/live-check.mjs`:** verificação do app **publicado** (MIME do manifest, service worker, cache
+  offline, precos.json mesma origem, referência ANP e modo offline via CDP).
+- Visual-check atualizado para escolher "Cheio" nos dois registros; consumo 12,4 km/L validado de novo.
+
+### Verificação
+- `test.mjs` **170** · `test-dom.mjs` **131** · `test-sw.mjs` **33** · `test-prices.mjs` **136** ·
+  `check.mjs` **55** · `visual-check.mjs` **19 etapas** (diário com tanque cheio + postos por cidade).
+- Versão **5.0.2** (app/SW/pacote). `index.html` ~173 KB (limite 180 KB).

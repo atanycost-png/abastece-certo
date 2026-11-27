@@ -697,7 +697,7 @@
     <details class="stations" id="fillDetails">
       <summary>Diário de abastecimentos <span class="pill" id="fillCount">0</span></summary>
       <div class="body">
-        <p class="fineprint">Registre litros e km rodados desde o último abastecimento; o app calcula o consumo real por combustível e pode preencher o modo preciso.</p>
+        <p class="fineprint">Use o diário para um veículo. O consumo usa dois registros consecutivos de tanque cheio com o mesmo combustível.</p>
         <div class="grid2">
           <div class="field no-prefix">
             <label for="fillFuel">Combustível</label>
@@ -726,11 +726,19 @@
         <div class="field no-prefix">
           <label for="fillOdometer">Hodômetro (km total do carro)</label>
           <div class="box">
-            <input id="fillOdometer" class="has-unit" type="text" inputmode="numeric" placeholder="45.320" autocomplete="off" aria-describedby="fillHint">
+            <input id="fillOdometer" class="has-unit" type="text" inputmode="numeric" placeholder="45320" autocomplete="off" aria-describedby="fillHint">
             <span class="unit" aria-hidden="true">km</span>
           </div>
         </div>
-        <p class="fineprint">O primeiro registro só guarda a leitura do hodômetro; os próximos calculam os km rodados sozinhos.</p>
+        <div class="field no-prefix">
+          <label for="fillTank">Nível do tanque após abastecer</label>
+          <div class="box">
+            <select id="fillTank">
+              <option value="partial">Parcial</option>
+              <option value="full">Cheio</option>
+            </select>
+          </div>
+        </div>
         <div class="veh-actions">
           <button type="button" class="btn" id="fillSave">Salvar abastecimento</button>
         </div>
@@ -1030,9 +1038,10 @@
       for (var i = 0; i < entries.length; i++) {
         var e = entries[i];
         if (!e || (alvo && e.fuel !== alvo)) continue;
-        if (!isFinite(e.liters) || !isFinite(e.km) || e.liters <= 0 || e.km <= 0) continue;
+        var distancia = measuredFillKm(entries, i);
+        if (!distancia) continue;
         litros += e.liters;
-        km += e.km;
+        km += distancia;
         n++;
       }
       if (!n || litros <= 0) return null;
@@ -1041,32 +1050,15 @@
       return { fuel: alvo || "todos", kmL: kmL, liters: litros, km: km, entries: n };
     }
 
-    /**
-     * Recalcula os km rodados a partir das leituras de hodômetro.
-     * Entradas com hodômetro são ordenadas por ele; a primeira é só a leitura
-     * inicial (km = 0) e cada seguinte ganha a diferença desde a anterior.
-     * Entradas antigas (sem hodômetro, só com km) são preservadas.
-     */
-    function recomputeOdometerKm(entries) {
-      if (!Array.isArray(entries)) return [];
-      var saida = entries.map(function (e) { return e && typeof e === "object" ? e : null; }).filter(Boolean);
-      var comOdometro = saida.filter(function (e) { return isFinite(e.odometer) && e.odometer >= 0; });
-      comOdometro.sort(function (a, b) {
-        if (a.odometer !== b.odometer) return a.odometer - b.odometer;
-        return (a.ts || 0) - (b.ts || 0);
-      });
-      var anterior = null;
-      for (var i = 0; i < comOdometro.length; i++) {
-        var item = comOdometro[i];
-        if (anterior === null) {
-          item.km = 0;
-        } else {
-          var delta = item.odometer - anterior;
-          item.km = isFinite(delta) && delta > 0 ? Math.round(delta * 10) / 10 : 0;
-        }
-        anterior = item.odometer;
-      }
-      return saida;
+    function measuredFillKm(entries, index) {
+      var atual = entries[index];
+      var anterior = entries[index - 1];
+      if (!atual || !anterior || atual.fullTank !== true || anterior.fullTank !== true
+        || !anterior.id || anterior.id !== atual.previousId || atual.fuel !== anterior.fuel
+        || !Number.isFinite(atual.liters) || atual.liters <= 0
+        || !Number.isFinite(atual.odometer) || !Number.isFinite(anterior.odometer)) return 0;
+      var km = Math.round((atual.odometer - anterior.odometer) * 10) / 10;
+      return km > 0 && km <= 3000 && isValidKmL(km / atual.liters) ? km : 0;
     }
 
     /**
@@ -1094,7 +1086,7 @@
         m.liters += f.liters;
         total.liters += f.liters;
         total.entries++;
-        var km = isFinite(f.km) && f.km > 0 ? f.km : 0;
+        var km = measuredFillKm(lista, i);
         if (km > 0) {
           m.km += km;
           m.litersKm += f.liters;
@@ -1672,7 +1664,7 @@
       normalizarNome: normalizarNome,
       weightedKmL: weightedKmL,
       averageConsumption: averageConsumption,
-      recomputeOdometerKm: recomputeOdometerKm,
+      measuredFillKm: measuredFillKm,
       monthlyReport: monthlyReport,
       diasDesdeSemana: diasDesdeSemana,
       tendenciaPrecos: tendenciaPrecos,
@@ -1725,7 +1717,7 @@
     gasKmLHint: $("gasKmLHint"), etaKmLHint: $("etaKmLHint"),
     gasRoadKmLHint: $("gasRoadKmLHint"), etaRoadKmLHint: $("etaRoadKmLHint"),
     cityPct: $("cityPct"), cityPctVal: $("cityPctVal"), kmLEffective: $("kmLEffective"),
-    fillFuel: $("fillFuel"), fillLiters: $("fillLiters"), fillOdometer: $("fillOdometer"),
+    fillFuel: $("fillFuel"), fillLiters: $("fillLiters"), fillOdometer: $("fillOdometer"), fillTank: $("fillTank"),
     fillStation: $("fillStation"), fillStationList: $("fillStationList"),
     fillSave: $("fillSave"), fillList: $("fillList"), fillSummary: $("fillSummary"),
     fillUse: $("fillUse"), fillClear: $("fillClear"), fillHint: $("fillHint"), fillCount: $("fillCount"),
@@ -3311,8 +3303,14 @@
   function usarPrecoPosto(indice) {
     var p = cityPostosAtuais[indice];
     if (!p) return;
-    if (isFinite(p[4])) setPriceDigits(ui.gas, AC.toInputValue(p[4]));
-    if (isFinite(p[5])) setPriceDigits(ui.eta, AC.toInputValue(p[5]));
+    var temGasolina = Number.isFinite(p[4]);
+    var temEtanol = Number.isFinite(p[5]);
+    if (!temGasolina || !temEtanol) {
+      toast("Este posto não tem os dois preços na pesquisa da ANP.");
+      return;
+    }
+    setPriceDigits(ui.gas, AC.toInputValue(p[4]));
+    setPriceDigits(ui.eta, AC.toInputValue(p[5]));
     if (ui.stationName) ui.stationName.value = p[1] || "";
     render();
     saveState();
@@ -3339,27 +3337,32 @@
         return;
       }
       lista.sort(function (a, b) {
-        var ga = isFinite(a[4]) ? a[4] : 99;
-        var gb = isFinite(b[4]) ? b[4] : 99;
+        var ga = Number.isFinite(a[4]) ? a[4] : Infinity;
+        var gb = Number.isFinite(b[4]) ? b[4] : Infinity;
         if (ga !== gb) return ga - gb;
         return String(a[1]).localeCompare(String(b[1]), "pt-BR");
       });
       cityPostosAtuais = lista.slice(0, 20);
       ui.cityPricesList.innerHTML = cityPostosAtuais.map(function (p, i) {
-        var g = isFinite(p[4]) ? AC.fmtBRL(p[4]) : "—";
-        var e = isFinite(p[5]) ? AC.fmtBRL(p[5]) : "—";
+        var g = Number.isFinite(p[4]) ? AC.fmtBRL(p[4]) : "—";
+        var e = Number.isFinite(p[5]) ? AC.fmtBRL(p[5]) : "—";
         return '<li class="station-item">'
           + '<span class="station-name">' + escapeHtml(p[1]) + "</span>"
           + '<span class="station-prices">G ' + g + " · E " + e + (p[2] ? " · " + escapeHtml(p[2]) : "") + "</span>"
           + (p[3] ? '<span class="hist-when">' + escapeHtml(p[3]) + "</span>" : "")
           + '<span class="station-actions">'
-          + '<button type="button" class="btn ghost" data-city-price="' + i + '">Usar preço</button>'
+          + (Number.isFinite(p[4]) && Number.isFinite(p[5])
+            ? '<button type="button" class="btn ghost" data-city-price="' + i + '">Usar preço</button>' : "")
           + "</span>"
           + "</li>";
       }).join("");
+      var semanaMedias = state.prices && state.prices.semana;
+      var semanaDiferente = semanaMedias && dados.semana
+        && (semanaMedias.inicio !== dados.semana.inicio || semanaMedias.fim !== dados.semana.fim);
       ui.cityPricesHint.textContent = "Preços oficiais da ANP em " + cidade + " (" + uf + ") · " + lista.length
         + " posto(s) · semana " + AC.formatWeek(dados.semana) + ". "
-        + (lista.length > 20 ? "Mostrando os 20 mais baratos. " : "") + "Fonte: ANP.";
+        + (lista.length > 20 ? "Mostrando até 20 postos, por preço da gasolina. " : "")
+        + (semanaDiferente ? "As médias exibidas são de outra semana. " : "") + "Fonte: ANP.";
     }).catch(function () {
       ui.cityPricesList.innerHTML = "";
       ui.cityPricesHint.textContent = "Ainda não há preços por posto para " + uf + " (o arquivo é gerado na atualização semanal).";
@@ -3382,6 +3385,7 @@
     var arr = null;
     try { arr = JSON.parse(safeGet(FILLS_KEY) || "[]"); } catch (e) { arr = null; }
     function optNum(v, min, max) {
+      if (v == null || v === "") return null;
       var n = Number(v);
       return isFinite(n) && n >= min && n <= max ? n : null;
     }
@@ -3389,7 +3393,7 @@
       return f && (f.fuel === "gasolina" || f.fuel === "etanol")
         && isFinite(f.liters) && f.liters > 0 && f.liters <= 200
         && isFinite(f.ts)
-        && ((isFinite(f.odometer) && f.odometer >= 0) || (isFinite(f.km) && f.km >= 0));
+        && (optNum(f.odometer, 0, 2000000) !== null || optNum(f.km, 0, 3000) !== null);
     }).map(function (f) {
       return {
         id: typeof f.id === "string" ? f.id.slice(0, 20) : "f" + Math.random().toString(36).slice(2, 8),
@@ -3398,6 +3402,9 @@
         ts: Number(f.ts),
         odometer: optNum(f.odometer, 0, 2000000),
         km: optNum(f.km, 0, 3000) || 0,
+        fullTank: f.fullTank === true,
+        previousId: typeof f.previousId === "string" ? f.previousId.slice(0, 20) : null,
+        endsSegment: f.endsSegment === true,
         station: typeof f.station === "string" ? f.station.replace(/\s+/g, " ").trim().slice(0, 40) : "",
         price: optNum(f.price, 0.5, 30),
         otherPrice: optNum(f.otherPrice, 0.5, 30),
@@ -3405,7 +3412,6 @@
         otherKmL: optNum(f.otherKmL, 0.5, 60)
       };
     }).slice(-FILLS_MAX) : [];
-    fills = AC.recomputeOdometerKm(fills);
   }
 
   function persistFills() {
@@ -3428,16 +3434,17 @@
     ui.fillSummary.textContent = partes.length
       ? "Consumo real: " + partes.join(" · ") + "."
       : (fills.length
-        ? "Registre o próximo abastecimento para calcular o consumo real."
+        ? "Para medir o consumo, registre dois tanques cheios seguidos com o mesmo combustível."
         : "Sem abastecimentos registrados.");
     if (ui.fillCount) ui.fillCount.textContent = String(fills.length);
     if (ui.fillUse) ui.fillUse.disabled = !g && !e;
     if (ui.fillClear) ui.fillClear.disabled = fills.length === 0;
-    ui.fillList.innerHTML = fills.slice().reverse().map(function (f) {
-      var kmL = f.km > 0 ? f.km / f.liters : 0;
-      var leitura = isFinite(f.odometer) ? "Hodômetro " + AC.fmtNum(f.odometer, 0) : "Registro antigo";
-      var kmTexto = f.km > 0 ? "+" + AC.fmtNum(f.km, 0) + " km" : "leitura inicial";
+    ui.fillList.innerHTML = fills.map(function (f, i) {
+      var kmL = AC.measuredFillKm(fills, i) / f.liters;
+      var leitura = Number.isFinite(f.odometer) ? "Hodômetro " + AC.fmtNum(f.odometer, 0) : "Registro antigo";
+      var kmTexto = f.km > 0 ? "+" + AC.fmtNum(f.km, 0) + " km" : "sem distância registrada";
       var extra = [];
+      if (f.fullTank) extra.push("Tanque cheio");
       if (f.station) extra.push(escapeHtml(f.station));
       if (isFinite(f.price) && f.price > 0) extra.push(AC.fmtBRL(f.price) + "/L");
       return '<li class="station-item">'
@@ -3450,7 +3457,7 @@
         + "</span>"
         + '<span class="hist-when">' + AC.fmtDateTime(f.ts) + "</span>"
         + "</li>";
-    }).join("");
+    }).reverse().join("");
     renderReport();
   }
 
@@ -3519,14 +3526,10 @@
       if (ui.fillOdometer.focus) ui.fillOdometer.focus();
       return;
     }
-    var ultimo = NaN;
-    for (var i = 0; i < fills.length; i++) {
-      if (isFinite(fills[i].odometer) && (!isFinite(ultimo) || fills[i].odometer > ultimo)) {
-        ultimo = fills[i].odometer;
-      }
-    }
+    var anterior = fills[fills.length - 1];
+    var ultimo = anterior && anterior.odometer;
     var km = 0;
-    if (isFinite(ultimo)) {
+    if (Number.isFinite(ultimo)) {
       km = Math.round((odometro - ultimo) * 10) / 10;
       if (!(km > 0)) {
         toast("Hodômetro menor que o último registro (" + AC.fmtNum(ultimo, 0) + " km)");
@@ -3558,6 +3561,8 @@
       liters: liters,
       odometer: odometro,
       km: km,
+      fullTank: ui.fillTank.value === "full",
+      previousId: anterior && !anterior.endsSegment ? anterior.id : null,
       station: ui.fillStation ? String(ui.fillStation.value || "").replace(/\s+/g, " ").trim().slice(0, 40) : "",
       ts: Date.now(),
       price: isFinite(dados.price) ? dados.price : null,
@@ -3566,11 +3571,11 @@
       otherKmL: isFinite(dados.otherKmL) ? dados.otherKmL : null
     });
     if (fills.length > FILLS_MAX) fills = fills.slice(-FILLS_MAX);
-    fills = AC.recomputeOdometerKm(fills);
     persistFills();
     renderFills();
     ui.fillLiters.value = "";
     ui.fillOdometer.value = "";
+    ui.fillTank.value = "partial";
     if (ui.fillStation) ui.fillStation.value = "";
     toast(km > 0
       ? "Abastecimento salvo (" + AC.fmtNum(km, 0) + " km)"
@@ -3578,8 +3583,11 @@
   }
 
   function deleteFill(id) {
+    var ultimo = fills[fills.length - 1];
     fills = fills.filter(function (f) { return f.id !== id; });
-    fills = AC.recomputeOdometerKm(fills);
+    if (ultimo && ultimo.id === id && fills.length) {
+      fills[fills.length - 1].endsSegment = true;
+    }
     persistFills();
     renderFills();
     toast("Abastecimento removido");

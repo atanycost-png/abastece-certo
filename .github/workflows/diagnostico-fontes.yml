@@ -1,0 +1,43 @@
+name: Diagnóstico de fontes alternativas
+
+# Temporário: testa, do runner, quais hosts/proxies alcançam os dados da ANP.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  fontes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Testar hosts e proxies
+        shell: bash
+        run: |
+          testar() {
+            local nome="$1"; local url="$2"
+            local out
+            out=$(curl -sS -o /dev/null -w "%{http_code}|%{time_total}|%{size_download}" --max-time 15 -L "$url" 2>/dev/null) || out="000|-|0"
+            echo "$nome -> $out"
+          }
+          echo "=== controles ==="
+          testar "google" "https://www.google.com"
+          testar "github-raw" "https://raw.githubusercontent.com/atanycost-png/abastece-certo/main/precos.json"
+          testar "httpbin-ip" "https://httpbin.org/ip"
+          echo "=== gov.br direto ==="
+          testar "govbr-raiz" "https://www.gov.br/anp/"
+          testar "dados.gov.br" "https://dados.gov.br/"
+          testar "dadosabertos.anp" "https://dadosabertos.anp.gov.br/"
+          echo "=== proxies públicos ==="
+          testar "allorigins" "https://api.allorigins.win/raw?url=https%3A%2F%2Fwww.gov.br%2Fanp%2F"
+          testar "codetabs" "https://api.codetabs.com/v1/proxy?quest=https%3A%2F%2Fwww.gov.br%2Fanp%2F"
+          testar "corsproxy.io" "https://corsproxy.io/?url=https%3A%2F%2Fwww.gov.br%2Fanp%2F"
+          testar "r.jina.ai" "https://r.jina.ai/https://www.gov.br/anp/"
+          testar "thingproxy" "https://thingproxy.freeboard.io/fetch/https://www.gov.br/anp/"
+          echo "=== XLSX via proxies ==="
+          XLSX="https://www.gov.br/anp/pt-br/assuntos/precos-e-defesa-da-concorrencia/precos/arquivos-lpc/2026/resumo_semanal_lpc_2026_11_15_2026-11-21.xlsx"
+          NUM=$(node -e "console.log(encodeURIComponent(process.argv[1]))" "$XLSX")
+          testar "xlsx-allorigins" "https://api.allorigins.win/raw?url=$NUM"
+          testar "xlsx-codetabs" "https://api.codetabs.com/v1/proxy?quest=$NUM"
